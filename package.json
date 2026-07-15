@@ -1,7 +1,7 @@
 {
   "name": "kinder-pilot-frontend",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.11.0",
   "scripts": {
     "dev": "turbo run dev",
     "dev:admin": "turbo run dev --filter=@kinder-pilot/admin-portal",
