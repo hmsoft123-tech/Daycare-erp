@@ -37,15 +37,15 @@ export function calculateAge(dob: string): number {
 }
 
 export const statusPillStyles = {
-  paid: "bg-emerald-100 text-emerald-800",
-  overdue: "bg-red-100 text-red-800",
-  pending: "bg-amber-100 text-amber-800",
-  partial: "bg-blue-100 text-blue-800",
-  present: "bg-emerald-100 text-emerald-800",
-  absent: "bg-red-100 text-red-800",
-  late: "bg-amber-100 text-amber-800",
-  active: "bg-emerald-100 text-emerald-800",
-  inquiry: "bg-blue-100 text-blue-800",
-  waitlist: "bg-amber-100 text-amber-800",
-  alumni: "bg-gray-100 text-gray-800",
+  paid: "bg-soft-green text-brand-700",
+  overdue: "bg-soft-red text-danger",
+  pending: "bg-soft-yellow text-[#B76E00]",
+  partial: "bg-soft-cyan text-[#006C9C]",
+  present: "bg-soft-green text-brand-700",
+  absent: "bg-soft-red text-danger",
+  late: "bg-soft-yellow text-[#B76E00]",
+  active: "bg-soft-green text-brand-700",
+  inquiry: "bg-soft-cyan text-[#006C9C]",
+  waitlist: "bg-soft-yellow text-[#B76E00]",
+  alumni: "bg-bg text-muted",
 } as const;

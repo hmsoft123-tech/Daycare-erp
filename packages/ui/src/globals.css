@@ -1,0 +1,17 @@
+/**
+ * Semantic brand tokens — values injected per-tenant at runtime via CSS variables.
+ * Apps extend Tailwind v4 @theme to map --color-brand-* → these custom properties.
+ */
+:root {
+  --brand-50: #e9fbf0;
+  --brand-100: #c8fad6;
+  --brand-200: #a3e0c4;
+  --brand-300: #6bc9a0;
+  --brand-400: #36b37e;
+  --brand-500: #00a76f;
+  --brand-600: #008a5e;
+  --brand-700: #007a55;
+  --brand-800: #006c4a;
+  --brand-900: #004b35;
+  --brand-secondary: #ffab00;
+}

@@ -99,13 +99,13 @@ export function StudentTable({ students }: StudentTableProps) {
         onChange={(e) => setGlobalFilter(e.target.value)}
         className="max-w-sm"
       />
-      <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+      <div className="overflow-x-auto rounded-2xl bg-surface shadow-card">
         <table className="w-full text-sm">
-          <thead className="border-b bg-gray-50">
+          <thead className="border-b border-[#F1F3F5] bg-[#F9FAFB]">
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
                 {hg.headers.map((header) => (
-                  <th key={header.id} className="px-4 py-3 text-left font-medium text-gray-600">
+                  <th key={header.id} className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted">
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
@@ -114,9 +114,9 @@ export function StudentTable({ students }: StudentTableProps) {
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50">
+              <tr key={row.id} className="border-b border-[#F1F3F5] last:border-0 hover:bg-[#F9FAFB]">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3">
+                  <td key={cell.id} className="px-4 py-3.5 text-heading">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}

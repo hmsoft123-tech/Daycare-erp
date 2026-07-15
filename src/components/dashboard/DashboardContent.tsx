@@ -48,11 +48,39 @@ export function DashboardContent({ kpis, revenue, enrollments, students, admissi
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard title="Active Students" value={branchKpis.totalStudents} icon={Users} subtitle={branchId ? "This branch" : "All branches"} />
-        <KPICard title="Monthly Revenue" value={formatCurrency(branchKpis.monthlyRevenue)} icon={Receipt} trend={{ value: 8, label: "vs last month" }} />
-        <KPICard title="Pending Admissions" value={branchKpis.pendingAdmissions} icon={ClipboardList} />
-        <KPICard title="Attendance Rate" value={`${branchKpis.attendanceRate}%`} icon={CalendarCheck} trend={{ value: 2, label: "vs last week" }} />
+      <div className="grid auto-rows-fr gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <KPICard
+          title="Active Students"
+          value={branchKpis.totalStudents}
+          icon={Users}
+          tone="green"
+          subtitle={branchId ? "This branch" : "All branches"}
+          trend={{ value: 5, label: "vs last month" }}
+        />
+        <KPICard
+          title="Monthly Revenue"
+          value={formatCurrency(branchKpis.monthlyRevenue)}
+          icon={Receipt}
+          tone="blue"
+          subtitle="Across selected context"
+          trend={{ value: 8, label: "vs last month" }}
+        />
+        <KPICard
+          title="Pending Admissions"
+          value={branchKpis.pendingAdmissions}
+          icon={ClipboardList}
+          tone="yellow"
+          subtitle="Inquiries in pipeline"
+          trend={{ value: 3, label: "vs last week" }}
+        />
+        <KPICard
+          title="Attendance Rate"
+          value={`${branchKpis.attendanceRate}%`}
+          icon={CalendarCheck}
+          tone="cyan"
+          subtitle="Marked present today"
+          trend={{ value: 2, label: "vs last week" }}
+        />
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

@@ -15,11 +15,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           "transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+          sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[280px]"
         )}
       >
         <TopNav />
-        <main className="p-4 md:p-6 animate-fade-in-up">{children}</main>
+        <main className="animate-fade-in-up px-4 pb-10 pt-2 md:px-8">{children}</main>
       </div>
       <Toaster position="top-right" richColors />
     </div>

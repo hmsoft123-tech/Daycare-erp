@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+@source "./**/*.{js,ts,jsx,tsx,mdx}";
+@source "../../../../packages/ui/src/**/*.{js,ts,jsx,tsx}";
+
+/* Brightwheel-inspired defaults (tenant CSS vars can override) */
+:root {
+  --brand-50: #fff4ef;
+  --brand-100: #ffe4d6;
+  --brand-200: #ffc4a8;
+  --brand-300: #ff9b6b;
+  --brand-400: #ff7a45;
+  --brand-500: #ff6a3d;
+  --brand-600: #e85228;
+  --brand-700: #c43f1c;
+  --brand-800: #9a3218;
+  --brand-900: #6b2312;
+  --brand-secondary: #4c8bf5;
+  --surface: #ffffff;
+  --bg: #f7f8fa;
+  --heading: #1f2933;
+  --muted: #7b8794;
+  --danger: #e12d39;
+  --warning: #f0b429;
+  --success: #3ebd93;
+  --shadow-card: 0 1px 2px rgba(31, 41, 51, 0.04), 0 8px 24px rgba(31, 41, 51, 0.06);
+}
+
+@theme {
+  --color-brand-900: var(--brand-900);
+  --color-brand-800: var(--brand-800);
+  --color-brand-700: var(--brand-700);
+  --color-brand-600: var(--brand-600);
+  --color-brand-500: var(--brand-500);
+  --color-brand-400: var(--brand-400);
+  --color-brand-300: var(--brand-300);
+  --color-brand-200: var(--brand-200);
+  --color-brand-100: var(--brand-100);
+  --color-brand-50: var(--brand-50);
+  --color-surface: var(--surface);
+  --color-bg: var(--bg);
+  --color-heading: var(--heading);
+  --color-muted: var(--muted);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-soft-green: #e3f9f0;
+  --color-soft-blue: #e6f0ff;
+  --color-soft-yellow: #fff6db;
+  --color-soft-red: #ffe3e3;
+  --font-heading: var(--font-plus-jakarta), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-heading);
+  font-family: var(--font-body);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { font-family: var(--font-heading); }
+
+.shadow-card { box-shadow: var(--shadow-card); }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up { animation: fade-up 0.3s ease-out both; }

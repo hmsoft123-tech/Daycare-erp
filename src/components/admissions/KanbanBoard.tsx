@@ -36,9 +36,9 @@ function KanbanColumn({ stage, cards }: { stage: (typeof STAGES)[number]; cards:
     <div
       ref={setNodeRef}
       className={cn(
-        "min-w-[280px] flex-1 rounded-xl border-t-4 bg-gray-50 p-3",
+        "min-w-[280px] flex-1 rounded-2xl border-t-4 bg-bg p-3",
         stage.color,
-        isOver && "ring-2 ring-brand-500"
+        isOver && "ring-2 ring-brand-500/40 bg-brand-50"
       )}
     >
       <div className="mb-3 flex items-center justify-between">

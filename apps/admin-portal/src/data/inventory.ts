@@ -1,0 +1,75 @@
+import type { PurchaseRequisition } from "@/types";
+
+export const purchaseRequisitions: PurchaseRequisition[] = [
+  {
+    id: "pr1",
+    branchId: "branch-nn",
+    requestedBy: "Hina Tariq",
+    date: "2025-06-22",
+    summary: "Art supplies, paper, crayons",
+    totalAmount: 45000,
+    status: "pending",
+    vendor: "Karachi Stationers",
+    items: [
+      { id: "pri1", item: "A4 Paper (reams)", qty: 20, unitPrice: 800 },
+      { id: "pri2", item: "Crayon Sets", qty: 50, unitPrice: 250 },
+      { id: "pri3", item: "Paint Brushes", qty: 30, unitPrice: 400 },
+    ],
+  },
+  {
+    id: "pr2",
+    branchId: "branch-clifton",
+    requestedBy: "Nadia Farooq",
+    date: "2025-06-20",
+    summary: "Playground equipment repair",
+    totalAmount: 85000,
+    status: "pending",
+    vendor: "SafePlay Equipment",
+    items: [
+      { id: "pri4", item: "Swing Set Parts", qty: 2, unitPrice: 25000 },
+      { id: "pri5", item: "Safety Mats", qty: 4, unitPrice: 8750 },
+    ],
+  },
+  {
+    id: "pr3",
+    branchId: "branch-dha",
+    requestedBy: "Bilal Hashmi",
+    date: "2025-06-18",
+    summary: "Kitchen supplies - monthly",
+    totalAmount: 32000,
+    status: "pending",
+    vendor: "Fresh Foods Wholesale",
+    items: [
+      { id: "pri6", item: "Rice (50kg bags)", qty: 4, unitPrice: 5000 },
+      { id: "pri7", item: "Cooking Oil (liters)", qty: 20, unitPrice: 600 },
+    ],
+  },
+  {
+    id: "pr4",
+    branchId: "branch-gulshan",
+    requestedBy: "Amna Sheikh",
+    date: "2025-06-15",
+    summary: "Cleaning supplies",
+    totalAmount: 18000,
+    status: "approved",
+    vendor: "CleanPro Supplies",
+    items: [
+      { id: "pri8", item: "Disinfectant (5L)", qty: 10, unitPrice: 1200 },
+      { id: "pri9", item: "Mop Sets", qty: 5, unitPrice: 1200 },
+    ],
+  },
+  {
+    id: "pr5",
+    branchId: "branch-nn",
+    requestedBy: "Sana Javed",
+    date: "2025-06-10",
+    summary: "Therapy room materials",
+    totalAmount: 62000,
+    status: "pending",
+    vendor: "Therapy Tools PK",
+    items: [
+      { id: "pri10", item: "Sensory Toys Set", qty: 3, unitPrice: 15000 },
+      { id: "pri11", item: "Flash Cards", qty: 10, unitPrice: 1200 },
+    ],
+  },
+];
