@@ -4,7 +4,16 @@ import { resolveTenantSlugFromHost } from "@kinder-pilot/api-client/tenant";
 const STATIC_EXT =
   /\.(ico|png|jpg|jpeg|svg|gif|webp|css|js|map|txt|woff|woff2|ttf|eot)$/i;
 
-const MARKETING_PREFIXES = ["/", "/about", "/programs", "/contact", "/portal", "/inquiry"];
+const MARKETING_PREFIXES = [
+  "/",
+  "/about",
+  "/programs",
+  "/contact",
+  "/portal",
+  "/inquiry",
+  "/enroll",
+  "/apply",
+];
 
 const ADMIN_PREFIXES = [
   "/dashboard",

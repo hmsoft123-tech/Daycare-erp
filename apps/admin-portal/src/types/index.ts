@@ -8,7 +8,16 @@ export type StaffRole =
   | "support"
   | "executive";
 
-export type StudentStatus = "active" | "inquiry" | "alumni" | "waitlist" | "pending_first_payment";
+export type StudentStatus =
+  | "active"
+  | "inquiry"
+  | "alumni"
+  | "waitlist"
+  | "pending_first_payment"
+  | "inactive";
+
+/** Employment status — resigned / fired / inactive are excluded from payroll & new entries */
+export type StaffStatus = "active" | "resigned" | "fired" | "inactive";
 
 export type InquiryType = "admission" | "employment" | "tour" | "general";
 
@@ -67,6 +76,104 @@ export interface Student {
   photo?: string;
   feePlan?: string;
   gender: "male" | "female";
+  /** Generated at enrollment when record is saved to the portal */
+  idCardNumber?: string;
+  /**
+   * Recurring extras / benefits / charges applied automatically when an invoice is generated.
+   * Managed from the student profile.
+   */
+  extras?: StudentExtra[];
+}
+
+/** Extra line items attached to a student and billed on invoice generation */
+export type StudentExtraKind = "benefit" | "addon" | "charge";
+
+export interface StudentExtra {
+  id: string;
+  label: string;
+  /** Amount in PKR added to each invoice while active */
+  amount: number;
+  kind: StudentExtraKind;
+  active: boolean;
+  notes?: string;
+}
+
+/** When an employee-file document is collected in the HR lifecycle */
+export type EmployeeFilePhase = "hire" | "post_probation" | "ongoing" | "exit";
+
+export type EmployeeFileSlotKey =
+  | "cnic_self"
+  | "cnic_family"
+  | "last_degree"
+  | "last_pay_stub"
+  | "reference_letters"
+  | "medical_test"
+  | "job_application"
+  | "interview_evaluation"
+  | "demo_evaluation"
+  | "signed_offer"
+  | "signed_job_description"
+  | "detailed_form"
+  | "probation_evaluation"
+  | "staff_id_card"
+  | "induction_checklist"
+  | "signed_hr_policies"
+  | "annual_evaluation"
+  | "promotion_letter"
+  | "salary_revision"
+  | "correction_letter"
+  | "loan_advance"
+  | "resignation_letter"
+  | "termination_letter"
+  | "retirement_letter";
+
+export interface EmployeeFileEntry {
+  key: EmployeeFileSlotKey;
+  /** Mock filename when uploaded / recorded */
+  fileName?: string;
+  received: boolean;
+  receivedAt?: string;
+  notes?: string;
+}
+
+/** SDLC department shift used for salary / attendance expectations */
+export type StaffShiftKey =
+  | "administration"
+  | "class_teacher"
+  | "para_teacher_morning"
+  | "para_teacher_evening"
+  | "support_full_day";
+
+/** Payroll line attached to a staff profile (mirrors student invoice extras) */
+export type SalaryLineKind = "adjustment" | "allowance" | "deduction" | "overtime";
+
+export interface SalaryLine {
+  id: string;
+  label: string;
+  /** PKR — use negative amounts for deductions, or kind "deduction" with positive amount */
+  amount: number;
+  kind: SalaryLineKind;
+  active: boolean;
+  notes?: string;
+}
+
+/**
+ * Salary determination (SDLC HR Policy) — set on staff profile;
+ * active lines appear on payroll / pay-slip breakdown.
+ */
+export interface SalaryDetermination {
+  /** Confidential bracket base for the position (monthly PKR) */
+  baseSalary: number;
+  shift: StaffShiftKey;
+  educationLevel?: string;
+  experienceYears?: number;
+  /** Years served at SDLC — may differ salary within same position */
+  yearsAtSdlc?: number;
+  communicationNotes?: string;
+  /** Active adjustments / allowances / deductions for payroll */
+  lines: SalaryLine[];
+  /** Employee acknowledged Salary & Leave / Hiring salary policy */
+  policyAcknowledgedAt?: string;
 }
 
 export interface Staff {
@@ -80,6 +187,43 @@ export interface Staff {
   email: string;
   photo?: string;
   specializations?: string[];
+  status: StaffStatus;
+  /** Set when resigned / fired / marked inactive */
+  endDate?: string;
+  /** Generated at hire when record is saved to the portal */
+  idCardNumber?: string;
+  /** Probation end date (ISO date) — post-probation file slots unlock after this */
+  probationEndDate?: string;
+  /** Admin marks probation successfully completed */
+  probationCompleted?: boolean;
+  /** SDLC employee file checklist (a–x) */
+  employeeFile?: EmployeeFileEntry[];
+  /** Digital acknowledgment of HR policies (public / hire sign-off) */
+  hrPoliciesSignedAt?: string;
+  hrPoliciesSignature?: string;
+  /** Salary determination — drives payroll breakdown */
+  salary?: SalaryDetermination;
+}
+
+export type IdCardKind = "student" | "staff";
+
+/** Printable portal ID card issued when the person is saved to the directory */
+export interface PortalIdCard {
+  id: string;
+  kind: IdCardKind;
+  cardNumber: string;
+  personId: string;
+  fullName: string;
+  photo?: string;
+  branchId: string;
+  branchName: string;
+  /** Class for students / role for staff */
+  subtitle: string;
+  secondaryLine?: string;
+  issuedAt: string;
+  validUntil: string;
+  bloodGroup?: string;
+  employeeId?: string;
 }
 
 export interface LineItem {
@@ -115,6 +259,8 @@ export interface PRLineItem {
   item: string;
   qty: number;
   unitPrice: number;
+  /** Optional link to inventory catalog */
+  itemId?: string;
 }
 
 export interface PurchaseRequisition {
@@ -127,6 +273,36 @@ export interface PurchaseRequisition {
   status: PRStatus;
   vendor?: string;
   summary: string;
+}
+
+export type InventoryCategory =
+  | "supplies"
+  | "food"
+  | "cleaning"
+  | "therapy"
+  | "playground"
+  | "other";
+
+/** Catalog item that can be stocked and requested via PRs */
+export interface InventoryItem {
+  id: string;
+  sku: string;
+  name: string;
+  category: InventoryCategory;
+  unit: string;
+  reorderLevel: number;
+  unitCost: number;
+  active: boolean;
+  notes?: string;
+}
+
+/** On-hand quantity per branch */
+export interface StockLevel {
+  id: string;
+  itemId: string;
+  branchId: string;
+  qtyOnHand: number;
+  updatedAt: string;
 }
 
 export type MeetingKind = "tour" | "test" | "interview" | "assessment";
@@ -224,6 +400,12 @@ export interface StaffInquiryCard {
   joiningDate?: string;
   employmentType?: "full_time" | "part_time" | "contract";
   offerNotes?: string;
+  /** Probation length in months (default 3) */
+  probationMonths?: number;
+  /** Token for public hire application (/apply/[token]) */
+  hireInviteToken?: string;
+  /** Candidate / HR uploads collected before or at hire */
+  employeeFile?: EmployeeFileEntry[];
 }
 
 export interface ClassRoom {

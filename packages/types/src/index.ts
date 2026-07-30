@@ -13,7 +13,17 @@ export type StaffRole =
   | "executive"
   | "parent";
 
-export type StudentStatus = "active" | "inquiry" | "alumni" | "waitlist" | "pending_first_payment";
+export type StudentStatus =
+  | "active"
+  | "inquiry"
+  | "alumni"
+  | "waitlist"
+  | "pending_first_payment"
+  | "inactive";
+
+/** Employment status — resigned / fired / inactive are excluded from payroll & new entries */
+export type StaffStatus = "active" | "resigned" | "fired" | "inactive";
+
 export type InvoiceStatus = "paid" | "overdue" | "pending" | "partial";
 export type AttendanceStatus = "present" | "absent" | "late";
 export type PRStatus = "pending" | "approved" | "rejected";
@@ -107,6 +117,9 @@ export interface Staff {
   photo?: string;
   specializations?: string[];
   permissions: string[];
+  status: StaffStatus;
+  /** Set when resigned / fired / marked inactive */
+  endDate?: string;
 }
 
 export interface User {

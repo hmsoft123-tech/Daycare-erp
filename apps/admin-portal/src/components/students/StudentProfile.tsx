@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AllergyBanner } from "./AllergyBanner";
 import { AttendanceHeatmap } from "./AttendanceHeatmap";
 import { StatusPill } from "@/components/billing/StatusPill";
+import { ViewIdCardButton } from "@/components/id-cards/ViewIdCardButton";
+import { StudentExtrasPanel } from "@/components/students/StudentExtrasPanel";
 import { calculateAge, formatDate, getInitials } from "@/lib/utils";
 import type { Student, Parent, StudentNote, MedicalIncident, AttendanceRecord } from "@/types";
 
@@ -39,6 +41,15 @@ export function StudentProfile({ student, parents, notes, medicalIncidents, atte
               {student.firstName} {student.lastName}
             </h2>
             <StatusPill status={student.status} className="mt-2" />
+            <div className="mt-4 w-full">
+              <ViewIdCardButton
+                kind="student"
+                personId={student.id}
+                label="View / Print ID Card"
+                className="w-full"
+                canIssue={student.status === "active" || student.status === "pending_first_payment"}
+              />
+            </div>
             <dl className="mt-4 w-full space-y-2 text-left text-sm">
               <div className="flex justify-between">
                 <dt className="text-gray-500">Age</dt>
@@ -70,6 +81,7 @@ export function StudentProfile({ student, parents, notes, medicalIncidents, atte
           <Tabs defaultValue="overview">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="billing">Billing extras</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
               <TabsTrigger value="medical">Medical</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
@@ -93,6 +105,10 @@ export function StudentProfile({ student, parents, notes, medicalIncidents, atte
                   ))}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="billing" className="mt-4">
+              <StudentExtrasPanel student={student} />
             </TabsContent>
 
             <TabsContent value="attendance" className="mt-4">

@@ -85,7 +85,11 @@ export function EditStudentModal({ open, student, onClose, onSave }: Props) {
       feePlan: feePlan.trim(),
       allergies: allergies.trim(),
     });
-    toast.success("Student updated");
+    toast.success(
+      status === "inactive" || status === "alumni"
+        ? "Student updated — billing entries blocked while inactive"
+        : "Student updated"
+    );
     onClose();
   };
 
@@ -147,10 +151,16 @@ export function EditStudentModal({ open, student, onClose, onSave }: Props) {
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inquiry">Inquiry</SelectItem>
-                <SelectItem value="alumni">Alumni</SelectItem>
                 <SelectItem value="pending_first_payment">Pending payment</SelectItem>
+                <SelectItem value="alumni">Alumni</SelectItem>
+                <SelectItem value="inactive">Inactive (left / withdrawn)</SelectItem>
               </SelectContent>
             </Select>
+            {(status === "inactive" || status === "alumni") && (
+              <p className="mt-1 text-xs text-muted">
+                No new invoices or fee entries will be created for this student.
+              </p>
+            )}
           </div>
         </div>
         <div>

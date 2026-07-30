@@ -4,20 +4,31 @@ import { invoices, revenueData, branchRevenue } from "@/data/billing";
 import { students, parents, classes } from "@/data/students";
 import { staff, trainingVideos } from "@/data/staff";
 import { staffInquiries } from "@/data/staff-inquiries";
-import { purchaseRequisitions } from "@/data/inventory";
+import { purchaseRequisitions, inventoryItems, stockLevels } from "@/data/inventory";
 import { todayAttendance, generateAttendanceHistory } from "@/data/attendance";
+import {
+  inactiveStudentMessage,
+  isBillableStudent,
+  isPayableStaff,
+} from "@/lib/eligibility";
+import { activeExtras } from "@/lib/student-extras";
 import type {
   AdmissionCard,
   AdmissionStage,
   Branch,
   BranchScorecard,
   EnrollmentFeedItem,
+  InventoryItem,
   Invoice,
+  LineItem,
   MedicalIncident,
+  PRStatus,
   PurchaseRequisition,
   RevenueDataPoint,
+  EmployeeFileEntry,
   Staff,
   StaffInquiryCard,
+  StockLevel,
   Student,
   StudentFilters,
   StudentNote,
@@ -74,6 +85,68 @@ export async function getInvoiceById(id: string): Promise<Invoice | undefined> {
   return invoices.find((i) => i.id === id);
 }
 
+/**
+ * Create invoice — blocked for inactive / alumni / waitlist / inquiry students.
+ * Active student extras (benefits / add-ons / charges) are merged into line items.
+ * TODO: Replace with API POST /api/invoices
+ */
+export async function createInvoice(input: {
+  studentId: string;
+  planType: string;
+  /** Tuition amount before extras */
+  amount: number;
+  admissionFee?: number;
+  dueDate: string;
+  currency?: "PKR";
+  includeExtras?: boolean;
+}): Promise<{ ok: true; invoice: Invoice } | { ok: false; error: string }> {
+  const student = students.find((s) => s.id === input.studentId);
+  if (!student) {
+    return { ok: false, error: "Student not found." };
+  }
+  if (!isBillableStudent(student)) {
+    return { ok: false, error: inactiveStudentMessage(student.status) };
+  }
+
+  const extras = input.includeExtras === false ? [] : activeExtras(student.extras);
+  const extrasTotal = extras.reduce((sum, e) => sum + e.amount, 0);
+  const admissionFee = input.admissionFee ?? 0;
+  const netAmount = Math.max(0, input.amount + admissionFee + extrasTotal);
+
+  const lineItems: LineItem[] = [
+    { id: `li-tuition-${Date.now()}`, description: input.planType, amount: input.amount },
+  ];
+  if (admissionFee > 0) {
+    lineItems.push({
+      id: `li-adm-${Date.now()}`,
+      description: "Admission fee",
+      amount: admissionFee,
+    });
+  }
+  extras.forEach((e, i) => {
+    lineItems.push({
+      id: `li-ex-${e.id}-${i}`,
+      description: `${e.label} (${e.kind})`,
+      amount: e.amount,
+    });
+  });
+
+  const invoice: Invoice = {
+    id: `inv-${Date.now()}`,
+    invoiceNumber: `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+    studentId: student.id,
+    branchId: student.branchId,
+    planType: input.planType,
+    amount: netAmount,
+    currency: input.currency ?? "PKR",
+    dueDate: input.dueDate,
+    status: "pending",
+    lineItems,
+  };
+  invoices.unshift(invoice);
+  return { ok: true, invoice };
+}
+
 // TODO: Replace with API call to /api/admissions
 export async function getAdmissions(branchId?: string, stage?: AdmissionStage): Promise<AdmissionCard[]> {
   let result = [...admissions];
@@ -86,6 +159,12 @@ export async function getAdmissions(branchId?: string, stage?: AdmissionStage): 
 export async function getStaff(branchId?: string): Promise<Staff[]> {
   if (!branchId) return staff;
   return staff.filter((s) => s.branchId === branchId);
+}
+
+/** Active staff only — use for payroll and new HR financial entries */
+export async function getPayableStaff(branchId?: string): Promise<Staff[]> {
+  const list = await getStaff(branchId);
+  return list.filter(isPayableStaff);
 }
 
 // TODO: Replace with API call to /api/staff/inquiries
@@ -104,10 +183,142 @@ export async function getStaffById(id: string): Promise<Staff | undefined> {
   return staff.find((s) => s.id === id);
 }
 
+export async function updateStaffEmployeeFile(
+  id: string,
+  employeeFile: EmployeeFileEntry[]
+): Promise<Staff | undefined> {
+  const idx = staff.findIndex((s) => s.id === id);
+  if (idx < 0) return undefined;
+  staff[idx] = { ...staff[idx], employeeFile };
+  return staff[idx];
+}
+
+export async function markStaffProbationComplete(id: string): Promise<Staff | undefined> {
+  const idx = staff.findIndex((s) => s.id === id);
+  if (idx < 0) return undefined;
+  staff[idx] = {
+    ...staff[idx],
+    probationCompleted: true,
+    probationEndDate:
+      staff[idx].probationEndDate ?? new Date().toISOString().slice(0, 10),
+  };
+  return staff[idx];
+}
+
+export async function updateStaffRecord(
+  id: string,
+  patch: Partial<Staff>
+): Promise<Staff | undefined> {
+  const idx = staff.findIndex((s) => s.id === id);
+  if (idx < 0) return undefined;
+  staff[idx] = { ...staff[idx], ...patch, id };
+  return staff[idx];
+}
+
 // TODO: Replace with API call to /api/inventory/requisitions
 export async function getPurchaseRequisitions(branchId?: string): Promise<PurchaseRequisition[]> {
   if (!branchId) return purchaseRequisitions;
   return purchaseRequisitions.filter((p) => p.branchId === branchId);
+}
+
+// TODO: Replace with API call to /api/inventory/items
+export async function getInventoryItems(activeOnly = false): Promise<InventoryItem[]> {
+  if (!activeOnly) return inventoryItems;
+  return inventoryItems.filter((i) => i.active);
+}
+
+export async function getInventoryItemById(id: string): Promise<InventoryItem | undefined> {
+  return inventoryItems.find((i) => i.id === id);
+}
+
+export async function createInventoryItem(
+  input: Omit<InventoryItem, "id">
+): Promise<InventoryItem> {
+  const item: InventoryItem = { ...input, id: `inv-${Date.now()}` };
+  inventoryItems.unshift(item);
+  return item;
+}
+
+export async function updateInventoryItem(
+  id: string,
+  patch: Partial<InventoryItem>
+): Promise<InventoryItem | undefined> {
+  const idx = inventoryItems.findIndex((i) => i.id === id);
+  if (idx < 0) return undefined;
+  inventoryItems[idx] = { ...inventoryItems[idx], ...patch, id };
+  return inventoryItems[idx];
+}
+
+// TODO: Replace with API call to /api/inventory/stock
+export async function getStockLevels(branchId?: string): Promise<StockLevel[]> {
+  if (!branchId) return stockLevels;
+  return stockLevels.filter((s) => s.branchId === branchId);
+}
+
+export async function adjustStock(input: {
+  itemId: string;
+  branchId: string;
+  delta: number;
+}): Promise<StockLevel> {
+  const existing = stockLevels.find(
+    (s) => s.itemId === input.itemId && s.branchId === input.branchId
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  if (existing) {
+    existing.qtyOnHand = Math.max(0, existing.qtyOnHand + input.delta);
+    existing.updatedAt = today;
+    return existing;
+  }
+  const created: StockLevel = {
+    id: `stk-${Date.now()}`,
+    itemId: input.itemId,
+    branchId: input.branchId,
+    qtyOnHand: Math.max(0, input.delta),
+    updatedAt: today,
+  };
+  stockLevels.unshift(created);
+  return created;
+}
+
+export async function createPurchaseRequisition(
+  input: Omit<PurchaseRequisition, "id" | "totalAmount" | "status" | "date"> & {
+    date?: string;
+    status?: PRStatus;
+  }
+): Promise<PurchaseRequisition> {
+  const totalAmount = input.items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
+  const pr: PurchaseRequisition = {
+    id: `pr-${Date.now()}`,
+    branchId: input.branchId,
+    requestedBy: input.requestedBy,
+    date: input.date ?? new Date().toISOString().slice(0, 10),
+    items: input.items,
+    totalAmount,
+    status: input.status ?? "pending",
+    vendor: input.vendor,
+    summary: input.summary,
+  };
+  purchaseRequisitions.unshift(pr);
+  return pr;
+}
+
+export async function updatePurchaseRequisitionStatus(
+  id: string,
+  status: PRStatus
+): Promise<PurchaseRequisition | undefined> {
+  const pr = purchaseRequisitions.find((p) => p.id === id);
+  if (!pr) return undefined;
+  if (pr.status === status) return pr;
+  const wasPending = pr.status === "pending";
+  pr.status = status;
+  // Receive stock only when approving a pending PR (avoid double-receive)
+  if (status === "approved" && wasPending) {
+    for (const line of pr.items) {
+      if (!line.itemId) continue;
+      await adjustStock({ itemId: line.itemId, branchId: pr.branchId, delta: line.qty });
+    }
+  }
+  return pr;
 }
 
 // TODO: Replace with API call to /api/attendance

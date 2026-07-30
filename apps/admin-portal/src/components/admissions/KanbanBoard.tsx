@@ -22,7 +22,11 @@ import {
   type EnrollmentFeeValues,
 } from "./EnrollmentFeeModal";
 import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
-import type { AdmissionCard, AdmissionStage } from "@/types";
+import { students } from "@/data/students";
+import { issueStudentIdCard } from "@/lib/id-card-store";
+import { generateStudentCardNumber } from "@/lib/id-card";
+import { IdCardPreviewModal } from "@/components/id-cards/IdCardPreviewModal";
+import type { AdmissionCard, AdmissionStage, PortalIdCard, Student } from "@/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -79,6 +83,7 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
   const [items, setItems] = useState<AdmissionCard[]>(filtered);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
+  const [issuedCard, setIssuedCard] = useState<PortalIdCard | null>(null);
 
   useEffect(() => {
     setItems(filtered);
@@ -137,8 +142,9 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
     toast.success("Tour / meeting scheduled");
   };
 
-  const onFeeConfirm = (values: EnrollmentFeeValues) => {
+  const onFeeConfirm = async (values: EnrollmentFeeValues) => {
     if (!pending || pending.kind !== "fees") return;
+    const card = items.find((i) => i.id === pending.cardId);
     const invoiceNumber =
       pending.to === "enrol_unpaid"
         ? `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`
@@ -152,9 +158,42 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
       feeNotes: values.feeNotes,
       invoiceNumber,
     });
+
+    const enrolled = pending.to === "paid";
     setPending(null);
+
+    if (enrolled && card) {
+      const id = `s-${card.id}-${Date.now()}`;
+      const cardNumber = generateStudentCardNumber(id);
+      const [firstName, ...rest] = card.studentName.trim().split(/\s+/);
+      const lastName = rest.join(" ") || firstName;
+      const student: Student = {
+        id,
+        firstName,
+        lastName,
+        dob: new Date(new Date().getFullYear() - (card.age || 4), 0, 1).toISOString().slice(0, 10),
+        bloodGroup: "N/A",
+        allergies: [],
+        branchId: card.branchId,
+        classId: "c1",
+        className: card.classroom || card.program,
+        enrollmentDate: new Date().toISOString().slice(0, 10),
+        status: "active",
+        parentIds: [],
+        photo: card.avatar,
+        feePlan: "Full Day Monthly",
+        gender: "male",
+        idCardNumber: cardNumber,
+      };
+      students.unshift(student);
+      const idCard = await issueStudentIdCard(student.id);
+      setIssuedCard(idCard);
+      toast.success(`Enrolled — student ID card ${cardNumber} generated`);
+      return;
+    }
+
     toast.success(
-      pending.to === "paid" ? "Moved to Enrolled with fees saved" : "Enrol unpaid — fees & invoice set"
+      "Enrol unpaid — fees & invoice set"
     );
   };
 
@@ -226,6 +265,14 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
         targetStageLabel={feeTargetLabel}
         onCancel={() => setPending(null)}
         onConfirm={onFeeConfirm}
+      />
+
+      <IdCardPreviewModal
+        open={!!issuedCard}
+        card={issuedCard}
+        onClose={() => setIssuedCard(null)}
+        title="Student ID Card generated"
+        subtitle="Student saved to the portal directory. Print for campus use."
       />
     </>
   );

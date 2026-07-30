@@ -10,6 +10,8 @@ import {
   Receipt,
   UserCog,
   Package,
+  Boxes,
+  Warehouse,
   BarChart3,
   Settings,
   LogOut,
@@ -66,6 +68,7 @@ const navGroups = [
     label: "HR & Staff",
     items: [
       { href: "/hr/inquiries", label: "Staff Inquiries", icon: Briefcase },
+      { href: "/hr/hire", label: "Hiring Wizard", icon: UserPlus },
       { href: "/hr/staff", label: "Staff Directory", icon: UserCog },
       { href: "/hr/payroll", label: "Payroll", icon: Receipt },
       { href: "/hr/training", label: "Training Hub", icon: Video },
@@ -74,7 +77,11 @@ const navGroups = [
   },
   {
     label: "Inventory",
-    items: [{ href: "/inventory", label: "Approval Inbox", icon: Package }],
+    items: [
+      { href: "/inventory/items", label: "Items", icon: Boxes },
+      { href: "/inventory/stock", label: "Stock", icon: Warehouse },
+      { href: "/inventory", label: "Requisitions", icon: Package },
+    ],
   },
   {
     label: "Reports",
@@ -143,9 +150,21 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
               )}
               <ul className="space-y-0.5">
                 {group.items.map((item) => {
+                  // Exact match, or nested detail routes — but not sibling pages under the same prefix
+                  // (e.g. /inventory must not stay active on /inventory/items or /inventory/stock).
+                  const nestedActive =
+                    item.href !== "/dashboard" &&
+                    item.href !== "/inventory" &&
+                    item.href !== "/hr" &&
+                    pathname.startsWith(item.href + "/");
+                  const inventoryDetail =
+                    item.href === "/inventory" &&
+                    /^\/inventory\/[^/]+$/.test(pathname) &&
+                    !["items", "stock"].includes(pathname.split("/")[2] ?? "");
                   const isActive =
                     pathname === item.href ||
-                    (item.href !== "/dashboard" && pathname.startsWith(item.href + "/")) ||
+                    nestedActive ||
+                    inventoryDetail ||
                     (item.href === "/dashboard" && pathname === "/dashboard");
                   const link = (
                     <Link

@@ -57,7 +57,7 @@ export default async function RequisitionDetailPage({ params }: Props) {
             {pr.vendor && <div className="flex justify-between"><span className="text-gray-500">Vendor</span><span>{pr.vendor}</span></div>}
             <div className="flex justify-between font-semibold"><span>Total</span><span>{formatCurrency(pr.totalAmount)}</span></div>
             <Button variant="outline" asChild className="w-full">
-              <Link href="/inventory">← Back to inbox</Link>
+              <Link href="/inventory">← Back to requisitions</Link>
             </Button>
           </CardContent>
         </Card>

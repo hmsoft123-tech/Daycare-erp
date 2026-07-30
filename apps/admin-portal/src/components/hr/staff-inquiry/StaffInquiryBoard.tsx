@@ -19,7 +19,13 @@ import {
 } from "./ScheduleInterviewModal";
 import { HireOfferModal, type HireOfferValues } from "./HireOfferModal";
 import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
-import type { StaffInquiryCard, StaffInquiryStage } from "@/types";
+import { staff } from "@/data/staff";
+import { issueStaffIdCard } from "@/lib/id-card-store";
+import { generateStaffCardNumber } from "@/lib/id-card";
+import { IdCardPreviewModal } from "@/components/id-cards/IdCardPreviewModal";
+import { addMonths, mergeEmployeeFile } from "@/lib/employee-file";
+import { defaultShiftForRole } from "@/lib/salary-determination";
+import type { PortalIdCard, Staff, StaffInquiryCard, StaffInquiryStage } from "@/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -78,6 +84,7 @@ export function StaffInquiryBoard({ inquiries }: { inquiries: StaffInquiryCard[]
   const [items, setItems] = useState<StaffInquiryCard[]>(filtered);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
+  const [issuedCard, setIssuedCard] = useState<PortalIdCard | null>(null);
 
   useEffect(() => {
     setItems(filtered);
@@ -195,18 +202,94 @@ export function StaffInquiryBoard({ inquiries }: { inquiries: StaffInquiryCard[]
         open={pending?.kind === "offer"}
         card={pending?.kind === "offer" ? pendingCard : null}
         targetStageLabel={offerLabel}
+        targetIsHired={pending?.kind === "offer" && pending.to === "hired"}
         onCancel={() => setPending(null)}
-        onConfirm={(values: HireOfferValues) => {
+        onConfirm={async (values: HireOfferValues) => {
           if (!pending || pending.kind !== "offer") return;
           const hired = pending.to === "hired";
-          applyMove(pending.cardId, pending.to, values);
+          const card = items.find((i) => i.id === pending.cardId);
+          applyMove(pending.cardId, pending.to, {
+            role: values.role,
+            offeredSalary: values.offeredSalary,
+            joiningDate: values.joiningDate,
+            employmentType: values.employmentType,
+            offerNotes: values.offerNotes,
+            probationMonths: values.probationMonths,
+            employeeFile: values.employeeFile,
+            hireInviteToken: values.hireInviteToken,
+          });
           setPending(null);
-          toast.success(
-            hired
-              ? "Candidate hired — appears in staff directory after sync"
-              : "Offer saved — pending candidate response"
-          );
+
+          if (values.sendInviteOnly && !hired) {
+            toast.success("Offer saved — candidate apply link ready");
+            return;
+          }
+
+          if (hired && card) {
+            const id = `st-${card.id}-${Date.now()}`;
+            const employeeId = `KP-${String(100 + staff.length).padStart(3, "0")}`;
+            const cardNumber = generateStaffCardNumber(employeeId);
+            const joinDate = values.joiningDate || new Date().toISOString().slice(0, 10);
+            const employeeFile = mergeEmployeeFile(values.employeeFile, {
+              staff_id_card: {
+                received: true,
+                fileName: `${cardNumber}.pdf`,
+                receivedAt: new Date().toISOString().slice(0, 10),
+              },
+            });
+            const member: Staff = {
+              id,
+              name: card.name,
+              role: values.role,
+              branchId: card.branchId,
+              employeeId,
+              joinDate,
+              phone: card.phone,
+              email: card.email,
+              photo: card.avatar,
+              status: "active",
+              idCardNumber: cardNumber,
+              probationEndDate: addMonths(joinDate, values.probationMonths || 3),
+              probationCompleted: false,
+              employeeFile,
+              salary: {
+                baseSalary: values.offeredSalary,
+                shift: defaultShiftForRole(values.role),
+                experienceYears: card.experienceYears,
+                yearsAtSdlc: 0,
+                lines: [
+                  {
+                    id: `sal-hold-${Date.now()}`,
+                    label: "Initial salary security hold",
+                    amount: -Math.min(5000, Math.round(values.offeredSalary * 0.05)),
+                    kind: "deduction",
+                    active: true,
+                    notes: "Gradual hold over 3–5 months · refunded on clearance",
+                  },
+                ],
+              },
+            };
+            staff.unshift(member);
+            const idCard = await issueStaffIdCard(member.id);
+            setIssuedCard(idCard);
+            toast.success(
+              values.hireInviteToken
+                ? `Hired — ID ${cardNumber}. Candidate can still use apply link if pending.`
+                : `Hired — staff ID card ${cardNumber} · employee file started`
+            );
+            return;
+          }
+
+          toast.success("Offer saved — pending candidate response");
         }}
+      />
+
+      <IdCardPreviewModal
+        open={!!issuedCard}
+        card={issuedCard}
+        onClose={() => setIssuedCard(null)}
+        title="Staff ID Card generated"
+        subtitle="Employee saved to the staff directory. Print for campus use."
       />
     </>
   );

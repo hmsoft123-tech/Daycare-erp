@@ -18,6 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { students } from "@/data/students";
+import { createInvoice } from "@/lib/mock-service";
+import { isBillableStudent, inactiveStudentMessage } from "@/lib/eligibility";
+import { activeExtras, activeExtrasTotal } from "@/lib/student-extras";
+import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { DiscountType } from "@/types";
@@ -61,20 +65,54 @@ export default function CreateInvoicePage() {
     },
   });
 
+  const studentId = watch("studentId");
   const amount = watch("amount") || 0;
   const admissionFee = watch("admissionFee") || 0;
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") || 0;
 
-  const { discount, total } = useMemo(
+  const selectedStudent = useMemo(
+    () => students.find((s) => s.id === studentId),
+    [studentId]
+  );
+  const extras = useMemo(
+    () => activeExtras(selectedStudent?.extras),
+    [selectedStudent]
+  );
+  const extrasTotal = activeExtrasTotal(selectedStudent?.extras);
+
+  const { discount, total: baseTotal } = useMemo(
     () => calcDiscount(amount, admissionFee, discountType, discountValue),
     [amount, admissionFee, discountType, discountValue]
   );
+  const netTotal = Math.max(0, baseTotal + extrasTotal);
 
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = handleSubmit(async (data) => {
+    const student = students.find((s) => s.id === data.studentId);
+    if (!student || !isBillableStudent(student)) {
+      toast.error(student ? inactiveStudentMessage(student.status) : "Select a billable student");
+      return;
+    }
+
     const result = calcDiscount(data.amount, data.admissionFee, data.discountType, data.discountValue);
+    const created = await createInvoice({
+      studentId: data.studentId,
+      planType: data.planType,
+      amount: result.total - data.admissionFee,
+      admissionFee: data.admissionFee,
+      dueDate: data.dueDate,
+      includeExtras: true,
+    });
+
+    if (!created.ok) {
+      toast.error(created.error);
+      return;
+    }
+
+    const exCount = activeExtras(student.extras).length;
     toast.success(
-      `Invoice created · Net ${formatCurrency(result.total)}` +
+      `Invoice ${created.invoice.invoiceNumber} created · Net ${formatCurrency(created.invoice.amount)}` +
+        (exCount ? ` · ${exCount} student extra(s) applied` : "") +
         (result.discount > 0 ? ` (${formatCurrency(result.discount)} discount)` : "")
     );
     router.push("/billing");
@@ -82,7 +120,10 @@ export default function CreateInvoicePage() {
 
   return (
     <>
-      <PageHeader title="Create Invoice" subtitle="Generate a fee invoice with optional discounts" />
+      <PageHeader
+        title="Create Invoice"
+        subtitle="Tuition, discounts, and student extras from the profile are included automatically"
+      />
       <Card className="max-w-xl">
         <CardContent className="p-6">
           <form onSubmit={onSubmit} className="space-y-4">
@@ -91,7 +132,7 @@ export default function CreateInvoicePage() {
               <Select value={watch("studentId")} onValueChange={(v) => setValue("studentId", v)}>
                 <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
                 <SelectContent>
-                  {students.filter((s) => s.status === "active").map((s) => (
+                  {students.filter(isBillableStudent).map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.firstName} {s.lastName}</SelectItem>
                   ))}
                 </SelectContent>
@@ -168,6 +209,25 @@ export default function CreateInvoicePage() {
               {errors.dueDate && <p className="mt-1 text-xs text-danger">{errors.dueDate.message}</p>}
             </div>
 
+            {extras.length > 0 && (
+              <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3 text-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-brand-800">
+                  From student profile (auto)
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {extras.map((e) => (
+                    <li key={e.id} className="flex justify-between text-xs">
+                      <span className="text-heading">{e.label}</span>
+                      <span className="font-medium">
+                        {e.amount < 0 ? "−" : "+"}
+                        {formatCurrency(Math.abs(e.amount))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="rounded-2xl bg-bg p-4 text-sm">
               <div className="flex justify-between text-muted">
                 <span>Tuition</span>
@@ -183,9 +243,18 @@ export default function CreateInvoicePage() {
                   <span>− {formatCurrency(discount)}</span>
                 </div>
               )}
+              {extrasTotal !== 0 && (
+                <div className="mt-1 flex justify-between text-brand-800">
+                  <span>Student extras</span>
+                  <span>
+                    {extrasTotal < 0 ? "−" : "+"}
+                    {formatCurrency(Math.abs(extrasTotal))}
+                  </span>
+                </div>
+              )}
               <div className="mt-2 flex justify-between border-t border-[#DFE3E8] pt-2 font-bold text-heading">
                 <span>Net total</span>
-                <span>{formatCurrency(total)}</span>
+                <span>{formatCurrency(netTotal)}</span>
               </div>
             </div>
 
@@ -195,8 +264,4 @@ export default function CreateInvoicePage() {
       </Card>
     </>
   );
-}
-
-function formatCurrency(amount: number) {
-  return `PKR ${Number(amount || 0).toLocaleString()}`;
 }

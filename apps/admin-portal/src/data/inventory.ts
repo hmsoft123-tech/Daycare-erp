@@ -1,4 +1,100 @@
-import type { PurchaseRequisition } from "@/types";
+import type { InventoryItem, PurchaseRequisition, StockLevel } from "@/types";
+
+export const inventoryItems: InventoryItem[] = [
+  {
+    id: "inv-1",
+    sku: "SUP-A4-001",
+    name: "A4 Paper (ream)",
+    category: "supplies",
+    unit: "ream",
+    reorderLevel: 10,
+    unitCost: 800,
+    active: true,
+  },
+  {
+    id: "inv-2",
+    sku: "SUP-CRY-002",
+    name: "Crayon Sets",
+    category: "supplies",
+    unit: "set",
+    reorderLevel: 20,
+    unitCost: 250,
+    active: true,
+  },
+  {
+    id: "inv-3",
+    sku: "FOOD-RICE-001",
+    name: "Rice (50kg bag)",
+    category: "food",
+    unit: "bag",
+    reorderLevel: 4,
+    unitCost: 5000,
+    active: true,
+  },
+  {
+    id: "inv-4",
+    sku: "FOOD-OIL-002",
+    name: "Cooking Oil",
+    category: "food",
+    unit: "liter",
+    reorderLevel: 15,
+    unitCost: 600,
+    active: true,
+  },
+  {
+    id: "inv-5",
+    sku: "CLN-DIS-001",
+    name: "Disinfectant (5L)",
+    category: "cleaning",
+    unit: "can",
+    reorderLevel: 8,
+    unitCost: 1200,
+    active: true,
+  },
+  {
+    id: "inv-6",
+    sku: "THR-SEN-001",
+    name: "Sensory Toys Set",
+    category: "therapy",
+    unit: "set",
+    reorderLevel: 2,
+    unitCost: 15000,
+    active: true,
+  },
+  {
+    id: "inv-7",
+    sku: "PLY-MAT-001",
+    name: "Safety Mats",
+    category: "playground",
+    unit: "piece",
+    reorderLevel: 4,
+    unitCost: 8750,
+    active: true,
+  },
+  {
+    id: "inv-8",
+    sku: "CLN-MOP-002",
+    name: "Mop Sets",
+    category: "cleaning",
+    unit: "set",
+    reorderLevel: 5,
+    unitCost: 1200,
+    active: true,
+  },
+];
+
+export const stockLevels: StockLevel[] = [
+  { id: "stk-1", itemId: "inv-1", branchId: "branch-nn", qtyOnHand: 8, updatedAt: "2025-06-20" },
+  { id: "stk-2", itemId: "inv-2", branchId: "branch-nn", qtyOnHand: 35, updatedAt: "2025-06-20" },
+  { id: "stk-3", itemId: "inv-3", branchId: "branch-dha", qtyOnHand: 3, updatedAt: "2025-06-18" },
+  { id: "stk-4", itemId: "inv-4", branchId: "branch-dha", qtyOnHand: 12, updatedAt: "2025-06-18" },
+  { id: "stk-5", itemId: "inv-5", branchId: "branch-gulshan", qtyOnHand: 14, updatedAt: "2025-06-15" },
+  { id: "stk-6", itemId: "inv-6", branchId: "branch-nn", qtyOnHand: 1, updatedAt: "2025-06-10" },
+  { id: "stk-7", itemId: "inv-7", branchId: "branch-clifton", qtyOnHand: 2, updatedAt: "2025-06-20" },
+  { id: "stk-8", itemId: "inv-8", branchId: "branch-gulshan", qtyOnHand: 6, updatedAt: "2025-06-15" },
+  { id: "stk-9", itemId: "inv-1", branchId: "branch-clifton", qtyOnHand: 15, updatedAt: "2025-06-21" },
+  { id: "stk-10", itemId: "inv-5", branchId: "branch-nn", qtyOnHand: 5, updatedAt: "2025-06-19" },
+];
 
 export const purchaseRequisitions: PurchaseRequisition[] = [
   {
@@ -11,8 +107,8 @@ export const purchaseRequisitions: PurchaseRequisition[] = [
     status: "pending",
     vendor: "Karachi Stationers",
     items: [
-      { id: "pri1", item: "A4 Paper (reams)", qty: 20, unitPrice: 800 },
-      { id: "pri2", item: "Crayon Sets", qty: 50, unitPrice: 250 },
+      { id: "pri1", itemId: "inv-1", item: "A4 Paper (ream)", qty: 20, unitPrice: 800 },
+      { id: "pri2", itemId: "inv-2", item: "Crayon Sets", qty: 50, unitPrice: 250 },
       { id: "pri3", item: "Paint Brushes", qty: 30, unitPrice: 400 },
     ],
   },
@@ -27,7 +123,7 @@ export const purchaseRequisitions: PurchaseRequisition[] = [
     vendor: "SafePlay Equipment",
     items: [
       { id: "pri4", item: "Swing Set Parts", qty: 2, unitPrice: 25000 },
-      { id: "pri5", item: "Safety Mats", qty: 4, unitPrice: 8750 },
+      { id: "pri5", itemId: "inv-7", item: "Safety Mats", qty: 4, unitPrice: 8750 },
     ],
   },
   {
@@ -40,8 +136,8 @@ export const purchaseRequisitions: PurchaseRequisition[] = [
     status: "pending",
     vendor: "Fresh Foods Wholesale",
     items: [
-      { id: "pri6", item: "Rice (50kg bags)", qty: 4, unitPrice: 5000 },
-      { id: "pri7", item: "Cooking Oil (liters)", qty: 20, unitPrice: 600 },
+      { id: "pri6", itemId: "inv-3", item: "Rice (50kg bag)", qty: 4, unitPrice: 5000 },
+      { id: "pri7", itemId: "inv-4", item: "Cooking Oil", qty: 20, unitPrice: 600 },
     ],
   },
   {
@@ -54,8 +150,8 @@ export const purchaseRequisitions: PurchaseRequisition[] = [
     status: "approved",
     vendor: "CleanPro Supplies",
     items: [
-      { id: "pri8", item: "Disinfectant (5L)", qty: 10, unitPrice: 1200 },
-      { id: "pri9", item: "Mop Sets", qty: 5, unitPrice: 1200 },
+      { id: "pri8", itemId: "inv-5", item: "Disinfectant (5L)", qty: 10, unitPrice: 1200 },
+      { id: "pri9", itemId: "inv-8", item: "Mop Sets", qty: 5, unitPrice: 1200 },
     ],
   },
   {
@@ -68,7 +164,7 @@ export const purchaseRequisitions: PurchaseRequisition[] = [
     status: "pending",
     vendor: "Therapy Tools PK",
     items: [
-      { id: "pri10", item: "Sensory Toys Set", qty: 3, unitPrice: 15000 },
+      { id: "pri10", itemId: "inv-6", item: "Sensory Toys Set", qty: 3, unitPrice: 15000 },
       { id: "pri11", item: "Flash Cards", qty: 10, unitPrice: 1200 },
     ],
   },

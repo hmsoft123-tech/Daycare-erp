@@ -50,4 +50,7 @@ export const statusPillStyles = {
   pending_first_payment: "bg-orange-100 text-orange-700",
   enrol_unpaid: "bg-orange-100 text-orange-700",
   alumni: "bg-bg text-muted",
+  inactive: "bg-bg text-muted",
+  resigned: "bg-soft-yellow text-[#B76E00]",
+  fired: "bg-soft-red text-danger",
 } as const;

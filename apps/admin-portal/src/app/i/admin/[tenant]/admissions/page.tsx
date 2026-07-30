@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KanbanBoard } from "@/components/admissions/KanbanBoard";
 import { PublicInquiryLinkBanner } from "@/components/admissions/PublicInquiryLinkBanner";
+import { PublicEnrollmentInviteBanner } from "@/components/admissions/PublicEnrollmentInviteBanner";
 import { getAdmissions } from "@/lib/mock-service";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export default async function AdmissionsPage() {
         action={{ label: "New Enrollment", href: "/admissions/new" }}
       />
       <PublicInquiryLinkBanner />
+      <PublicEnrollmentInviteBanner />
       <KanbanBoard admissions={admissions} />
       <div className="mt-4 text-center">
         <Button variant="link" asChild>
