@@ -47,7 +47,8 @@ export function PublicEnrollmentClient({ invite, schoolName = "Kinder Pilot" }: 
           motherEmail: invite.prefill.motherEmail ?? "",
           motherPhone: invite.prefill.motherPhone ?? "",
           branchId: invite.prefill.branchId ?? "",
-          mainProgram: invite.prefill.mainProgram ?? "",
+          classGroup: invite.prefill.classGroup ?? "",
+          careTier: invite.prefill.careTier ?? "base",
           completionMode: "mark_enrolled",
         }}
         onPublicComplete={({ childName }) => {

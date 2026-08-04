@@ -8,14 +8,14 @@ export default async function BillingPage() {
   const [invoices, students] = await Promise.all([getInvoices(), getStudents()]);
   const studentMap = Object.fromEntries(students.map((s) => [s.id, `${s.firstName} ${s.lastName}`]));
   const totalOutstanding = invoices
-    .filter((i) => i.status === "overdue" || i.status === "pending" || i.status === "partial")
-    .reduce((sum, i) => sum + i.amount, 0);
+    .filter((i) => i.status === "overdue" || i.status === "pending" || i.status === "partial" || i.status === "expired")
+    .reduce((sum, i) => sum + (i.status === "overdue" || i.status === "expired" ? i.amountAfterDue : i.amount), 0);
 
   return (
     <>
       <PageHeader
         title="Billing & Invoices"
-        subtitle="Manage fee invoices and payment status"
+        subtitle="Monthly fee challans · 25-day validity · late fee after due date"
         action={{ label: "Create Invoice", href: "/billing/create" }}
       />
       <Card className="mb-6">

@@ -18,6 +18,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { students } from "@/data/students";
+import { createInvoice } from "@/lib/mock-service";
+import { isBillableStudent, inactiveStudentMessage } from "@/lib/eligibility";
+import { activeExtras, activeExtrasTotal } from "@/lib/student-extras";
+import {
+  CHALLAN_VALIDITY_DAYS,
+  CHALLAN_DUE_DAYS,
+  LATE_FEE_AFTER_DUE,
+  challanDueDate,
+  challanValidityDate,
+  todayIso,
+} from "@/lib/fee-challan";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { DiscountType } from "@/types";
@@ -30,7 +42,7 @@ const schema = z.object({
   discountType: z.enum(["none", "percent", "fixed", "sibling", "scholarship", "staff", "promo"]),
   discountValue: z.number().min(0),
   feeNotes: z.string().optional(),
-  dueDate: z.string().min(1, "Due date required"),
+  dueDate: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -47,6 +59,7 @@ function calcDiscount(amount: number, admissionFee: number, type: DiscountType, 
 
 export default function CreateInvoicePage() {
   const router = useRouter();
+  const issueDate = todayIso();
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -57,32 +70,73 @@ export default function CreateInvoicePage() {
       discountType: "none",
       discountValue: 0,
       feeNotes: "",
-      dueDate: "",
+      dueDate: challanDueDate(issueDate),
     },
   });
 
+  const studentId = watch("studentId");
   const amount = watch("amount") || 0;
   const admissionFee = watch("admissionFee") || 0;
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") || 0;
+  const dueDateWatch = watch("dueDate") || challanDueDate(issueDate);
+  const validityDate = challanValidityDate(issueDate);
 
-  const { discount, total } = useMemo(
+  const selectedStudent = useMemo(
+    () => students.find((s) => s.id === studentId),
+    [studentId]
+  );
+  const extras = useMemo(
+    () => activeExtras(selectedStudent?.extras),
+    [selectedStudent]
+  );
+  const extrasTotal = activeExtrasTotal(selectedStudent?.extras);
+
+  const { discount, total: baseTotal } = useMemo(
     () => calcDiscount(amount, admissionFee, discountType, discountValue),
     [amount, admissionFee, discountType, discountValue]
   );
+  const netTotal = Math.max(0, baseTotal + extrasTotal);
 
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = handleSubmit(async (data) => {
+    const student = students.find((s) => s.id === data.studentId);
+    if (!student || !isBillableStudent(student)) {
+      toast.error(student ? inactiveStudentMessage(student.status) : "Select a billable student");
+      return;
+    }
+
     const result = calcDiscount(data.amount, data.admissionFee, data.discountType, data.discountValue);
+    const created = await createInvoice({
+      studentId: data.studentId,
+      planType: data.planType,
+      amount: result.total - data.admissionFee,
+      admissionFee: data.admissionFee,
+      dueDate: data.dueDate || undefined,
+      issueDate,
+      includeExtras: true,
+      feeNotes: data.feeNotes,
+    });
+
+    if (!created.ok) {
+      toast.error(created.error);
+      return;
+    }
+
+    const exCount = activeExtras(student.extras).length;
     toast.success(
-      `Invoice created · Net ${formatCurrency(result.total)}` +
+      `Invoice ${created.invoice.invoiceNumber} created · Valid until ${formatDate(created.invoice.validityDate)}` +
+        (exCount ? ` · ${exCount} student extra(s)` : "") +
         (result.discount > 0 ? ` (${formatCurrency(result.discount)} discount)` : "")
     );
-    router.push("/billing");
+    router.push(`/billing/${created.invoice.id}`);
   });
 
   return (
     <>
-      <PageHeader title="Create Invoice" subtitle="Generate a fee invoice with optional discounts" />
+      <PageHeader
+        title="Create Invoice"
+        subtitle={`Issue today · due in ${CHALLAN_DUE_DAYS} days · expires after ${CHALLAN_VALIDITY_DAYS} days`}
+      />
       <Card className="max-w-xl">
         <CardContent className="p-6">
           <form onSubmit={onSubmit} className="space-y-4">
@@ -91,7 +145,7 @@ export default function CreateInvoicePage() {
               <Select value={watch("studentId")} onValueChange={(v) => setValue("studentId", v)}>
                 <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
                 <SelectContent>
-                  {students.filter((s) => s.status === "active").map((s) => (
+                  {students.filter(isBillableStudent).map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.firstName} {s.lastName}</SelectItem>
                   ))}
                 </SelectContent>
@@ -165,8 +219,31 @@ export default function CreateInvoicePage() {
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
               <Input id="dueDate" type="date" className="mt-1" {...register("dueDate")} />
-              {errors.dueDate && <p className="mt-1 text-xs text-danger">{errors.dueDate.message}</p>}
+              <p className="mt-1 text-xs text-muted">
+                Issue {formatDate(issueDate)} · Due {formatDate(dueDateWatch)} · Validity{" "}
+                {formatDate(validityDate)} ({CHALLAN_VALIDITY_DAYS}-day window). After due: +
+                {formatCurrency(LATE_FEE_AFTER_DUE)}.
+              </p>
             </div>
+
+            {extras.length > 0 && (
+              <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3 text-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-brand-800">
+                  From student profile (auto)
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {extras.map((e) => (
+                    <li key={e.id} className="flex justify-between text-xs">
+                      <span className="text-heading">{e.label}</span>
+                      <span className="font-medium">
+                        {e.amount < 0 ? "−" : "+"}
+                        {formatCurrency(Math.abs(e.amount))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="rounded-2xl bg-bg p-4 text-sm">
               <div className="flex justify-between text-muted">
@@ -183,20 +260,29 @@ export default function CreateInvoicePage() {
                   <span>− {formatCurrency(discount)}</span>
                 </div>
               )}
+              {extrasTotal !== 0 && (
+                <div className="mt-1 flex justify-between text-brand-800">
+                  <span>Student extras</span>
+                  <span>
+                    {extrasTotal < 0 ? "−" : "+"}
+                    {formatCurrency(Math.abs(extrasTotal))}
+                  </span>
+                </div>
+              )}
               <div className="mt-2 flex justify-between border-t border-[#DFE3E8] pt-2 font-bold text-heading">
-                <span>Net total</span>
-                <span>{formatCurrency(total)}</span>
+                <span>Before due date</span>
+                <span>{formatCurrency(netTotal)}</span>
+              </div>
+              <div className="mt-1 flex justify-between text-xs text-muted">
+                <span>After due date</span>
+                <span>{formatCurrency(netTotal + LATE_FEE_AFTER_DUE)}</span>
               </div>
             </div>
 
-            <Button type="submit" className="w-full">Create Invoice</Button>
+            <Button type="submit" className="w-full">Create Invoice & Challan</Button>
           </form>
         </CardContent>
       </Card>
     </>
   );
-}
-
-function formatCurrency(amount: number) {
-  return `PKR ${Number(amount || 0).toLocaleString()}`;
 }

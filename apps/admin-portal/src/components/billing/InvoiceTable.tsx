@@ -53,13 +53,23 @@ export function InvoiceTable({ invoices, students = {} }: InvoiceTableProps) {
       { accessorKey: "planType", header: "Plan" },
       {
         accessorKey: "amount",
-        header: "Amount",
+        header: "Before Due",
         cell: ({ row }) => formatCurrency(row.original.amount),
       },
       {
+        accessorKey: "amountAfterDue",
+        header: "After Due",
+        cell: ({ row }) => formatCurrency(row.original.amountAfterDue),
+      },
+      {
         accessorKey: "dueDate",
-        header: "Due Date",
+        header: "Due",
         cell: ({ row }) => formatDate(row.original.dueDate),
+      },
+      {
+        accessorKey: "validityDate",
+        header: "Valid Until",
+        cell: ({ row }) => formatDate(row.original.validityDate),
       },
       {
         accessorKey: "status",

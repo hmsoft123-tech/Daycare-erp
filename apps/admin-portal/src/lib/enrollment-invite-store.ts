@@ -15,7 +15,12 @@ export type EnrollmentInvitePrefill = {
   motherEmail?: string;
   motherPhone?: string;
   branchId?: string;
+  /** @deprecated use servicePlanId */
   mainProgram?: string;
+  /** plan-{classGroup}-{tier} from services catalogue */
+  servicePlanId?: string;
+  classGroup?: string;
+  careTier?: "base" | "lite" | "plus" | "pro";
 };
 
 export type EnrollmentInvite = {

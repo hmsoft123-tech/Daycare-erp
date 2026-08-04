@@ -77,7 +77,7 @@ export function AdminHiringWizardClient() {
 
       <StaffApplicationWizard
         mode="admin"
-        onAdminComplete={async ({ values, employeeFile, signature }) => {
+        onAdminComplete={async ({ values, employeeFile, signature, jobApplication }) => {
           const joinDate = values.joiningDate || new Date().toISOString().slice(0, 10);
           const id = `st-hire-${Date.now()}`;
           const employeeId = `KP-${String(100 + staff.length).padStart(3, "0")}`;
@@ -106,11 +106,13 @@ export function AdminHiringWizardClient() {
             probationEndDate: addMonths(joinDate, values.probationMonths ?? 3),
             probationCompleted: false,
             employeeFile: file,
+            jobApplication,
             hrPoliciesSignedAt: new Date().toISOString(),
             hrPoliciesSignature: signature,
             salary: {
               baseSalary,
               shift: defaultShiftForRole(role),
+              educationLevel: jobApplication.education.find((e) => e.institute)?.level,
               yearsAtSdlc: 0,
               lines: [
                 {

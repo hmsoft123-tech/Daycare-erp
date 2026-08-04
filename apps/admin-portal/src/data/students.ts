@@ -145,6 +145,7 @@ export const students: Student[] = [
     className: "Grade 2",
     enrollmentDate: "2021-09-01",
     status: "inactive",
+    leaveDate: "2025-12-15",
     parentIds: ["p5"],
     photo: "https://i.pravatar.cc/150?img=12",
     feePlan: "Full Day Monthly",
@@ -170,9 +171,9 @@ export const students: Student[] = [
 ];
 
 export const classes = [
-  { id: "c1", name: "Toddler Room A", branchId: "branch-nn", teacherId: "st1" },
-  { id: "c2", name: "Preschool B", branchId: "branch-clifton", teacherId: "st2" },
-  { id: "c3", name: "Kindergarten", branchId: "branch-dha", teacherId: "st3" },
-  { id: "c4", name: "Grade 1", branchId: "branch-gulshan", teacherId: "st4" },
-  { id: "c5", name: "Grade 2", branchId: "branch-dha", teacherId: "st5" },
+  { id: "c1", name: "Infant Room A", branchId: "branch-nn", teacherId: "st1", classGroup: "infant", ageBand: "40 days – 1.2 years", capacity: 12 },
+  { id: "c2", name: "Playgroup B", branchId: "branch-clifton", teacherId: "st2", classGroup: "playgroup", capacity: 18 },
+  { id: "c3", name: "Kindergarten", branchId: "branch-dha", teacherId: "st3", classGroup: "kindergarten", capacity: 20 },
+  { id: "c4", name: "Nursery", branchId: "branch-gulshan", teacherId: "st4", classGroup: "nursery", capacity: 18 },
+  { id: "c5", name: "Pre-Nursery", branchId: "branch-dha", teacherId: "st5", classGroup: "pre_nursery", capacity: 16 },
 ];

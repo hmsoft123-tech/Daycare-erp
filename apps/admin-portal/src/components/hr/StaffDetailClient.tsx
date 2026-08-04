@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/billing/StatusPill";
 import { ViewIdCardButton } from "@/components/id-cards/ViewIdCardButton";
+import { GenerateLetterButton } from "@/components/documents/GenerateLetterButton";
 import { EmployeeFilePanel } from "@/components/hr/employee-file/EmployeeFilePanel";
 import { StaffSalaryPanel } from "@/components/hr/StaffSalaryPanel";
+import { StaffLifecycleActions } from "@/components/hr/StaffLifecycleActions";
+import { JobApplicationPanel } from "@/components/hr/JobApplicationPanel";
 import { isPayableStaff } from "@/lib/eligibility";
 import { ensureSalary, netMonthlyPay } from "@/lib/salary-determination";
 import { branches } from "@/data/branches";
@@ -25,8 +29,12 @@ const roleLabels = {
   executive: "Executive",
 } as const;
 
-export function StaffDetailClient({ member }: { member: Staff }) {
+export function StaffDetailClient({ member: initial }: { member: Staff }) {
+  const [member, setMember] = useState(initial);
   const branch = branches.find((b) => b.id === member.branchId);
+  const prevBranch = member.previousBranchId
+    ? branches.find((b) => b.id === member.previousBranchId)
+    : undefined;
   const salary = ensureSalary(member);
   const net = netMonthlyPay(salary);
 
@@ -52,14 +60,32 @@ export function StaffDetailClient({ member }: { member: Staff }) {
                 Not included in payroll or new HR financial entries.
               </p>
             )}
-            <ViewIdCardButton
-              kind="staff"
-              personId={member.id}
-              label="View / Print ID Card"
-              canIssue={isPayableStaff(member)}
-            />
+            <div className="flex flex-wrap gap-2">
+              <ViewIdCardButton
+                kind="staff"
+                personId={member.id}
+                label="View / Print ID Card"
+                canIssue={isPayableStaff(member)}
+              />
+              <GenerateLetterButton
+                audience="staff"
+                subjectId={member.id}
+                kind="experience_letter"
+                label="Experience letter"
+              />
+              <GenerateLetterButton
+                audience="staff"
+                subjectId={member.id}
+                kind="job_offer_letter"
+                label="Job offer"
+              />
+            </div>
+            <StaffLifecycleActions member={member} onUpdated={setMember} />
             <p><span className="text-gray-500">Employee ID:</span> {member.employeeId}</p>
             <p><span className="text-gray-500">Branch:</span> {branch?.name}</p>
+            {prevBranch && (
+              <p><span className="text-gray-500">Previous branch:</span> {prevBranch.name}</p>
+            )}
             <p><span className="text-gray-500">Joined:</span> {formatDate(member.joinDate)}</p>
             <p>
               <span className="text-gray-500">Est. net pay:</span>{" "}
@@ -76,6 +102,9 @@ export function StaffDetailClient({ member }: { member: Staff }) {
             {member.endDate && (
               <p><span className="text-gray-500">Ended:</span> {formatDate(member.endDate)}</p>
             )}
+            {member.rejoinDate && (
+              <p><span className="text-gray-500">Rejoined:</span> {formatDate(member.rejoinDate)}</p>
+            )}
             <p><span className="text-gray-500">Phone:</span> {member.phone}</p>
             <p><span className="text-gray-500">Email:</span> {member.email}</p>
             {member.specializations && (
@@ -91,10 +120,14 @@ export function StaffDetailClient({ member }: { member: Staff }) {
       <Tabs defaultValue="salary" className="max-w-4xl">
         <TabsList>
           <TabsTrigger value="salary">Salary determination</TabsTrigger>
+          <TabsTrigger value="application">Application form</TabsTrigger>
           <TabsTrigger value="file">Employee file</TabsTrigger>
         </TabsList>
         <TabsContent value="salary" className="mt-4">
           <StaffSalaryPanel member={member} />
+        </TabsContent>
+        <TabsContent value="application" className="mt-4">
+          <JobApplicationPanel application={member.jobApplication} />
         </TabsContent>
         <TabsContent value="file" className="mt-4">
           <EmployeeFilePanel member={member} />

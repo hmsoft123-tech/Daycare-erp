@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   GraduationCap,
   CalendarCheck,
+  Layers,
+  FileText,
   Receipt,
   UserCog,
   Package,
@@ -51,6 +53,7 @@ const navGroups = [
     label: "Students",
     items: [
       { href: "/students", label: "All Students", icon: GraduationCap },
+      { href: "/services", label: "Services & Classes", icon: Layers },
       { href: "/attendance", label: "Attendance", icon: CalendarCheck },
     ],
   },
@@ -63,6 +66,10 @@ const navGroups = [
   {
     label: "Finance",
     items: [{ href: "/billing", label: "Billing & Invoices", icon: Receipt }],
+  },
+  {
+    label: "Documents",
+    items: [{ href: "/documents", label: "Letters & Certificates", icon: FileText }],
   },
   {
     label: "HR & Staff",
@@ -80,7 +87,7 @@ const navGroups = [
     items: [
       { href: "/inventory/items", label: "Items", icon: Boxes },
       { href: "/inventory/stock", label: "Stock", icon: Warehouse },
-      { href: "/inventory", label: "Requisitions", icon: Package },
+      { href: "/inventory", label: "Procurement", icon: Package },
     ],
   },
   {

@@ -7,12 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusPill } from "@/components/billing/StatusPill";
 import { EditStaffStatusModal } from "@/components/hr/EditStaffStatusModal";
+import { persistStaffStatus } from "@/components/hr/StaffLifecycleActions";
 import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
 import { isPayableStaff } from "@/lib/eligibility";
 import { formatDate, getInitials } from "@/lib/utils";
 import type { Staff, StaffStatus } from "@/types";
 import { Mail, Phone, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { branches } from "@/data/branches";
 
 interface StaffDirectoryProps {
   staff: Staff[];
@@ -34,18 +36,10 @@ export function StaffDirectory({ staff: initial }: StaffDirectoryProps) {
 
   const filtered = branchId ? staff.filter((s) => s.branchId === branchId) : staff;
 
-  const onStatusSave = (id: string, status: StaffStatus, endDate?: string) => {
-    setStaff((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? {
-              ...s,
-              status,
-              endDate: status === "active" ? undefined : endDate ?? s.endDate ?? new Date().toISOString().slice(0, 10),
-            }
-          : s
-      )
-    );
+  const onStatusSave = async (id: string, status: StaffStatus, endDate?: string) => {
+    const updated = await persistStaffStatus(id, status, endDate);
+    if (!updated) return;
+    setStaff((prev) => prev.map((s) => (s.id === id ? updated : s)));
   };
 
   return (
@@ -80,6 +74,9 @@ export function StaffDirectory({ staff: initial }: StaffDirectoryProps) {
                     <StatusPill status={member.status} />
                   </div>
                   <p className="mt-2 text-xs text-gray-500">{member.employeeId}</p>
+                  <p className="text-xs text-gray-500">
+                    {branches.find((b) => b.id === member.branchId)?.name.replace(" Campus", "")}
+                  </p>
                   <p className="text-xs text-gray-500">Joined {formatDate(member.joinDate)}</p>
                   {member.endDate && !isPayableStaff(member) && (
                     <p className="text-xs text-danger">Ended {formatDate(member.endDate)}</p>
@@ -99,6 +96,9 @@ export function StaffDirectory({ staff: initial }: StaffDirectoryProps) {
               >
                 <UserCog className="h-3.5 w-3.5" />
                 Employment status
+              </Button>
+              <Button asChild size="sm" variant="ghost" className="mt-2 w-full text-xs">
+                <Link href={`/hr/staff/${member.id}`}>Branch / withdraw / rejoin →</Link>
               </Button>
             </CardContent>
           </Card>

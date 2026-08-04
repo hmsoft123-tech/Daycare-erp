@@ -51,11 +51,13 @@ function seedSalary(
 }
 
 const hirePack: EmployeeFileSlotKey[] = [
+  "passport_photo",
   "cnic_self",
   "cnic_family",
   "last_degree",
   "last_pay_stub",
   "reference_letters",
+  "covid_vaccination",
   "job_application",
   "interview_evaluation",
   "signed_offer",
@@ -273,9 +275,11 @@ export const staff: Staff[] = [
     probationEndDate: "2026-09-01",
     probationCompleted: false,
     employeeFile: seedFile([
+      "passport_photo",
       "cnic_self",
       "cnic_family",
       "last_degree",
+      "covid_vaccination",
       "job_application",
       "signed_offer",
       "signed_job_description",

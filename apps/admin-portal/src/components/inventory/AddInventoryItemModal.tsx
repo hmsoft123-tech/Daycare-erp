@@ -106,6 +106,12 @@ export function AddInventoryItemModal({ open, onClose, onCreated }: Props) {
             <Select value={category} onValueChange={(v) => setCategory(v as InventoryCategory)}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="stationery">Stationery</SelectItem>
+                <SelectItem value="groceries">Groceries</SelectItem>
+                <SelectItem value="toiletries">Toiletries</SelectItem>
+                <SelectItem value="printed">Printed material</SelectItem>
+                <SelectItem value="books">Books / library</SelectItem>
+                <SelectItem value="courses">Courses / training</SelectItem>
                 <SelectItem value="supplies">Supplies</SelectItem>
                 <SelectItem value="food">Food</SelectItem>
                 <SelectItem value="cleaning">Cleaning</SelectItem>

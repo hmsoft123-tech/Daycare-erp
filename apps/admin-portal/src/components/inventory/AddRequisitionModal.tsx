@@ -15,8 +15,15 @@ import {
 } from "@/components/ui/select";
 import { branches } from "@/data/branches";
 import { createPurchaseRequisition } from "@/lib/mock-service";
+import {
+  REQUISITION_KINDS,
+  REQUISITION_MONTHS,
+  defaultForMonth,
+  lineAmount,
+  requisitionTotal,
+} from "@/lib/procurement";
 import { formatCurrency } from "@/lib/utils";
-import type { InventoryItem, PRLineItem, PurchaseRequisition } from "@/types";
+import type { InventoryItem, PRLineItem, PurchaseRequisition, RequisitionKind } from "@/types";
 import { toast } from "sonner";
 
 type Props = {
@@ -28,54 +35,90 @@ type Props = {
 
 type DraftLine = {
   key: string;
+  mode: "catalog" | "custom";
   itemId: string;
+  customName: string;
+  brand: string;
   qty: string;
+  unitPrice: string;
+  remarks: string;
 };
+
+function emptyLine(): DraftLine {
+  return {
+    key: `l-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    mode: "catalog",
+    itemId: "",
+    customName: "",
+    brand: "",
+    qty: "1",
+    unitPrice: "0",
+    remarks: "",
+  };
+}
 
 export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props) {
   const activeCatalog = useMemo(() => catalog.filter((c) => c.active), [catalog]);
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
   const [requestedBy, setRequestedBy] = useState("");
-  const [vendor, setVendor] = useState("");
+  const [kind, setKind] = useState<RequisitionKind>("stationery");
+  const [forMonth, setForMonth] = useState(defaultForMonth());
   const [summary, setSummary] = useState("");
-  const [lines, setLines] = useState<DraftLine[]>([
-    { key: "l1", itemId: "", qty: "1" },
-  ]);
+  const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const reset = () => {
     setBranchId(branches[0]?.id ?? "");
     setRequestedBy("");
-    setVendor("");
+    setKind("stationery");
+    setForMonth(defaultForMonth());
     setSummary("");
-    setLines([{ key: "l1", itemId: "", qty: "1" }]);
+    setLines([emptyLine()]);
     setErrors({});
   };
 
   const builtLines: PRLineItem[] = lines
     .map((l, idx) => {
-      const item = activeCatalog.find((c) => c.id === l.itemId);
-      if (!item) return null;
       const qty = Number(l.qty);
-      if (!qty || qty <= 0) return null;
+      const unitPrice = Number(l.unitPrice);
+      if (!qty || qty <= 0 || Number.isNaN(unitPrice) || unitPrice < 0) return null;
+
+      if (l.mode === "catalog") {
+        const item = activeCatalog.find((c) => c.id === l.itemId);
+        if (!item) return null;
+        return {
+          id: `pri-new-${idx}-${Date.now()}`,
+          itemId: item.id,
+          item: item.name,
+          qty,
+          unitPrice,
+          brand: l.brand.trim() || undefined,
+          remarks: l.remarks.trim() || undefined,
+        };
+      }
+
+      if (l.customName.trim().length < 2) return null;
       return {
         id: `pri-new-${idx}-${Date.now()}`,
-        itemId: item.id,
-        item: item.name,
+        item: l.customName.trim(),
         qty,
-        unitPrice: item.unitCost,
+        unitPrice,
+        brand: l.brand.trim() || undefined,
+        remarks: l.remarks.trim() || undefined,
       };
     })
     .filter(Boolean) as PRLineItem[];
 
-  const total = builtLines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
+  const total = requisitionTotal(builtLines);
 
   const submit = async () => {
     const next: Record<string, string> = {};
     if (requestedBy.trim().length < 2) next.requestedBy = "Requester name required";
     if (summary.trim().length < 3) next.summary = "Summary required";
     if (!branchId) next.branchId = "Branch required";
-    if (builtLines.length === 0) next.lines = "Add at least one catalog line with qty";
+    if (builtLines.length === 0) {
+      next.lines = "Add catalog or custom items with quantity (amount may be 0 for HO to fill)";
+    }
     setErrors(next);
     if (Object.keys(next).length) return;
 
@@ -83,11 +126,12 @@ export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props
       branchId,
       requestedBy: requestedBy.trim(),
       summary: summary.trim(),
-      vendor: vendor.trim() || undefined,
+      kind,
+      forMonth,
       items: builtLines,
     });
     onCreated(pr);
-    toast.success("Purchase requisition created");
+    toast.success("Requisition submitted to Head Office");
     reset();
     onClose();
   };
@@ -99,7 +143,7 @@ export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props
         reset();
         onClose();
       }}
-      maxWidth="max-w-xl"
+      maxWidth="max-w-2xl"
     >
       <div className="flex shrink-0 items-start justify-between border-b border-[#F1F3F5] px-6 py-5">
         <div>
@@ -107,7 +151,9 @@ export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props
             <ClipboardPlus className="h-5 w-5 text-brand-500" />
             New purchase requisition
           </h2>
-          <p className="mt-1 text-sm text-muted">Request catalog items for a branch.</p>
+          <p className="mt-1 text-sm text-muted">
+            SDLC catalogue — stationery, groceries, books, courses, or any inventory. HO will price &amp; bill.
+          </p>
         </div>
         <button type="button" onClick={onClose} className="rounded-full p-2 text-muted hover:bg-bg" aria-label="Close">
           <X className="h-5 w-5" />
@@ -132,77 +178,185 @@ export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props
             <Input id="reqBy" className="mt-1" value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} />
             {errors.requestedBy && <p className="mt-1 text-xs text-danger">{errors.requestedBy}</p>}
           </div>
+          <div>
+            <Label>Requisition type</Label>
+            <Select value={kind} onValueChange={(v) => setKind(v as RequisitionKind)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {REQUISITION_KINDS.map((k) => (
+                  <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>For month</Label>
+            <Select value={forMonth.split(" ")[0]} onValueChange={(m) => setForMonth(`${m} (${new Date().getFullYear()})`)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {REQUISITION_MONTHS.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div>
           <Label htmlFor="summary">Summary</Label>
-          <Input id="summary" className="mt-1" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="e.g. Monthly classroom supplies" />
+          <Input
+            id="summary"
+            className="mt-1"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="e.g. August stationery + library books"
+          />
           {errors.summary && <p className="mt-1 text-xs text-danger">{errors.summary}</p>}
-        </div>
-        <div>
-          <Label htmlFor="vendor">Vendor (optional)</Label>
-          <Input id="vendor" className="mt-1" value={vendor} onChange={(e) => setVendor(e.target.value)} />
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>Line items</Label>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setLines((prev) => [...prev, { key: `l-${Date.now()}`, itemId: "", qty: "1" }])
-              }
-            >
+            <Label>Line items (qty + amount per item)</Label>
+            <Button type="button" size="sm" variant="outline" onClick={() => setLines((prev) => [...prev, emptyLine()])}>
               <Plus className="h-3.5 w-3.5" />
               Add line
             </Button>
           </div>
-          {lines.map((line) => (
-            <div key={line.key} className="grid gap-2 rounded-xl border border-[#F1F3F5] p-3 sm:grid-cols-[1fr_100px_auto]">
-              <Select
-                value={line.itemId}
-                onValueChange={(v) =>
-                  setLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, itemId: v } : l)))
-                }
-              >
-                <SelectTrigger><SelectValue placeholder="Select catalog item" /></SelectTrigger>
-                <SelectContent>
-                  {activeCatalog.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} · {formatCurrency(c.unitCost)}/{c.unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                min={1}
-                value={line.qty}
-                onChange={(e) =>
-                  setLines((prev) =>
-                    prev.map((l) => (l.key === line.key ? { ...l, qty: e.target.value } : l))
-                  )
-                }
-                placeholder="Qty"
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={lines.length === 1}
-                onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
-              >
-                <Trash2 className="h-3.5 w-3.5 text-danger" />
-              </Button>
-            </div>
-          ))}
+          {lines.map((line) => {
+            const cat = activeCatalog.find((c) => c.id === line.itemId);
+            const qty = Number(line.qty) || 0;
+            const price = Number(line.unitPrice) || 0;
+            return (
+              <div key={line.key} className="space-y-2 rounded-xl border border-[#F1F3F5] p-3">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={line.mode === "catalog" ? "default" : "outline"}
+                    onClick={() =>
+                      setLines((prev) =>
+                        prev.map((l) => (l.key === line.key ? { ...l, mode: "catalog" } : l))
+                      )
+                    }
+                  >
+                    Catalog
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={line.mode === "custom" ? "default" : "outline"}
+                    onClick={() =>
+                      setLines((prev) =>
+                        prev.map((l) => (l.key === line.key ? { ...l, mode: "custom", itemId: "" } : l))
+                      )
+                    }
+                  >
+                    Custom (book / course / other)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto"
+                    disabled={lines.length === 1}
+                    onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-danger" />
+                  </Button>
+                </div>
+                {line.mode === "catalog" ? (
+                  <Select
+                    value={line.itemId}
+                    onValueChange={(v) => {
+                      const item = activeCatalog.find((c) => c.id === v);
+                      setLines((prev) =>
+                        prev.map((l) =>
+                          l.key === line.key
+                            ? {
+                                ...l,
+                                itemId: v,
+                                unitPrice: item ? String(item.unitCost) : l.unitPrice,
+                              }
+                            : l
+                        )
+                      );
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select catalog item" /></SelectTrigger>
+                    <SelectContent>
+                      {activeCatalog.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} · {formatCurrency(c.unitCost)}/{c.unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="Item description (e.g. Phonics course seat, Urdu reader)"
+                    value={line.customName}
+                    onChange={(e) =>
+                      setLines((prev) =>
+                        prev.map((l) => (l.key === line.key ? { ...l, customName: e.target.value } : l))
+                      )
+                    }
+                  />
+                )}
+                <div className="grid gap-2 sm:grid-cols-4">
+                  <Input
+                    placeholder="Brand"
+                    value={line.brand}
+                    onChange={(e) =>
+                      setLines((prev) =>
+                        prev.map((l) => (l.key === line.key ? { ...l, brand: e.target.value } : l))
+                      )
+                    }
+                  />
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Qty"
+                    value={line.qty}
+                    onChange={(e) =>
+                      setLines((prev) =>
+                        prev.map((l) => (l.key === line.key ? { ...l, qty: e.target.value } : l))
+                      )
+                    }
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Amount / unit"
+                    value={line.unitPrice}
+                    onChange={(e) =>
+                      setLines((prev) =>
+                        prev.map((l) => (l.key === line.key ? { ...l, unitPrice: e.target.value } : l))
+                      )
+                    }
+                  />
+                  <div className="flex items-center text-sm font-medium text-heading">
+                    = {formatCurrency(lineAmount(qty, price))}
+                    {cat ? <span className="ml-1 text-xs text-muted">/{cat.unit}</span> : null}
+                  </div>
+                </div>
+                <Input
+                  placeholder="Remarks / amount note"
+                  value={line.remarks}
+                  onChange={(e) =>
+                    setLines((prev) =>
+                      prev.map((l) => (l.key === line.key ? { ...l, remarks: e.target.value } : l))
+                    )
+                  }
+                />
+              </div>
+            );
+          })}
           {errors.lines && <p className="text-xs text-danger">{errors.lines}</p>}
         </div>
 
         <div className="rounded-xl bg-bg px-3 py-2 text-sm">
           <span className="text-muted">Estimated total: </span>
           <span className="font-bold text-heading">{formatCurrency(total)}</span>
+          <span className="ml-2 text-xs text-muted">(HO confirms amounts when generating bill)</span>
         </div>
       </div>
 
@@ -210,7 +364,7 @@ export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         <Button type="button" onClick={submit}>
           <ClipboardPlus className="h-4 w-4" />
-          Submit requisition
+          Submit to Head Office
         </Button>
       </div>
     </ModalPortal>

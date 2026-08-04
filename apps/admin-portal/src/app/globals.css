@@ -99,3 +99,37 @@ h1, h2, h3, h4, h5, h6 {
 .shadow-card-hover:hover {
   box-shadow: var(--shadow-card-hover);
 }
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .fee-challan,
+  .fee-challan * {
+    visibility: visible !important;
+  }
+  .fee-challan {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .challan-copy {
+    page-break-after: always;
+  }
+  .challan-copy:last-child {
+    page-break-after: auto;
+  }
+  .letter-document,
+  .letter-document * {
+    visibility: visible !important;
+  }
+  .letter-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none !important;
+    border-color: #000 !important;
+  }
+}

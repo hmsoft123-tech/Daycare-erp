@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +8,11 @@ import { AllergyBanner } from "./AllergyBanner";
 import { AttendanceHeatmap } from "./AttendanceHeatmap";
 import { StatusPill } from "@/components/billing/StatusPill";
 import { ViewIdCardButton } from "@/components/id-cards/ViewIdCardButton";
+import { GenerateLetterButton } from "@/components/documents/GenerateLetterButton";
 import { StudentExtrasPanel } from "@/components/students/StudentExtrasPanel";
+import { StudentLifecycleActions } from "@/components/students/StudentLifecycleActions";
+import { branches } from "@/data/branches";
+import { isBillableStudent } from "@/lib/eligibility";
 import { calculateAge, formatDate, getInitials } from "@/lib/utils";
 import type { Student, Parent, StudentNote, MedicalIncident, AttendanceRecord } from "@/types";
 
@@ -19,7 +24,13 @@ interface StudentProfileProps {
   attendance: AttendanceRecord[];
 }
 
-export function StudentProfile({ student, parents, notes, medicalIncidents, attendance }: StudentProfileProps) {
+export function StudentProfile({ student: initial, parents, notes, medicalIncidents, attendance }: StudentProfileProps) {
+  const [student, setStudent] = useState(initial);
+  const branch = branches.find((b) => b.id === student.branchId);
+  const prevBranch = student.previousBranchId
+    ? branches.find((b) => b.id === student.previousBranchId)
+    : undefined;
+
   return (
     <div className="space-y-6">
       <AllergyBanner allergies={student.allergies} />
@@ -41,7 +52,12 @@ export function StudentProfile({ student, parents, notes, medicalIncidents, atte
               {student.firstName} {student.lastName}
             </h2>
             <StatusPill status={student.status} className="mt-2" />
-            <div className="mt-4 w-full">
+            {!isBillableStudent(student) && (
+              <p className="mt-2 rounded-lg bg-soft-red/50 px-3 py-2 text-left text-xs text-danger">
+                Not billable — withdraw / alumni / not enrolled.
+              </p>
+            )}
+            <div className="mt-4 flex w-full flex-col gap-2">
               <ViewIdCardButton
                 kind="student"
                 personId={student.id}
@@ -49,8 +65,33 @@ export function StudentProfile({ student, parents, notes, medicalIncidents, atte
                 className="w-full"
                 canIssue={student.status === "active" || student.status === "pending_first_payment"}
               />
+              <GenerateLetterButton
+                audience="student"
+                subjectId={student.id}
+                kind="enrollment_letter"
+                label="Enrollment letter"
+                className="w-full"
+              />
+              <GenerateLetterButton
+                audience="student"
+                subjectId={student.id}
+                kind="leaving_certificate"
+                label="Leaving / clearance"
+                className="w-full"
+              />
             </div>
+            <StudentLifecycleActions student={student} onUpdated={setStudent} />
             <dl className="mt-4 w-full space-y-2 text-left text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">Branch</dt>
+                <dd className="text-right">{branch?.name?.replace(" Campus", "") ?? "—"}</dd>
+              </div>
+              {prevBranch && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Previous branch</dt>
+                  <dd className="text-right text-muted">{prevBranch.name.replace(" Campus", "")}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-gray-500">Age</dt>
                 <dd>{calculateAge(student.dob)} years</dd>
@@ -67,6 +108,18 @@ export function StudentProfile({ student, parents, notes, medicalIncidents, atte
                 <dt className="text-gray-500">Enrolled</dt>
                 <dd>{formatDate(student.enrollmentDate)}</dd>
               </div>
+              {student.leaveDate && (
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Left</dt>
+                  <dd>{formatDate(student.leaveDate)}</dd>
+                </div>
+              )}
+              {student.rejoinDate && (
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Rejoined</dt>
+                  <dd>{formatDate(student.rejoinDate)}</dd>
+                </div>
+              )}
               {student.feePlan && (
                 <div className="flex justify-between">
                   <dt className="text-gray-500">Fee Plan</dt>

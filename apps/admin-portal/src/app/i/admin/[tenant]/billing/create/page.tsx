@@ -21,7 +21,15 @@ import { students } from "@/data/students";
 import { createInvoice } from "@/lib/mock-service";
 import { isBillableStudent, inactiveStudentMessage } from "@/lib/eligibility";
 import { activeExtras, activeExtrasTotal } from "@/lib/student-extras";
-import { formatCurrency } from "@/lib/utils";
+import {
+  CHALLAN_VALIDITY_DAYS,
+  CHALLAN_DUE_DAYS,
+  LATE_FEE_AFTER_DUE,
+  challanDueDate,
+  challanValidityDate,
+  todayIso,
+} from "@/lib/fee-challan";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { DiscountType } from "@/types";
@@ -34,7 +42,7 @@ const schema = z.object({
   discountType: z.enum(["none", "percent", "fixed", "sibling", "scholarship", "staff", "promo"]),
   discountValue: z.number().min(0),
   feeNotes: z.string().optional(),
-  dueDate: z.string().min(1, "Due date required"),
+  dueDate: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -51,6 +59,7 @@ function calcDiscount(amount: number, admissionFee: number, type: DiscountType, 
 
 export default function CreateInvoicePage() {
   const router = useRouter();
+  const issueDate = todayIso();
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -61,7 +70,7 @@ export default function CreateInvoicePage() {
       discountType: "none",
       discountValue: 0,
       feeNotes: "",
-      dueDate: "",
+      dueDate: challanDueDate(issueDate),
     },
   });
 
@@ -70,6 +79,8 @@ export default function CreateInvoicePage() {
   const admissionFee = watch("admissionFee") || 0;
   const discountType = watch("discountType");
   const discountValue = watch("discountValue") || 0;
+  const dueDateWatch = watch("dueDate") || challanDueDate(issueDate);
+  const validityDate = challanValidityDate(issueDate);
 
   const selectedStudent = useMemo(
     () => students.find((s) => s.id === studentId),
@@ -100,8 +111,10 @@ export default function CreateInvoicePage() {
       planType: data.planType,
       amount: result.total - data.admissionFee,
       admissionFee: data.admissionFee,
-      dueDate: data.dueDate,
+      dueDate: data.dueDate || undefined,
+      issueDate,
       includeExtras: true,
+      feeNotes: data.feeNotes,
     });
 
     if (!created.ok) {
@@ -111,18 +124,18 @@ export default function CreateInvoicePage() {
 
     const exCount = activeExtras(student.extras).length;
     toast.success(
-      `Invoice ${created.invoice.invoiceNumber} created · Net ${formatCurrency(created.invoice.amount)}` +
-        (exCount ? ` · ${exCount} student extra(s) applied` : "") +
+      `Invoice ${created.invoice.invoiceNumber} created · Valid until ${formatDate(created.invoice.validityDate)}` +
+        (exCount ? ` · ${exCount} student extra(s)` : "") +
         (result.discount > 0 ? ` (${formatCurrency(result.discount)} discount)` : "")
     );
-    router.push("/billing");
+    router.push(`/billing/${created.invoice.id}`);
   });
 
   return (
     <>
       <PageHeader
         title="Create Invoice"
-        subtitle="Tuition, discounts, and student extras from the profile are included automatically"
+        subtitle={`Issue today · due in ${CHALLAN_DUE_DAYS} days · expires after ${CHALLAN_VALIDITY_DAYS} days`}
       />
       <Card className="max-w-xl">
         <CardContent className="p-6">
@@ -206,7 +219,11 @@ export default function CreateInvoicePage() {
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
               <Input id="dueDate" type="date" className="mt-1" {...register("dueDate")} />
-              {errors.dueDate && <p className="mt-1 text-xs text-danger">{errors.dueDate.message}</p>}
+              <p className="mt-1 text-xs text-muted">
+                Issue {formatDate(issueDate)} · Due {formatDate(dueDateWatch)} · Validity{" "}
+                {formatDate(validityDate)} ({CHALLAN_VALIDITY_DAYS}-day window). After due: +
+                {formatCurrency(LATE_FEE_AFTER_DUE)}.
+              </p>
             </div>
 
             {extras.length > 0 && (
@@ -253,12 +270,16 @@ export default function CreateInvoicePage() {
                 </div>
               )}
               <div className="mt-2 flex justify-between border-t border-[#DFE3E8] pt-2 font-bold text-heading">
-                <span>Net total</span>
+                <span>Before due date</span>
                 <span>{formatCurrency(netTotal)}</span>
+              </div>
+              <div className="mt-1 flex justify-between text-xs text-muted">
+                <span>After due date</span>
+                <span>{formatCurrency(netTotal + LATE_FEE_AFTER_DUE)}</span>
               </div>
             </div>
 
-            <Button type="submit" className="w-full">Create Invoice</Button>
+            <Button type="submit" className="w-full">Create Invoice & Challan</Button>
           </form>
         </CardContent>
       </Card>

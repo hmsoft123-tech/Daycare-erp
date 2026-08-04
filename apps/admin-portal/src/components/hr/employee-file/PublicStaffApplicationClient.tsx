@@ -19,10 +19,10 @@ export function PublicStaffApplicationClient({
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
       <div className="mb-8 text-center">
         <p className="text-sm font-semibold uppercase tracking-wide text-brand-500">{schoolName}</p>
-        <h1 className="mt-2 font-heading text-3xl font-bold text-heading">Staff hiring application</h1>
+        <h1 className="mt-2 font-heading text-3xl font-bold text-heading">Employee Application Form</h1>
         <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
-          Hello{invite.candidateName ? `, ${invite.candidateName}` : ""} — complete only the documents
-          required at hiring. Remaining employee-file annexes are completed by HR after join / probation.
+          Hello{invite.candidateName ? `, ${invite.candidateName}` : ""} — complete the SDLC job application
+          (personal, education, experience, skills, references, questions, and hiring documents).
         </p>
         {invite.securityHint && (
           <p className="mx-auto mt-2 max-w-xl rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800">

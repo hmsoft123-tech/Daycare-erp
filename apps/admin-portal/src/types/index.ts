@@ -21,11 +21,34 @@ export type StaffStatus = "active" | "resigned" | "fired" | "inactive";
 
 export type InquiryType = "admission" | "employment" | "tour" | "general";
 
-export type InvoiceStatus = "paid" | "overdue" | "pending" | "partial";
+export type InvoiceStatus = "paid" | "overdue" | "pending" | "partial" | "expired";
 
 export type AttendanceStatus = "present" | "absent" | "late";
 
-export type PRStatus = "pending" | "approved" | "rejected";
+/**
+ * HO procurement pipeline (SDLC requisition → bill → pay → dispatch → receive):
+ * pending → billed → paid → dispatched → received | rejected
+ */
+export type PRStatus =
+  | "pending"
+  | "billed"
+  | "paid"
+  | "dispatched"
+  | "received"
+  | "rejected"
+  /** @deprecated use billed / received — kept for older seeds during migration */
+  | "approved";
+
+/** SDLC requisition catalogue kinds + extras (books, courses, general inventory) */
+export type RequisitionKind =
+  | "stationery"
+  | "groceries"
+  | "toiletries"
+  | "printed"
+  | "books"
+  | "courses"
+  | "inventory"
+  | "other";
 
 export type AdmissionStage =
   | "new_inquiry"
@@ -75,14 +98,22 @@ export interface Student {
   parentIds: string[];
   photo?: string;
   feePlan?: string;
+  /** Link to SDLC services catalogue plan (core class + tier) */
+  servicePlanId?: string;
   gender: "male" | "female";
   /** Generated at enrollment when record is saved to the portal */
   idCardNumber?: string;
   /**
    * Recurring extras / benefits / charges applied automatically when an invoice is generated.
-   * Managed from the student profile.
+   * Managed from the student profile. Prefer `serviceId` when sourced from catalogue.
    */
   extras?: StudentExtra[];
+  /** Set when withdrawn / left (status inactive or alumni) */
+  leaveDate?: string;
+  /** Set when reactivated after withdraw / alumni */
+  rejoinDate?: string;
+  /** Previous campus before last branch transfer */
+  previousBranchId?: string;
 }
 
 /** Extra line items attached to a student and billed on invoice generation */
@@ -96,17 +127,64 @@ export interface StudentExtra {
   kind: StudentExtraKind;
   active: boolean;
   notes?: string;
+  /** Optional link to Services catalogue offering */
+  serviceId?: string;
+}
+
+/** SDLC Fee Schedule 2026–2027 catalogue categories */
+export type ServiceCategory =
+  | "core_class"
+  | "extra_care"
+  | "value_added"
+  | "after_school"
+  | "learning"
+  | "recreational"
+  | "registration";
+
+/** Care / plan tier — Base hours + Lite/Plus/Pro extra care (SDLC) */
+export type ServiceTier = "base" | "lite" | "plus" | "pro";
+
+/**
+ * Billable service / class / plus offering from SDLC fee sheet.
+ * Core classes have Base monthly + optional Extra Care Lite/Plus/Pro.
+ * Value-added, learning, recreational attach as student extras.
+ */
+export interface ServiceOffering {
+  id: string;
+  code: string;
+  name: string;
+  category: ServiceCategory;
+  /** Age / grade band, e.g. "40 days – 1.2 years" */
+  ageBand?: string;
+  schedule?: string;
+  description?: string;
+  tier?: ServiceTier;
+  /** Links Extra Care / tuition lines to a core class group, e.g. "infant" */
+  classGroup?: string;
+  admissionFee?: number;
+  monthlyFee: number;
+  /** When true, annual = monthly fee (SDLC rule) */
+  annualSameAsMonthly?: boolean;
+  annualFee?: number;
+  registrationFee?: number;
+  /** Shown as selectable add-on / student extra */
+  billableAsExtra: boolean;
+  active: boolean;
+  sessionYear: string;
+  sortOrder: number;
 }
 
 /** When an employee-file document is collected in the HR lifecycle */
 export type EmployeeFilePhase = "hire" | "post_probation" | "ongoing" | "exit";
 
 export type EmployeeFileSlotKey =
+  | "passport_photo"
   | "cnic_self"
   | "cnic_family"
   | "last_degree"
   | "last_pay_stub"
   | "reference_letters"
+  | "covid_vaccination"
   | "medical_test"
   | "job_application"
   | "interview_evaluation"
@@ -176,6 +254,88 @@ export interface SalaryDetermination {
   policyAcknowledgedAt?: string;
 }
 
+export type SkillLevel = "strong" | "weak" | "nil";
+
+export interface EducationRow {
+  level: "masters" | "bachelors" | "diploma" | "hsc" | "ssc";
+  institute: string;
+  subject: string;
+  year: string;
+}
+
+export interface WorkExperienceRow {
+  company: string;
+  jobTitle: string;
+  joiningLeaving: string;
+  salary: string;
+}
+
+export interface AdditionalCourseRow {
+  title: string;
+  institute: string;
+  duration: string;
+  date: string;
+}
+
+export interface LanguageSkillRow {
+  language: "urdu" | "english";
+  written: SkillLevel;
+  spoken: SkillLevel;
+  understanding: SkillLevel;
+}
+
+export interface ItSkillRow {
+  skill: string;
+  level: SkillLevel;
+}
+
+export interface ApplicationReference {
+  name: string;
+  relation: string;
+  cnic: string;
+  contact: string;
+  occupation: string;
+  duration: string;
+}
+
+/** SDLC Employee Application Form (ANNEX) — collected at hire */
+export interface JobApplicationForm {
+  fullName: string;
+  cnic: string;
+  designation: string;
+  branchId: string;
+  fatherHusbandName: string;
+  dateOfBirth: string;
+  maritalStatus: "single" | "married" | "widowed" | "divorced" | "";
+  homeAddress: string;
+  homePhone: string;
+  mobilePhone: string;
+  email: string;
+  passportPhotoName?: string;
+  education: EducationRow[];
+  workExperience: WorkExperienceRow[];
+  additionalCourses: AdditionalCourseRow[];
+  languages: LanguageSkillRow[];
+  itSkills: ItSkillRow[];
+  reference1: ApplicationReference;
+  reference2: ApplicationReference;
+  knowAboutSdlc: string;
+  whyBestSuited: string;
+  respectMeaning: string;
+  techInEducation: string;
+  documentationImportance: string;
+  /** Official use (HR) */
+  jobHours?: string;
+  joiningDate?: string;
+  salary?: number;
+  firstInterviewDate?: string;
+  demonstrationDate?: string;
+  trainingPeriod?: string;
+  staffCode?: string;
+  appliedAt?: string;
+  signatureDataUrl?: string;
+}
+
 export interface Staff {
   id: string;
   name: string;
@@ -188,6 +348,8 @@ export interface Staff {
   photo?: string;
   specializations?: string[];
   status: StaffStatus;
+  /** Completed SDLC employee application form */
+  jobApplication?: JobApplicationForm;
   /** Set when resigned / fired / marked inactive */
   endDate?: string;
   /** Generated at hire when record is saved to the portal */
@@ -203,6 +365,10 @@ export interface Staff {
   hrPoliciesSignature?: string;
   /** Salary determination — drives payroll breakdown */
   salary?: SalaryDetermination;
+  /** Set when reactivated after resign / inactive / fired */
+  rejoinDate?: string;
+  /** Previous campus before last branch transfer */
+  previousBranchId?: string;
 }
 
 export type IdCardKind = "student" | "staff";
@@ -236,15 +402,33 @@ export interface LineItem {
 export interface Invoice {
   id: string;
   invoiceNumber: string;
+  /** Bank consumer / class ID shown on challan (e.g. 10694) */
+  consumerNumber: string;
+  /** G.R. number on challan */
+  grNumber: string;
   studentId: string;
   branchId: string;
   planType: string;
+  /** Billing month label, e.g. March (2026) */
+  billingMonth: string;
+  /** Payable before due date (base net) */
   amount: number;
+  /** Payable after due date (= amount + lateFeeAfterDue) */
+  amountAfterDue: number;
+  /** Late charge applied after due date (SDLC: Rs. 1000) */
+  lateFeeAfterDue: number;
+  /** Extra surcharge if unpaid through validity — added as arrears next cycle (SDLC: Rs. 1000) */
+  expirySurcharge: number;
   currency: "PKR";
+  /** Challan issue date */
+  issueDate: string;
   dueDate: string;
+  /** Validity / expiry — challan invalid after this (issue + 25 days inclusive) */
+  validityDate: string;
   paidDate?: string;
   status: InvoiceStatus;
   lineItems: LineItem[];
+  feeNotes?: string;
 }
 
 export interface AttendanceRecord {
@@ -258,8 +442,13 @@ export interface PRLineItem {
   id: string;
   item: string;
   qty: number;
+  /** Per-unit amount (Rs.) — editable by HO when generating bill */
   unitPrice: number;
-  /** Optional link to inventory catalog */
+  /** Brand / specification (SDLC form) */
+  brand?: string;
+  /** Remarks or requested amount note from branch */
+  remarks?: string;
+  /** Optional link to inventory catalog — stocked on receive */
   itemId?: string;
 }
 
@@ -269,16 +458,35 @@ export interface PurchaseRequisition {
   requestedBy: string;
   date: string;
   items: PRLineItem[];
+  /** Sum of qty × unitPrice (bill amount after HO pricing) */
   totalAmount: number;
   status: PRStatus;
   vendor?: string;
   summary: string;
+  /** SDLC catalogue form type */
+  kind: RequisitionKind;
+  /** Month the requisition is for, e.g. August (2026) */
+  forMonth?: string;
+  /** Filled by Head Office when billing / scheduling delivery */
+  deliveryDate?: string;
+  billNumber?: string;
+  billedAt?: string;
+  paidAt?: string;
+  dispatchedAt?: string;
+  receivedAt?: string;
+  hoNotes?: string;
 }
 
 export type InventoryCategory =
   | "supplies"
+  | "stationery"
   | "food"
+  | "groceries"
   | "cleaning"
+  | "toiletries"
+  | "printed"
+  | "books"
+  | "courses"
   | "therapy"
   | "playground"
   | "other";
@@ -413,6 +621,10 @@ export interface ClassRoom {
   name: string;
   branchId: string;
   teacherId: string;
+  /** Maps to ServiceOffering.classGroup (infant, playgroup, …) */
+  classGroup?: string;
+  ageBand?: string;
+  capacity?: number;
 }
 
 export interface RevenueDataPoint {

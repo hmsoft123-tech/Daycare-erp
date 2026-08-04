@@ -15,8 +15,14 @@ type Props = {
 
 const categoryLabel: Record<InventoryItem["category"], string> = {
   supplies: "Supplies",
+  stationery: "Stationery",
   food: "Food",
+  groceries: "Groceries",
   cleaning: "Cleaning",
+  toiletries: "Toiletries",
+  printed: "Printed",
+  books: "Books",
+  courses: "Courses",
   therapy: "Therapy",
   playground: "Playground",
   other: "Other",

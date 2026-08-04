@@ -41,6 +41,7 @@ export const statusPillStyles = {
   overdue: "bg-soft-red text-danger",
   pending: "bg-soft-yellow text-[#B76E00]",
   partial: "bg-soft-cyan text-[#006C9C]",
+  expired: "bg-soft-red text-danger",
   present: "bg-soft-green text-brand-700",
   absent: "bg-soft-red text-danger",
   late: "bg-soft-yellow text-[#B76E00]",

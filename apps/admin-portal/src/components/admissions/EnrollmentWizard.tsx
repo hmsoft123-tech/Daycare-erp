@@ -22,7 +22,7 @@ import { SignaturePad } from "@/components/admissions/SignaturePad";
 import { IdCardPreviewModal } from "@/components/id-cards/IdCardPreviewModal";
 import { EnrollmentInviteLinkModal } from "@/components/admissions/EnrollmentInviteLinkModal";
 import { branches } from "@/data/branches";
-import { students } from "@/data/students";
+import { classes, students } from "@/data/students";
 import { issueStudentIdCard } from "@/lib/id-card-store";
 import { generateStudentCardNumber } from "@/lib/id-card";
 import {
@@ -33,9 +33,18 @@ import {
 import { useTenantStore } from "@/lib/tenant-store";
 import { SDLC_TERMS_AND_CONDITIONS } from "@/data/sdlc-terms";
 import { formatCurrency, cn } from "@/lib/utils";
+import { CLASS_GROUPS } from "@/data/services";
+import {
+  addonServices,
+  extrasFromSelection,
+  planAdmissionFee,
+  planId,
+  planLabel,
+  planMonthlyTotal,
+} from "@/lib/services-catalog";
 import { toast } from "sonner";
 import { Check, ChevronLeft, ChevronRight, FileUp, Upload } from "lucide-react";
-import type { PortalIdCard, Student } from "@/types";
+import type { PortalIdCard, ServiceTier, Student } from "@/types";
 
 const ALLERGY_OPTIONS = [
   "Peanuts",
@@ -48,26 +57,14 @@ const ALLERGY_OPTIONS = [
   "Other",
 ] as const;
 
-const MAIN_PROGRAMS = [
-  { id: "infant_lite", label: "Infant — Lite", admission: 8000, monthly: 28000 },
-  { id: "infant_plus", label: "Infant — Plus", admission: 10000, monthly: 32000 },
-  { id: "infant_pro", label: "Infant — Pro", admission: 12000, monthly: 38000 },
-  { id: "playgroup_lite", label: "Playgroup — Lite", admission: 8000, monthly: 25000 },
-  { id: "playgroup_plus", label: "Playgroup — Plus", admission: 10000, monthly: 30000 },
-  { id: "playgroup_pro", label: "Playgroup — Pro", admission: 12000, monthly: 35000 },
-  { id: "pre_nursery", label: "Pre-Nursery", admission: 9000, monthly: 28000 },
-  { id: "nursery", label: "Nursery", admission: 10000, monthly: 32000 },
-  { id: "kindergarten", label: "Kindergarten", admission: 12000, monthly: 36000 },
-  { id: "after_school", label: "After-School Care", admission: 5000, monthly: 18000 },
-] as const;
+const CARE_TIERS: { id: ServiceTier; label: string; hint: string }[] = [
+  { id: "base", label: "Base", hint: "Standard class hours" },
+  { id: "lite", label: "Lite", hint: "Extra care 1–4 hrs (ASC 1–3 hrs)" },
+  { id: "plus", label: "Plus", hint: "Extra care 1–8 hrs (ASC 1–7 hrs)" },
+  { id: "pro", label: "Pro", hint: "Full-day extended (Infant–KG)" },
+];
 
-const ADDONS = [
-  { id: "meal_a", label: "Meal Program — Option A", monthly: 4500 },
-  { id: "meal_b", label: "Meal Program — Option B", monthly: 6500 },
-  { id: "quran", label: "Quran / Religious Studies", monthly: 3000 },
-  { id: "saturday", label: "Saturday Care", monthly: 5000 },
-  { id: "test_prep", label: "Test / Exam Preparation", monthly: 4000 },
-] as const;
+const CATALOGUE_ADDONS = addonServices();
 
 const DOC_SLOTS = [
   {
@@ -116,7 +113,8 @@ const enrollmentSchema = z.object({
   // Step 4
   joiningDate: z.string().min(1, "Target joining date required"),
   branchId: z.string().min(1, "Branch required"),
-  mainProgram: z.string().min(1, "Select a main program"),
+  classGroup: z.string().min(1, "Select a class"),
+  careTier: z.enum(["base", "lite", "plus", "pro"]),
   addOns: z.array(z.string()),
   completionMode: z.enum(["invite_to_pay", "mark_enrolled"]),
   // Step 5
@@ -238,7 +236,8 @@ export function EnrollmentWizard({
       medicalAuthorization: false,
       joiningDate: "",
       branchId: "",
-      mainProgram: "",
+      classGroup: "",
+      careTier: "base",
       addOns: [],
       completionMode: isPublic ? "mark_enrolled" : "mark_enrolled",
       docPassportPhotos: "",
@@ -260,11 +259,12 @@ export function EnrollmentWizard({
   const values = watch();
 
   const feeSummary = useMemo(() => {
-    const program = MAIN_PROGRAMS.find((p) => p.id === values.mainProgram);
-    const admission = program?.admission ?? 0;
-    const tuition = program?.monthly ?? 0;
-    const addOnTotal = ADDONS.filter((a) => values.addOns?.includes(a.id)).reduce(
-      (sum, a) => sum + a.monthly,
+    const group = values.classGroup || "";
+    const tier = (values.careTier || "base") as ServiceTier;
+    const admission = group ? planAdmissionFee(group, tier) : 0;
+    const tuition = group ? planMonthlyTotal(group, tier) : 0;
+    const addOnTotal = CATALOGUE_ADDONS.filter((a) => values.addOns?.includes(a.id)).reduce(
+      (sum, a) => sum + (a.monthlyFee || a.registrationFee || 0),
       0
     );
     return {
@@ -273,8 +273,9 @@ export function EnrollmentWizard({
       addOnTotal,
       monthly: tuition + addOnTotal,
       firstPayment: admission + tuition + addOnTotal,
+      label: group ? planLabel(group, tier) : "",
     };
-  }, [values.mainProgram, values.addOns]);
+  }, [values.classGroup, values.careTier, values.addOns]);
 
   const stepFields: (keyof EnrollmentFormData)[][] = [
     ["childFullName", "dob", "gender", "nationality", "childIdNumber", "passportPhotoName"],
@@ -293,7 +294,7 @@ export function EnrollmentWizard({
       "emergencyPhone",
     ],
     ["medicalAuthorization"],
-    ["joiningDate", "branchId", "mainProgram", "completionMode"],
+    ["joiningDate", "branchId", "classGroup", "careTier", "completionMode"],
     [
       "docPassportPhotos",
       "docFatherCnic",
@@ -323,10 +324,10 @@ export function EnrollmentWizard({
 
   const toggleAddon = (id: string) => {
     const current = values.addOns ?? [];
-    // meal A/B exclusive
     let next = current.includes(id) ? current.filter((a) => a !== id) : [...current, id];
-    if (id === "meal_a") next = next.filter((a) => a !== "meal_b");
-    if (id === "meal_b") next = next.filter((a) => a !== "meal_a");
+    // Meal A/B exclusive
+    if (id === "svc-meal-a") next = next.filter((a) => a !== "svc-meal-b");
+    if (id === "svc-meal-b") next = next.filter((a) => a !== "svc-meal-a");
     setValue("addOns", next, { shouldValidate: true });
   };
 
@@ -346,7 +347,10 @@ export function EnrollmentWizard({
           motherEmail: data.motherEmail,
           motherPhone: data.motherPhone,
           branchId: data.branchId,
-          mainProgram: data.mainProgram,
+          classGroup: data.classGroup,
+          careTier: data.careTier,
+          servicePlanId: planId(data.classGroup, data.careTier),
+          mainProgram: planId(data.classGroup, data.careTier),
         },
       });
       setInviteModal(invite);
@@ -359,7 +363,8 @@ export function EnrollmentWizard({
     const lastName = parts.slice(1).join(" ") || parts[0];
     const id = `s-${Date.now()}`;
     const cardNumber = generateStudentCardNumber(id);
-    const program = MAIN_PROGRAMS.find((p) => p.id === data.mainProgram);
+    const label = planLabel(data.classGroup, data.careTier);
+    const room = classes.find((c) => c.classGroup === data.classGroup);
     const student: Student = {
       id,
       firstName,
@@ -368,12 +373,14 @@ export function EnrollmentWizard({
       bloodGroup: "N/A",
       allergies: data.allergies,
       branchId: data.branchId,
-      classId: "c1",
-      className: program?.label ?? data.mainProgram,
+      classId: room?.id ?? "c1",
+      className: room?.name ?? label,
       enrollmentDate: data.joiningDate || new Date().toISOString().slice(0, 10),
       status: isPublic ? "pending_first_payment" : "active",
       parentIds: [],
-      feePlan: program?.label ?? "Custom",
+      feePlan: label,
+      servicePlanId: planId(data.classGroup, data.careTier),
+      extras: extrasFromSelection(data.classGroup, data.careTier, data.addOns),
       gender: data.gender === "other" ? "male" : data.gender,
       idCardNumber: isPublic ? undefined : cardNumber,
     };
@@ -745,8 +752,10 @@ export function EnrollmentWizard({
                   {step === 4 && (
                     <>
                       <div>
-                        <h2 className="font-heading text-lg font-bold text-heading">Program, schedule & add-ons</h2>
-                        <p className="text-sm text-muted">Select program cards — fees calculate automatically</p>
+                        <h2 className="font-heading text-lg font-bold text-heading">Class, care tier & plus services</h2>
+                        <p className="text-sm text-muted">
+                          SDLC 2026–2027 — Base class + Lite/Plus/Pro extra care, then optional plus services
+                        </p>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
@@ -775,35 +784,79 @@ export function EnrollmentWizard({
                         </div>
                       </div>
                       <div>
-                        <Label>Main program</Label>
+                        <Label>Class / program</Label>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {MAIN_PROGRAMS.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => setValue("mainProgram", p.id, { shouldValidate: true })}
-                              className={cn(
-                                "rounded-xl border p-3 text-left transition",
-                                values.mainProgram === p.id
-                                  ? "border-brand-500 bg-brand-50 ring-1 ring-brand-200"
-                                  : "border-[#DFE3E8] hover:border-brand-200"
-                              )}
-                            >
-                              <p className="text-sm font-semibold text-heading">{p.label}</p>
-                              <p className="mt-1 text-[11px] text-muted">
-                                Admission {formatCurrency(p.admission)} · Monthly {formatCurrency(p.monthly)}
-                              </p>
-                            </button>
-                          ))}
+                          {CLASS_GROUPS.map((g) => {
+                            const tier = (values.careTier || "base") as ServiceTier;
+                            const effectiveTier: ServiceTier =
+                              g.id === "after_school" && (tier === "base" || tier === "pro")
+                                ? "lite"
+                                : tier;
+                            return (
+                              <button
+                                key={g.id}
+                                type="button"
+                                onClick={() => {
+                                  setValue("classGroup", g.id, { shouldValidate: true });
+                                  if (g.id === "after_school" && (values.careTier === "base" || values.careTier === "pro")) {
+                                    setValue("careTier", "lite", { shouldValidate: true });
+                                  }
+                                }}
+                                className={cn(
+                                  "rounded-xl border p-3 text-left transition",
+                                  values.classGroup === g.id
+                                    ? "border-brand-500 bg-brand-50 ring-1 ring-brand-200"
+                                    : "border-[#DFE3E8] hover:border-brand-200"
+                                )}
+                              >
+                                <p className="text-sm font-semibold text-heading">{g.label}</p>
+                                <p className="text-[11px] text-muted">{g.ageBand}</p>
+                                <p className="mt-1 text-[11px] text-muted">
+                                  Adm {formatCurrency(planAdmissionFee(g.id, effectiveTier))} · Mo{" "}
+                                  {formatCurrency(planMonthlyTotal(g.id, effectiveTier))}
+                                </p>
+                              </button>
+                            );
+                          })}
                         </div>
-                        {errors.mainProgram && (
-                          <p className="mt-1 text-xs text-danger">{errors.mainProgram.message}</p>
+                        {errors.classGroup && (
+                          <p className="mt-1 text-xs text-danger">{errors.classGroup.message}</p>
                         )}
                       </div>
                       <div>
-                        <Label>Add-on programs & services</Label>
-                        <div className="mt-2 space-y-2">
-                          {ADDONS.map((a) => (
+                        <Label>Care tier (Lite / Plus / Pro)</Label>
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {CARE_TIERS.map((t) => {
+                            const disabled =
+                              values.classGroup === "after_school" &&
+                              (t.id === "base" || t.id === "pro");
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => setValue("careTier", t.id, { shouldValidate: true })}
+                                className={cn(
+                                  "rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40",
+                                  values.careTier === t.id
+                                    ? "border-brand-500 bg-brand-50 ring-1 ring-brand-200"
+                                    : "border-[#DFE3E8] hover:border-brand-200"
+                                )}
+                              >
+                                <p className="text-sm font-semibold text-heading">{t.label}</p>
+                                <p className="mt-0.5 text-[10px] text-muted">{t.hint}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Plus services & extras</Label>
+                        <p className="mt-0.5 text-xs text-muted">
+                          Meals, Quran, Saturdays, tuition, recreational, outsider registration
+                        </p>
+                        <div className="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
+                          {CATALOGUE_ADDONS.map((a) => (
                             <label
                               key={a.id}
                               className={cn(
@@ -818,22 +871,38 @@ export function EnrollmentWizard({
                                   checked={values.addOns?.includes(a.id)}
                                   onCheckedChange={() => toggleAddon(a.id)}
                                 />
-                                {a.label}
+                                <span>
+                                  {a.name}
+                                  {a.category !== "value_added" && (
+                                    <span className="mt-0.5 block text-[10px] capitalize text-muted">
+                                      {a.category.replace("_", " ")}
+                                    </span>
+                                  )}
+                                </span>
                               </span>
-                              <span className="text-xs text-muted">+{formatCurrency(a.monthly)}/mo</span>
+                              <span className="shrink-0 text-xs text-muted">
+                                {a.monthlyFee > 0
+                                  ? `+${formatCurrency(a.monthlyFee)}/mo`
+                                  : a.registrationFee
+                                    ? `Reg ${formatCurrency(a.registrationFee)}`
+                                    : "—"}
+                              </span>
                             </label>
                           ))}
                         </div>
                       </div>
                       <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
                         <p className="text-xs font-bold uppercase tracking-wide text-brand-800">Fee summary</p>
+                        {feeSummary.label && (
+                          <p className="mt-1 text-sm font-semibold text-heading">{feeSummary.label}</p>
+                        )}
                         <dl className="mt-3 space-y-1.5 text-sm">
                           <div className="flex justify-between">
                             <dt className="text-muted">Admission fee</dt>
                             <dd className="font-medium">{formatCurrency(feeSummary.admission)}</dd>
                           </div>
                           <div className="flex justify-between">
-                            <dt className="text-muted">Monthly tuition</dt>
+                            <dt className="text-muted">Monthly (class + care tier)</dt>
                             <dd className="font-medium">{formatCurrency(feeSummary.tuition)}</dd>
                           </div>
                           <div className="flex justify-between">

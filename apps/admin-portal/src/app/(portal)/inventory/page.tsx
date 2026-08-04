@@ -11,8 +11,8 @@ export default async function InventoryPage() {
   return (
     <>
       <PageHeader
-        title="Purchase requisitions"
-        subtitle="Create requests, approve, and receive catalog items into stock"
+        title="Procurement & requisitions"
+        subtitle="Branch requests → HO prices & bills → pay → dispatch inventory to the branch"
       />
       <ProcurementInbox requisitions={requisitions} catalog={catalog} />
     </>
