@@ -8,6 +8,7 @@ import {
   GraduationCap,
   CalendarCheck,
   Layers,
+  School,
   FileText,
   Receipt,
   UserCog,
@@ -25,6 +26,7 @@ import {
   Palette,
   Briefcase,
   ChevronLeft,
+  Lock,
   X,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
@@ -53,8 +55,10 @@ const navGroups = [
     label: "Students",
     items: [
       { href: "/students", label: "All Students", icon: GraduationCap },
+      { href: "/classrooms", label: "Classrooms", icon: School },
       { href: "/services", label: "Services & Classes", icon: Layers },
       { href: "/attendance", label: "Attendance", icon: CalendarCheck },
+      { href: "/therapy", label: "Therapy Logs", icon: HeartPulse },
     ],
   },
   {
@@ -65,7 +69,10 @@ const navGroups = [
   },
   {
     label: "Finance",
-    items: [{ href: "/billing", label: "Billing & Invoices", icon: Receipt }],
+    items: [
+      { href: "/billing", label: "Billing & Invoices", icon: Receipt },
+      { href: "/billing/fee-locks", label: "Fee Lock Approvals", icon: Lock },
+    ],
   },
   {
     label: "Documents",
@@ -78,8 +85,7 @@ const navGroups = [
       { href: "/hr/hire", label: "Hiring Wizard", icon: UserPlus },
       { href: "/hr/staff", label: "Staff Directory", icon: UserCog },
       { href: "/hr/payroll", label: "Payroll", icon: Receipt },
-      { href: "/hr/training", label: "Training Hub", icon: Video },
-      { href: "/therapy", label: "Therapy Logs", icon: HeartPulse },
+      { href: "/hr/training", label: "Training & Induction", icon: Video },
     ],
   },
   {

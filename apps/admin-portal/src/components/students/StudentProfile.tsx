@@ -11,10 +11,18 @@ import { ViewIdCardButton } from "@/components/id-cards/ViewIdCardButton";
 import { GenerateLetterButton } from "@/components/documents/GenerateLetterButton";
 import { StudentExtrasPanel } from "@/components/students/StudentExtrasPanel";
 import { StudentLifecycleActions } from "@/components/students/StudentLifecycleActions";
+import { StudentTherapyPanel } from "@/components/students/StudentTherapyPanel";
 import { branches } from "@/data/branches";
 import { isBillableStudent } from "@/lib/eligibility";
 import { calculateAge, formatDate, getInitials } from "@/lib/utils";
-import type { Student, Parent, StudentNote, MedicalIncident, AttendanceRecord } from "@/types";
+import type {
+  Student,
+  Parent,
+  StudentNote,
+  MedicalIncident,
+  AttendanceRecord,
+  TherapySession,
+} from "@/types";
 
 interface StudentProfileProps {
   student: Student;
@@ -22,9 +30,17 @@ interface StudentProfileProps {
   notes: StudentNote[];
   medicalIncidents: MedicalIncident[];
   attendance: AttendanceRecord[];
+  therapySessions?: TherapySession[];
 }
 
-export function StudentProfile({ student: initial, parents, notes, medicalIncidents, attendance }: StudentProfileProps) {
+export function StudentProfile({
+  student: initial,
+  parents,
+  notes,
+  medicalIncidents,
+  attendance,
+  therapySessions = [],
+}: StudentProfileProps) {
   const [student, setStudent] = useState(initial);
   const branch = branches.find((b) => b.id === student.branchId);
   const prevBranch = student.previousBranchId
@@ -132,10 +148,11 @@ export function StudentProfile({ student: initial, parents, notes, medicalIncide
 
         <div className="flex-1">
           <Tabs defaultValue="overview">
-            <TabsList>
+            <TabsList className="flex h-auto flex-wrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="billing">Billing extras</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
+              <TabsTrigger value="therapy">Therapy</TabsTrigger>
               <TabsTrigger value="medical">Medical</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
             </TabsList>
@@ -166,6 +183,14 @@ export function StudentProfile({ student: initial, parents, notes, medicalIncide
 
             <TabsContent value="attendance" className="mt-4">
               <AttendanceHeatmap records={attendance} />
+            </TabsContent>
+
+            <TabsContent value="therapy" className="mt-4">
+              <StudentTherapyPanel
+                studentId={student.id}
+                studentName={`${student.firstName} ${student.lastName}`}
+                sessions={therapySessions}
+              />
             </TabsContent>
 
             <TabsContent value="medical" className="mt-4">

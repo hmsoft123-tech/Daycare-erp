@@ -22,7 +22,13 @@ import {
   type EnrollmentFeeValues,
 } from "./EnrollmentFeeModal";
 import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
+import { useUIStore } from "@/lib/store";
 import { students } from "@/data/students";
+import {
+  decideFeeLockRequest,
+  getFeeLockRequests,
+  requestAdmissionFeeLock,
+} from "@/lib/mock-service";
 import { issueStudentIdCard } from "@/lib/id-card-store";
 import { generateStudentCardNumber } from "@/lib/id-card";
 import { IdCardPreviewModal } from "@/components/id-cards/IdCardPreviewModal";
@@ -33,6 +39,7 @@ import { toast } from "sonner";
 const STAGES: { id: AdmissionStage; label: string; color: string }[] = [
   { id: "new_inquiry", label: "New Inquiry", color: "border-blue-400" },
   { id: "meeting_test_scheduled", label: "Tour Scheduled", color: "border-purple-400" },
+  { id: "pending_ho_fee", label: "HO Fee Lock", color: "border-amber-500" },
   { id: "enrol_unpaid", label: "Enrol Unpaid", color: "border-orange-400" },
   { id: "paid", label: "Enrolled", color: "border-emerald-400" },
   { id: "waitlist", label: "Waitlist", color: "border-amber-400" },
@@ -75,6 +82,8 @@ function KanbanColumn({ stage, cards }: { stage: (typeof STAGES)[number]; cards:
 
 export function KanbanBoard({ admissions }: KanbanBoardProps) {
   const branchId = useBranchFilter();
+  const { contextType } = useUIStore();
+  const isHeadOffice = contextType === "head_office";
   const filtered = useMemo(
     () => (branchId ? admissions.filter((a) => a.branchId === branchId) : admissions),
     [admissions, branchId]
@@ -120,9 +129,51 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
       return;
     }
 
-    // Into Enrol Unpaid or Enrolled (paid) → open fee form
-    if (overStage === "enrol_unpaid" || overStage === "paid") {
-      setPending({ kind: "fees", cardId: card.id, to: overStage });
+    // HO can advance pending_ho_fee → enrol_unpaid after approving fee lock
+    if (
+      card.stage === "pending_ho_fee" &&
+      overStage === "enrol_unpaid" &&
+      isHeadOffice
+    ) {
+      void (async () => {
+        const locks = await getFeeLockRequests();
+        const lock = locks.find(
+          (r) => r.admissionId === card.id && r.status === "pending_ho"
+        );
+        if (!lock) {
+          toast.error("No pending fee-lock request — open Billing → Fee Lock Approvals");
+          return;
+        }
+        const result = await decideFeeLockRequest(lock.id, "approved");
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        applyMove(card.id, "enrol_unpaid", {
+          monthlyTuition: result.request.monthlyTuition,
+          admissionFee: result.request.admissionFee,
+          registrationFee: result.request.admissionFee,
+          discountType: result.request.discountType,
+          discountValue: result.request.discountValue,
+          feeNotes: result.request.feeNotes,
+          invoiceNumber: result.request.invoiceNumber,
+        });
+        toast.success("HO approved — student is enrol unpaid (fee locked)");
+      })();
+      return;
+    }
+
+    // Branch cannot skip HO: enrol unpaid / HO fee lock → fee form → pending_ho_fee
+    if (overStage === "pending_ho_fee" || overStage === "enrol_unpaid" || overStage === "paid") {
+      if (overStage === "enrol_unpaid" && !isHeadOffice && card.stage !== "pending_ho_fee") {
+        setPending({ kind: "fees", cardId: card.id, to: "pending_ho_fee" });
+        return;
+      }
+      if (overStage === "enrol_unpaid" && !isHeadOffice) {
+        toast.error("Head Office must approve the fee lock before Enrol Unpaid");
+        return;
+      }
+      setPending({ kind: "fees", cardId: card.id, to: overStage === "enrol_unpaid" ? "pending_ho_fee" : overStage });
       return;
     }
 
@@ -145,24 +196,18 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
   const onFeeConfirm = async (values: EnrollmentFeeValues) => {
     if (!pending || pending.kind !== "fees") return;
     const card = items.find((i) => i.id === pending.cardId);
-    const invoiceNumber =
-      pending.to === "enrol_unpaid"
-        ? `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`
-        : undefined;
-    applyMove(pending.cardId, pending.to, {
-      monthlyTuition: values.monthlyTuition,
-      admissionFee: values.admissionFee,
-      registrationFee: values.admissionFee,
-      discountType: values.discountType,
-      discountValue: values.discountValue,
-      feeNotes: values.feeNotes,
-      invoiceNumber,
-    });
-
-    const enrolled = pending.to === "paid";
+    const target = pending.to;
     setPending(null);
 
-    if (enrolled && card) {
+    if (target === "paid" && card) {
+      applyMove(card.id, "paid", {
+        monthlyTuition: values.monthlyTuition,
+        admissionFee: values.admissionFee,
+        registrationFee: values.admissionFee,
+        discountType: values.discountType,
+        discountValue: values.discountValue,
+        feeNotes: values.feeNotes,
+      });
       const id = `s-${card.id}-${Date.now()}`;
       const cardNumber = generateStudentCardNumber(id);
       const [firstName, ...rest] = card.studentName.trim().split(/\s+/);
@@ -192,9 +237,55 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
       return;
     }
 
-    toast.success(
-      "Enrol unpaid — fees & invoice set"
-    );
+    // pending_ho_fee / enrol_unpaid from branch → HO queue (not pending payment yet)
+    if (!card) return;
+    const result = await requestAdmissionFeeLock({
+      admissionId: card.id,
+      monthlyTuition: values.monthlyTuition,
+      admissionFee: values.admissionFee,
+      discountType: values.discountType,
+      discountValue: values.discountValue,
+      feeNotes: values.feeNotes,
+      feePlan: card.program,
+      requestedBy: isHeadOffice ? "Head Office" : "Branch Admin",
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    // HO can approve immediately; branch waits in HO Fee Lock column
+    if (isHeadOffice) {
+      const decided = await decideFeeLockRequest(result.request.id, "approved", {
+        decidedBy: "Head Office",
+      });
+      if (!decided.ok) {
+        toast.error(decided.error);
+        return;
+      }
+      applyMove(card.id, "enrol_unpaid", {
+        monthlyTuition: values.monthlyTuition,
+        admissionFee: values.admissionFee,
+        registrationFee: values.admissionFee,
+        discountType: values.discountType,
+        discountValue: values.discountValue,
+        feeNotes: values.feeNotes,
+        invoiceNumber: decided.request.invoiceNumber,
+      });
+      toast.success("HO fee lock approved — enrol unpaid (pending payment)");
+      return;
+    }
+
+    applyMove(card.id, "pending_ho_fee", {
+      monthlyTuition: values.monthlyTuition,
+      admissionFee: values.admissionFee,
+      registrationFee: values.admissionFee,
+      discountType: values.discountType,
+      discountValue: values.discountValue,
+      feeNotes: values.feeNotes,
+      invoiceNumber: undefined,
+    });
+    toast.success("Sent to Head Office for fee-lock approval — not pending until approved");
   };
 
   const activeCard = activeId ? items.find((i) => i.id === activeId) : null;

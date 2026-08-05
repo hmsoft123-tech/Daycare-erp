@@ -9,6 +9,7 @@ import {
   getStudentNotes,
   getMedicalIncidents,
   getStudentAttendance,
+  getTherapySessions,
 } from "@/lib/mock-service";
 
 interface Props {
@@ -20,11 +21,12 @@ export default async function StudentDetailPage({ params }: Props) {
   const student = await getStudentById(id);
   if (!student) notFound();
 
-  const [parents, notes, medicalIncidents, attendance] = await Promise.all([
+  const [parents, notes, medicalIncidents, attendance, therapySessions] = await Promise.all([
     getParentsByIds(student.parentIds),
     getStudentNotes(id),
     getMedicalIncidents(id),
     getStudentAttendance(id),
+    getTherapySessions(id),
   ]);
 
   return (
@@ -40,6 +42,7 @@ export default async function StudentDetailPage({ params }: Props) {
         notes={notes}
         medicalIncidents={medicalIncidents}
         attendance={attendance}
+        therapySessions={therapySessions}
       />
     </>
   );

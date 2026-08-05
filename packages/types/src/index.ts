@@ -30,6 +30,7 @@ export type PRStatus = "pending" | "approved" | "rejected";
 export type AdmissionStage =
   | "new_inquiry"
   | "meeting_test_scheduled"
+  | "pending_ho_fee"
   | "enrol_unpaid"
   | "paid"
   | "waitlist";

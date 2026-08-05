@@ -5,7 +5,6 @@ import type {
   SalaryLine,
   Staff,
   StaffRole,
-  TrainingVideo,
 } from "@/types";
 import { EMPLOYEE_FILE_SLOTS } from "@/data/employee-file";
 import { ROLE_BASE_SALARY, defaultShiftForRole } from "@/lib/salary-determination";
@@ -296,15 +295,24 @@ export const staff: Staff[] = [
       ],
     }),
   },
-];
-
-export const trainingVideos: TrainingVideo[] = [
-  { id: "v1", title: "Staff Induction 2024", duration: "45:00", category: "all", progress: 100, featured: true },
-  { id: "v2", title: "Child Safety Protocols", duration: "22:30", category: "all", progress: 75 },
-  { id: "v3", title: "Montessori Methods", duration: "38:15", category: "teachers", progress: 60 },
-  { id: "v4", title: "ABA Therapy Basics", duration: "55:00", category: "therapists", progress: 40 },
-  { id: "v5", title: "First Aid & Emergency", duration: "30:00", category: "all", progress: 90 },
-  { id: "v6", title: "Speech Therapy Techniques", duration: "42:20", category: "therapists", progress: 25 },
-  { id: "v7", title: "Parent Communication", duration: "18:45", category: "teachers", progress: 100 },
-  { id: "v8", title: "Hygiene Standards", duration: "15:00", category: "all", progress: 50 },
+  {
+    id: "st10",
+    name: "Ayesha Malik",
+    role: "teacher",
+    branchId: "branch-gulshan",
+    employeeId: "KP-125",
+    joinDate: "2024-03-01",
+    phone: "+92 321 5566778",
+    email: "ayesha.m@kinderpilot.pk",
+    photo: "https://i.pravatar.cc/150?img=47",
+    status: "active",
+    probationEndDate: "2024-06-01",
+    probationCompleted: true,
+    employeeFile: seedFile([...hirePack, "probation_evaluation"]),
+    salary: seedSalary("teacher", {
+      educationLevel: "B.Ed",
+      experienceYears: 4,
+      yearsAtSdlc: 2,
+    }),
+  },
 ];

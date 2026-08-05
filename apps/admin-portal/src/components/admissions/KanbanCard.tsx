@@ -151,16 +151,25 @@ export function KanbanCard({ card }: KanbanCardProps) {
             </div>
           )}
 
-          {(card.stage === "enrol_unpaid" || card.stage === "paid") &&
+          {(card.stage === "enrol_unpaid" ||
+            card.stage === "paid" ||
+            card.stage === "pending_ho_fee") &&
             (card.monthlyTuition != null || card.admissionFee != null) && (
-              <div className="mt-2 space-y-0.5 rounded-md bg-soft-green px-2 py-1.5 text-[10px] font-medium text-brand-800">
+              <div
+                className={cn(
+                  "mt-2 space-y-0.5 rounded-md px-2 py-1.5 text-[10px] font-medium",
+                  card.stage === "pending_ho_fee"
+                    ? "bg-amber-50 text-amber-900"
+                    : "bg-soft-green text-brand-800"
+                )}
+              >
                 <div className="flex items-center gap-1">
                   <CreditCard className="h-3 w-3" />
                   Tuition {formatCurrency(card.monthlyTuition ?? 0)}
                   {card.admissionFee != null ? ` · Admit ${formatCurrency(card.admissionFee)}` : ""}
                 </div>
                 {card.discountType && card.discountType !== "none" && (
-                  <div className="flex items-center gap-1 text-brand-700">
+                  <div className="flex items-center gap-1 opacity-90">
                     <Percent className="h-3 w-3" />
                     {DISCOUNT_LABELS[card.discountType]}
                     {card.discountValue
@@ -170,7 +179,10 @@ export function KanbanCard({ card }: KanbanCardProps) {
                       : ""}
                   </div>
                 )}
-                {card.feeNotes && <p className="line-clamp-2 text-brand-700/80">{card.feeNotes}</p>}
+                {card.feeNotes && <p className="line-clamp-2 opacity-80">{card.feeNotes}</p>}
+                {card.stage === "pending_ho_fee" && (
+                  <p className="font-semibold text-amber-800">Awaiting HO fee-lock approval</p>
+                )}
                 {card.stage === "enrol_unpaid" && card.invoiceNumber && (
                   <p className="text-orange-700">{card.invoiceNumber} · unpaid</p>
                 )}

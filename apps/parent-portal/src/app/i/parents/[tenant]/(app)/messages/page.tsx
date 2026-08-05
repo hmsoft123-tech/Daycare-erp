@@ -6,7 +6,7 @@ const threads = [
   {
     id: "t1",
     name: "Nadia Farooq",
-    role: "Teacher · Toddler Room A",
+    role: "Teacher · Infant Room A",
     preview: "Hamdan had a wonderful story time today!",
     time: "2:10 PM",
     unread: 2,

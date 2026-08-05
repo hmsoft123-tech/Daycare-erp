@@ -7,7 +7,10 @@ export default async function TrainingPage() {
 
   return (
     <>
-      <PageHeader title="Training Hub" subtitle="Staff development and compliance videos" />
+      <PageHeader
+        title="Training & Induction"
+        subtitle="YouTube-linked staff induction, policy & activity videos · parent library preview · completion tracking"
+      />
       <VideoHub videos={videos} />
     </>
   );

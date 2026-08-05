@@ -49,6 +49,7 @@ export const statusPillStyles = {
   inquiry: "bg-soft-cyan text-[#006C9C]",
   waitlist: "bg-soft-yellow text-[#B76E00]",
   pending_first_payment: "bg-orange-100 text-orange-700",
+  pending_ho_fee: "bg-amber-100 text-amber-800",
   enrol_unpaid: "bg-orange-100 text-orange-700",
   alumni: "bg-bg text-muted",
   inactive: "bg-bg text-muted",

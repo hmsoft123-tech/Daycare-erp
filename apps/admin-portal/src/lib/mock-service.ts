@@ -2,7 +2,10 @@ import { admissions } from "@/data/admissions";
 import { branches } from "@/data/branches";
 import { invoices, revenueData, branchRevenue } from "@/data/billing";
 import { students, parents, classes } from "@/data/students";
-import { staff, trainingVideos } from "@/data/staff";
+import { classroomActivities } from "@/data/classroom-activities";
+import { feeLockRequests } from "@/data/fee-lock-requests";
+import { staff } from "@/data/staff";
+import { trainingVideos } from "@/data/training-videos";
 import { staffInquiries } from "@/data/staff-inquiries";
 import { purchaseRequisitions, inventoryItems, stockLevels } from "@/data/inventory";
 import { serviceOfferings } from "@/data/services";
@@ -29,7 +32,9 @@ import type {
   AdmissionStage,
   Branch,
   BranchScorecard,
+  DiscountType,
   EnrollmentFeedItem,
+  FeeLockRequest,
   InventoryItem,
   Invoice,
   LineItem,
@@ -46,9 +51,14 @@ import type {
   Student,
   StudentFilters,
   StudentNote,
+  StudentStatus,
   TherapySession,
+  TrainingAudience,
+  TrainingTopic,
   TrainingVideo,
   AttendanceRecord,
+  ClassroomActivity,
+  ClassRoom,
 } from "@/types";
 
 // TODO: Replace with API call to /api/branches
@@ -85,12 +95,225 @@ export async function getStudentById(id: string): Promise<Student | undefined> {
 
 export async function updateStudentRecord(
   id: string,
-  patch: Partial<Student>
+  patch: Partial<Student>,
+  opts?: { allowPendingPayment?: boolean }
 ): Promise<Student | undefined> {
   const idx = students.findIndex((s) => s.id === id);
   if (idx < 0) return undefined;
+  if (
+    patch.status === "pending_first_payment" &&
+    students[idx].status !== "pending_first_payment" &&
+    !opts?.allowPendingPayment
+  ) {
+    return undefined;
+  }
   students[idx] = { ...students[idx], ...patch, id };
   return students[idx];
+}
+
+export async function getFeeLockRequests(branchId?: string): Promise<FeeLockRequest[]> {
+  const list = branchId
+    ? feeLockRequests.filter((r) => r.branchId === branchId)
+    : [...feeLockRequests];
+  return list.sort((a, b) => (a.requestedAt < b.requestedAt ? 1 : -1));
+}
+
+/** Branch requests fee lock — student stays current status until HO approves */
+export async function requestStudentFeeLock(input: {
+  studentId: string;
+  monthlyTuition?: number;
+  admissionFee?: number;
+  feeNotes?: string;
+  requestedBy?: string;
+}): Promise<{ ok: true; request: FeeLockRequest } | { ok: false; error: string }> {
+  const student = students.find((s) => s.id === input.studentId);
+  if (!student) return { ok: false, error: "Student not found." };
+  if (student.status === "pending_first_payment") {
+    return { ok: false, error: "Student is already pending payment." };
+  }
+  if (student.status === "inactive" || student.status === "alumni") {
+    return { ok: false, error: "Cannot fee-lock an inactive or alumni student." };
+  }
+  const existing = feeLockRequests.find(
+    (r) => r.studentId === student.id && r.status === "pending_ho"
+  );
+  if (existing) return { ok: false, error: "A fee-lock request is already pending HO approval." };
+
+  const request: FeeLockRequest = {
+    id: `fl-${Date.now()}`,
+    branchId: student.branchId,
+    source: "student",
+    status: "pending_ho",
+    studentName: `${student.firstName} ${student.lastName}`,
+    studentId: student.id,
+    priorStudentStatus: student.status,
+    monthlyTuition: input.monthlyTuition ?? 80000,
+    admissionFee: input.admissionFee ?? 0,
+    feePlan: student.feePlan,
+    feeNotes: input.feeNotes,
+    requestedBy: input.requestedBy ?? "Branch Admin",
+    requestedAt: new Date().toISOString(),
+  };
+  feeLockRequests.unshift(request);
+  return { ok: true, request };
+}
+
+/** Branch submits admission fee package → pending HO (not yet enrol unpaid) */
+export async function requestAdmissionFeeLock(input: {
+  admissionId: string;
+  monthlyTuition: number;
+  admissionFee: number;
+  discountType?: DiscountType;
+  discountValue?: number;
+  feeNotes?: string;
+  feePlan?: string;
+  requestedBy?: string;
+}): Promise<{ ok: true; request: FeeLockRequest; admission: AdmissionCard } | { ok: false; error: string }> {
+  const idx = admissions.findIndex((a) => a.id === input.admissionId);
+  if (idx < 0) return { ok: false, error: "Admission not found." };
+  const card = admissions[idx];
+  const existing = feeLockRequests.find(
+    (r) => r.admissionId === card.id && r.status === "pending_ho"
+  );
+  if (existing) return { ok: false, error: "A fee-lock request is already pending HO approval." };
+
+  admissions[idx] = {
+    ...card,
+    stage: "pending_ho_fee",
+    daysInStage: 0,
+    monthlyTuition: input.monthlyTuition,
+    admissionFee: input.admissionFee,
+    registrationFee: input.admissionFee,
+    discountType: input.discountType,
+    discountValue: input.discountValue,
+    feeNotes: input.feeNotes,
+    invoiceNumber: undefined,
+  };
+
+  const request: FeeLockRequest = {
+    id: `fl-${Date.now()}`,
+    branchId: card.branchId,
+    source: "admission",
+    status: "pending_ho",
+    studentName: card.studentName,
+    admissionId: card.id,
+    monthlyTuition: input.monthlyTuition,
+    admissionFee: input.admissionFee,
+    discountType: input.discountType,
+    discountValue: input.discountValue,
+    feeNotes: input.feeNotes,
+    feePlan: input.feePlan ?? card.program,
+    requestedBy: input.requestedBy ?? "Branch Admin",
+    requestedAt: new Date().toISOString(),
+  };
+  feeLockRequests.unshift(request);
+  return { ok: true, request, admission: admissions[idx] };
+}
+
+/** HO approves → student/admission becomes pending payment (fee locked) */
+export async function decideFeeLockRequest(
+  id: string,
+  decision: "approved" | "rejected",
+  opts?: { decidedBy?: string; hoNotes?: string }
+): Promise<{ ok: true; request: FeeLockRequest } | { ok: false; error: string }> {
+  const idx = feeLockRequests.findIndex((r) => r.id === id);
+  if (idx < 0) return { ok: false, error: "Request not found." };
+  const req = feeLockRequests[idx];
+  if (req.status !== "pending_ho") {
+    return { ok: false, error: "Only pending HO requests can be decided." };
+  }
+
+  if (decision === "rejected") {
+    if (req.admissionId) {
+      const aIdx = admissions.findIndex((a) => a.id === req.admissionId);
+      if (aIdx >= 0 && admissions[aIdx].stage === "pending_ho_fee") {
+        admissions[aIdx] = {
+          ...admissions[aIdx],
+          stage: "meeting_test_scheduled",
+          daysInStage: 0,
+        };
+      }
+    }
+    feeLockRequests[idx] = {
+      ...req,
+      status: "rejected",
+      decidedBy: opts?.decidedBy ?? "Head Office",
+      decidedAt: new Date().toISOString(),
+      hoNotes: opts?.hoNotes,
+    };
+    return { ok: true, request: feeLockRequests[idx] };
+  }
+
+  const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+
+  if (req.studentId) {
+    const student = await updateStudentRecord(
+      req.studentId,
+      {
+        status: "pending_first_payment",
+        feePlan: req.feePlan ?? undefined,
+      },
+      { allowPendingPayment: true }
+    );
+    if (!student) return { ok: false, error: "Could not lock student fees." };
+  }
+
+  if (req.admissionId) {
+    const aIdx = admissions.findIndex((a) => a.id === req.admissionId);
+    if (aIdx >= 0) {
+      admissions[aIdx] = {
+        ...admissions[aIdx],
+        stage: "enrol_unpaid",
+        daysInStage: 0,
+        monthlyTuition: req.monthlyTuition,
+        admissionFee: req.admissionFee,
+        registrationFee: req.admissionFee,
+        discountType: req.discountType,
+        discountValue: req.discountValue,
+        feeNotes: req.feeNotes,
+        invoiceNumber,
+      };
+    }
+  }
+
+  feeLockRequests[idx] = {
+    ...req,
+    status: "approved",
+    decidedBy: opts?.decidedBy ?? "Head Office",
+    decidedAt: new Date().toISOString(),
+    hoNotes: opts?.hoNotes,
+    invoiceNumber,
+  };
+  return { ok: true, request: feeLockRequests[idx] };
+}
+
+/** Public / invite enrollment — create student only after staging HO fee-lock request */
+export async function requestEnrollmentFeeLock(input: {
+  student: Student;
+  monthlyTuition?: number;
+  admissionFee?: number;
+  feeNotes?: string;
+  requestedBy?: string;
+}): Promise<{ ok: true; request: FeeLockRequest; student: Student } | { ok: false; error: string }> {
+  const student: Student = {
+    ...input.student,
+    status: "inquiry" as StudentStatus,
+  };
+  students.unshift(student);
+  const result = await requestStudentFeeLock({
+    studentId: student.id,
+    monthlyTuition: input.monthlyTuition,
+    admissionFee: input.admissionFee,
+    feeNotes: input.feeNotes ?? "Public enrollment — HO fee lock before pending payment",
+    requestedBy: input.requestedBy ?? "Online enrollment",
+  });
+  if (!result.ok) {
+    const i = students.findIndex((s) => s.id === student.id);
+    if (i >= 0) students.splice(i, 1);
+    return result;
+  }
+  feeLockRequests[0] = { ...result.request, source: "enrollment" };
+  return { ok: true, request: feeLockRequests[0], student };
 }
 
 /** Move enrolled student to another campus + class */
@@ -594,44 +817,81 @@ export async function getRecentEnrollments(): Promise<EnrollmentFeedItem[]> {
 }
 
 // TODO: Replace with API call to /api/training
-export async function getTrainingVideos(): Promise<TrainingVideo[]> {
-  return trainingVideos;
+export async function getTrainingVideos(opts?: {
+  audience?: TrainingAudience;
+  topic?: TrainingTopic;
+  activeOnly?: boolean;
+}): Promise<TrainingVideo[]> {
+  let list = [...trainingVideos];
+  if (opts?.activeOnly !== false) list = list.filter((v) => v.active !== false);
+  if (opts?.audience) list = list.filter((v) => v.audience === opts.audience);
+  if (opts?.topic) list = list.filter((v) => v.topic === opts.topic);
+  return list;
 }
+
+export async function getTrainingVideoById(id: string): Promise<TrainingVideo | undefined> {
+  return trainingVideos.find((v) => v.id === id);
+}
+
+const therapySessions: TherapySession[] = [
+  {
+    id: "ts1",
+    studentId: "s1",
+    date: "2026-07-20",
+    therapistName: "Sana Javed",
+    duration: 45,
+    types: ["Speech", "ABA"],
+    subjective: "Hamdan was cooperative today.",
+    objective: "Completed articulation exercises.",
+    assessment: "Good progress on /s/ sounds.",
+    plan: "Continue current protocol.",
+    complianceScore: 8,
+    goalsAchieved: ["Articulation practice", "Turn-taking"],
+  },
+  {
+    id: "ts2",
+    studentId: "s1",
+    date: "2026-07-13",
+    therapistName: "Usman Ali",
+    duration: 60,
+    types: ["Occupational"],
+    subjective: "Some resistance to fine motor tasks.",
+    objective: "Completed peg board activity.",
+    assessment: "Improving grip strength.",
+    plan: "Increase difficulty next session.",
+    complianceScore: 6,
+    goalsAchieved: ["Fine motor practice"],
+  },
+];
 
 // TODO: Replace with API call to /api/therapy/sessions
 export async function getTherapySessions(studentId?: string): Promise<TherapySession[]> {
-  const sessions: TherapySession[] = [
-    {
-      id: "ts1",
-      studentId: "s1",
-      date: "2025-06-20",
-      therapistName: "Sana Javed",
-      duration: 45,
-      types: ["Speech", "ABA"],
-      subjective: "Hamdan was cooperative today.",
-      objective: "Completed articulation exercises.",
-      assessment: "Good progress on /s/ sounds.",
-      plan: "Continue current protocol.",
-      complianceScore: 8,
-      goalsAchieved: ["Articulation practice", "Turn-taking"],
-    },
-    {
-      id: "ts2",
-      studentId: "s1",
-      date: "2025-06-13",
-      therapistName: "Usman Ali",
-      duration: 60,
-      types: ["Occupational"],
-      subjective: "Some resistance to fine motor tasks.",
-      objective: "Completed peg board activity.",
-      assessment: "Improving grip strength.",
-      plan: "Increase difficulty next session.",
-      complianceScore: 6,
-      goalsAchieved: ["Fine motor practice"],
-    },
-  ];
-  if (studentId) return sessions.filter((s) => s.studentId === studentId);
-  return sessions;
+  if (studentId) return therapySessions.filter((s) => s.studentId === studentId);
+  return therapySessions;
+}
+
+export async function createTherapySession(
+  input: Omit<TherapySession, "id" | "date" | "goalsAchieved"> & {
+    date?: string;
+    goalsAchieved?: string[];
+  }
+): Promise<TherapySession> {
+  const session: TherapySession = {
+    id: `ts-${Date.now()}`,
+    date: input.date ?? new Date().toISOString().slice(0, 10),
+    studentId: input.studentId,
+    therapistName: input.therapistName,
+    duration: input.duration,
+    types: input.types,
+    subjective: input.subjective,
+    objective: input.objective,
+    assessment: input.assessment,
+    plan: input.plan,
+    complianceScore: input.complianceScore,
+    goalsAchieved: input.goalsAchieved ?? [],
+  };
+  therapySessions.unshift(session);
+  return session;
 }
 
 // TODO: Replace with API call to /api/reports/scorecards
@@ -666,9 +926,80 @@ export async function getMedicalIncidents(studentId: string): Promise<MedicalInc
   ];
 }
 
-export async function getClasses(branchId?: string) {
+export async function getClasses(branchId?: string): Promise<ClassRoom[]> {
   if (!branchId) return classes;
   return classes.filter((c) => c.branchId === branchId);
+}
+
+export async function getClassById(id: string): Promise<ClassRoom | undefined> {
+  return classes.find((c) => c.id === id);
+}
+
+export async function updateClassRoom(
+  id: string,
+  patch: Partial<Pick<ClassRoom, "name" | "teacherId" | "capacity" | "classGroup" | "ageBand">>
+): Promise<ClassRoom | undefined> {
+  const idx = classes.findIndex((c) => c.id === id);
+  if (idx < 0) return undefined;
+  if (patch.teacherId) {
+    const teacher = staff.find((s) => s.id === patch.teacherId);
+    if (!teacher || teacher.branchId !== classes[idx].branchId) {
+      return undefined;
+    }
+  }
+  classes[idx] = { ...classes[idx], ...patch, id };
+  return classes[idx];
+}
+
+/** Assign student to a classroom (syncs branch + className) */
+export async function assignStudentToClass(
+  studentId: string,
+  classId: string
+): Promise<{ ok: true; student: Student } | { ok: false; error: string }> {
+  const student = students.find((s) => s.id === studentId);
+  const room = classes.find((c) => c.id === classId);
+  if (!student) return { ok: false, error: "Student not found." };
+  if (!room) return { ok: false, error: "Classroom not found." };
+  student.previousBranchId =
+    student.branchId !== room.branchId ? student.branchId : student.previousBranchId;
+  student.branchId = room.branchId;
+  student.classId = room.id;
+  student.className = room.name;
+  return { ok: true, student };
+}
+
+export async function getClassroomActivities(opts?: {
+  classId?: string;
+  studentId?: string;
+  branchId?: string;
+  parentsOnly?: boolean;
+}): Promise<ClassroomActivity[]> {
+  let list = [...classroomActivities];
+  if (opts?.classId) list = list.filter((a) => a.classId === opts.classId);
+  if (opts?.studentId) list = list.filter((a) => a.studentId === opts.studentId);
+  if (opts?.branchId) list = list.filter((a) => a.branchId === opts.branchId);
+  if (opts?.parentsOnly) list = list.filter((a) => a.visibleToParents);
+  return list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+export async function createClassroomActivity(
+  input: Omit<ClassroomActivity, "id" | "createdAt" | "time"> & {
+    time?: string;
+    createdAt?: string;
+  }
+): Promise<ClassroomActivity> {
+  const now = new Date();
+  const activity: ClassroomActivity = {
+    ...input,
+    id: `act-${Date.now()}`,
+    createdAt: input.createdAt ?? now.toISOString(),
+    time:
+      input.time ??
+      now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+    visibleToParents: input.visibleToParents ?? true,
+  };
+  classroomActivities.unshift(activity);
+  return activity;
 }
 
 // TODO: Replace with API call to /api/services

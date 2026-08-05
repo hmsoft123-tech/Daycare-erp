@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createTherapySession } from "@/lib/mock-service";
+import type { TherapySession } from "@/types";
 import { toast } from "sonner";
 
 const therapySchema = z.object({
@@ -27,9 +29,10 @@ type TherapyFormData = z.infer<typeof therapySchema>;
 interface TherapyLogFormProps {
   studentId?: string;
   studentName?: string;
+  onSaved?: (session: TherapySession) => void;
 }
 
-export function TherapyLogForm({ studentId = "", studentName }: TherapyLogFormProps) {
+export function TherapyLogForm({ studentId = "", studentName, onSaved }: TherapyLogFormProps) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<TherapyFormData>({
     resolver: zodResolver(therapySchema),
     defaultValues: {
@@ -45,9 +48,27 @@ export function TherapyLogForm({ studentId = "", studentName }: TherapyLogFormPr
     },
   });
 
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = handleSubmit(async (data) => {
+    const session = await createTherapySession({
+      studentId: data.studentId,
+      therapistName: data.therapistName.trim(),
+      duration: data.duration,
+      types: data.types.split(",").map((t) => t.trim()).filter(Boolean),
+      subjective: data.subjective.trim(),
+      objective: data.objective.trim(),
+      assessment: data.assessment.trim(),
+      plan: data.plan.trim(),
+      complianceScore: data.complianceScore,
+    });
+    onSaved?.(session);
     toast.success(`Therapy log saved for ${studentName ?? data.studentId}`);
-    reset({ ...data, subjective: "", objective: "", assessment: "", plan: "" });
+    reset({
+      ...data,
+      subjective: "",
+      objective: "",
+      assessment: "",
+      plan: "",
+    });
   });
 
   return (

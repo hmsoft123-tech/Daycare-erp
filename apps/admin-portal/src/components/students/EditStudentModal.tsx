@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { classes } from "@/data/students";
 import { branches } from "@/data/branches";
+import { requestStudentFeeLock } from "@/lib/mock-service";
 import type { Student, StudentStatus } from "@/types";
 import { toast } from "sonner";
 
@@ -65,14 +66,14 @@ export function EditStudentModal({ open, student, onClose, onSave }: Props) {
     setAllergies(student.allergies.join(", "));
   }, [student]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!student) return;
     if (firstName.trim().length < 2 || lastName.trim().length < 2) {
       toast.error("First and last name are required");
       return;
     }
     const cls = classes.find((c) => c.id === classId);
-    onSave(student.id, {
+    const base = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       dob,
@@ -81,10 +82,28 @@ export function EditStudentModal({ open, student, onClose, onSave }: Props) {
       classId,
       className: cls?.name ?? student.className,
       branchId: cls?.branchId ?? branchId,
-      status,
       feePlan: feePlan.trim(),
       allergies: allergies.trim(),
-    });
+    };
+
+    // Fee lock requires HO approval before pending payment status
+    if (status === "pending_first_payment" && student.status !== "pending_first_payment") {
+      const result = await requestStudentFeeLock({
+        studentId: student.id,
+        feeNotes: `Request pending payment / parent portal fee lock · plan ${feePlan.trim() || student.feePlan || "—"}`,
+        requestedBy: "Branch Admin",
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      onSave(student.id, { ...base, status: student.status });
+      toast.success("Sent to Head Office (Billing → Fee Lock Approvals). Not pending until approved.");
+      onClose();
+      return;
+    }
+
+    onSave(student.id, { ...base, status });
     toast.success(
       status === "inactive" || status === "alumni"
         ? "Student updated — billing entries blocked while inactive"
@@ -151,7 +170,7 @@ export function EditStudentModal({ open, student, onClose, onSave }: Props) {
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inquiry">Inquiry</SelectItem>
-                <SelectItem value="pending_first_payment">Pending payment</SelectItem>
+                <SelectItem value="pending_first_payment">Pending payment (needs HO fee lock)</SelectItem>
                 <SelectItem value="alumni">Alumni</SelectItem>
                 <SelectItem value="inactive">Inactive (left / withdrawn)</SelectItem>
               </SelectContent>

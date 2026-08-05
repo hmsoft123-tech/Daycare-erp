@@ -42,6 +42,7 @@ import {
   planLabel,
   planMonthlyTotal,
 } from "@/lib/services-catalog";
+import { requestEnrollmentFeeLock } from "@/lib/mock-service";
 import { toast } from "sonner";
 import { Check, ChevronLeft, ChevronRight, FileUp, Upload } from "lucide-react";
 import type { PortalIdCard, ServiceTier, Student } from "@/types";
@@ -376,7 +377,7 @@ export function EnrollmentWizard({
       classId: room?.id ?? "c1",
       className: room?.name ?? label,
       enrollmentDate: data.joiningDate || new Date().toISOString().slice(0, 10),
-      status: isPublic ? "pending_first_payment" : "active",
+      status: "active",
       parentIds: [],
       feePlan: label,
       servicePlanId: planId(data.classGroup, data.careTier),
@@ -384,15 +385,29 @@ export function EnrollmentWizard({
       gender: data.gender === "other" ? "male" : data.gender,
       idCardNumber: isPublic ? undefined : cardNumber,
     };
-    students.unshift(student);
 
-    if (isPublic && inviteToken) {
-      completeEnrollmentInvite(inviteToken);
-      toast.success("Enrollment submitted — school will follow up for payment");
+    // Public enrollments need HO fee-lock approval before pending payment
+    if (isPublic) {
+      const lock = await requestEnrollmentFeeLock({
+        student,
+        monthlyTuition: planMonthlyTotal(data.classGroup, data.careTier),
+        admissionFee: planAdmissionFee(data.classGroup, data.careTier),
+        feeNotes: `Online enrollment · ${label}`,
+        requestedBy: "Online enrollment",
+      });
+      if (!lock.ok) {
+        toast.error(lock.error);
+        return;
+      }
+      if (inviteToken) completeEnrollmentInvite(inviteToken);
+      toast.success(
+        "Enrollment submitted — Head Office must approve fee lock before pending payment"
+      );
       onPublicComplete?.({ childName: data.childFullName });
       return;
     }
 
+    students.unshift(student);
     const card = await issueStudentIdCard(student.id);
     toast.success(`Enrollment saved — ID card ${cardNumber} generated`);
     setIssuedCard(card);

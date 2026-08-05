@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Baby,
@@ -20,6 +20,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { mockChildren, mockFeed, type FeedItem } from "@/data/mock";
+import { fetchClassroomFeed } from "@/lib/classroom-feed";
 import { useBillingStore } from "@/lib/billing-store";
 import { cn } from "@kinder-pilot/ui";
 import Link from "next/link";
@@ -52,9 +53,25 @@ export default function ParentHomePage() {
   const isChildUnlocked = useBillingStore((s) => s.isChildUnlocked);
   const [childId, setChildId] = useState<string>("all");
   const [filter, setFilter] = useState<string>("all");
+  const [liveFeed, setLiveFeed] = useState<FeedItem[]>(mockFeed);
   const [likes, setLikes] = useState<Record<string, { count: number; liked: boolean }>>(() =>
     Object.fromEntries(mockFeed.map((f) => [f.id, { count: f.likes ?? 0, liked: !!f.liked }]))
   );
+
+  useEffect(() => {
+    const ids = mockChildren.map((c) => c.id);
+    fetchClassroomFeed(ids).then((items) => {
+      if (!items.length) return;
+      setLiveFeed(items);
+      setLikes((prev) => {
+        const next = { ...prev };
+        for (const f of items) {
+          if (!next[f.id]) next[f.id] = { count: f.likes ?? 0, liked: !!f.liked };
+        }
+        return next;
+      });
+    });
+  }, []);
 
   const pendingChildren = mockChildren.filter(
     (c) => c.enrollmentStatus === "pending_first_payment" && !isChildUnlocked(c.id, c.enrollmentStatus)
@@ -63,7 +80,7 @@ export default function ParentHomePage() {
   const feedLocked = hasPendingPayment;
 
   const feed = useMemo(() => {
-    return mockFeed.filter((item) => {
+    return liveFeed.filter((item) => {
       const childOk = childId === "all" || item.childId === childId;
       const typeOk =
         filter === "all" ||
@@ -71,7 +88,7 @@ export default function ParentHomePage() {
         (filter === "checkin" && (item.type === "checkin" || item.type === "checkout"));
       return childOk && typeOk;
     });
-  }, [childId, filter]);
+  }, [liveFeed, childId, filter]);
 
   const toggleLike = (id: string) => {
     setLikes((prev) => {
@@ -86,9 +103,14 @@ export default function ParentHomePage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 md:space-y-6">
+      <section className="hidden md:block">
+        <h1 className="font-heading text-2xl font-bold text-heading lg:text-3xl">Family feed</h1>
+        <p className="mt-1 text-sm text-muted">Daily updates from your children&apos;s classrooms</p>
+      </section>
+
       {hasPendingPayment && (
-        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-card">
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-card md:p-5">
           <div className="flex items-start gap-3">
             <div className="rounded-full bg-amber-100 p-2 text-amber-700">
               <AlertTriangle className="h-5 w-5" />
@@ -211,8 +233,8 @@ export default function ParentHomePage() {
 
         {feedLocked ? (
           <div className="relative overflow-hidden rounded-2xl">
-            <div className="pointer-events-none select-none space-y-3 blur-sm">
-              {feed.slice(0, +2).map((item) => (
+            <div className="pointer-events-none select-none space-y-3 blur-sm md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+              {feed.slice(0, 2).map((item) => (
                 <div key={item.id} className="rounded-2xl bg-surface p-4 shadow-card">
                   <p className="text-sm font-bold">{item.title}</p>
                   <p className="text-xs text-muted">{item.body}</p>
@@ -223,7 +245,7 @@ export default function ParentHomePage() {
               <Lock className="h-8 w-8 text-amber-600" />
               <p className="mt-3 text-sm font-bold text-heading">Activity feed locked</p>
               <p className="mt-1 max-w-xs text-xs text-muted">
-                Pay the enrollment invoice to unlock daily updates, photos, and messages.
+                Pay the enrollment invoice to unlock daily updates, activity, and learning videos.
               </p>
               <Link
                 href="/billing"
@@ -242,7 +264,7 @@ export default function ParentHomePage() {
                 <p className="mt-1 text-xs text-muted">Updates from school will appear here.</p>
               </div>
             )}
-            <ul className="space-y-3">
+            <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
               {feed.map((item, i) => {
                 const meta = feedMeta[item.type];
                 const Icon = meta.icon;
@@ -255,20 +277,20 @@ export default function ParentHomePage() {
                     transition={{ delay: Math.min(i * 0.04, 0.24) }}
                     className="overflow-hidden rounded-2xl bg-surface shadow-card"
                   >
-                    <div className="flex items-center gap-3 px-3.5 pt-3.5">
+                    <div className="flex items-center gap-3 px-3.5 pt-3.5 sm:px-4 sm:pt-4">
                       <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", meta.bg, meta.color)}>
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-heading">{item.title}</p>
-                        <p className="text-[11px] text-muted">
+                        <p className="text-sm font-bold text-heading sm:text-[15px]">{item.title}</p>
+                        <p className="text-[11px] text-muted sm:text-xs">
                           {item.childName} · {item.time}
                         </p>
                       </div>
                     </div>
 
                     {item.imageUrl ? (
-                      <div className="relative mt-3 aspect-[4/3] bg-bg">
+                      <div className="relative mt-3 aspect-[16/10] bg-bg sm:aspect-[16/9]">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.imageUrl}
@@ -278,10 +300,11 @@ export default function ParentHomePage() {
                       </div>
                     ) : null}
 
-                    <div className="px-3.5 py-3">
+                    <div className="px-3.5 py-3 sm:px-4 sm:py-4">
                       <p className="text-sm leading-relaxed text-heading/85">{item.body}</p>
                       {item.type === "photo" && (
                         <button
+                          type="button"
                           onClick={() => toggleLike(item.id)}
                           className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-bg px-3 py-1.5 text-xs font-semibold text-muted"
                         >

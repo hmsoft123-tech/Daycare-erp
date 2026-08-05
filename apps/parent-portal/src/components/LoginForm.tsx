@@ -34,13 +34,13 @@ export function LoginForm({ schoolName }: LoginFormProps) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#F7F8FA] px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#F7F8FA] px-4 py-10 sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,106,61,0.12),_transparent_55%)]" />
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative w-full max-w-[420px]"
+        className="relative w-full max-w-[420px] lg:max-w-[440px]"
       >
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500 text-xl font-bold text-white shadow-[0_10px_24px_-8px_rgba(255,106,61,0.55)]">

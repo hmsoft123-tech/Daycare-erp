@@ -53,9 +53,19 @@ export type RequisitionKind =
 export type AdmissionStage =
   | "new_inquiry"
   | "meeting_test_scheduled"
+  /** Branch submitted fee package — awaiting Head Office fee-lock approval */
+  | "pending_ho_fee"
   | "enrol_unpaid"
   | "paid"
   | "waitlist";
+
+/**
+ * Head Office must approve fee locking before a student/admission becomes
+ * pending payment (parent portal lock / enrol unpaid).
+ */
+export type FeeLockRequestStatus = "pending_ho" | "approved" | "rejected";
+
+export type FeeLockRequestSource = "student" | "admission" | "enrollment";
 
 /** Short label on admission cards, e.g. Hot Lead / Sibling / Walk-in */
 export type AdmissionTag =
@@ -524,6 +534,30 @@ export type DiscountType =
   | "staff"
   | "promo";
 
+export interface FeeLockRequest {
+  id: string;
+  branchId: string;
+  source: FeeLockRequestSource;
+  status: FeeLockRequestStatus;
+  studentName: string;
+  studentId?: string;
+  admissionId?: string;
+  /** Prior student status before lock (restored on reject when applicable) */
+  priorStudentStatus?: StudentStatus;
+  monthlyTuition: number;
+  admissionFee: number;
+  discountType?: DiscountType;
+  discountValue?: number;
+  feeNotes?: string;
+  feePlan?: string;
+  requestedBy: string;
+  requestedAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  hoNotes?: string;
+  invoiceNumber?: string;
+}
+
 export interface AdmissionCard {
   id: string;
   studentName: string;
@@ -627,6 +661,38 @@ export interface ClassRoom {
   capacity?: number;
 }
 
+/** Teacher daily log — visible on parent portal activity feed */
+export type ClassroomActivityType =
+  | "meal"
+  | "nap"
+  | "activity"
+  | "note"
+  | "photo"
+  | "checkin"
+  | "checkout"
+  | "potty"
+  | "learning";
+
+export interface ClassroomActivity {
+  id: string;
+  type: ClassroomActivityType;
+  title: string;
+  body: string;
+  /** Display time e.g. 12:40 PM */
+  time: string;
+  createdAt: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  branchId: string;
+  teacherId: string;
+  teacherName: string;
+  imageUrl?: string;
+  /** When true, shown on parent portal feed */
+  visibleToParents: boolean;
+  likes?: number;
+}
+
 export interface RevenueDataPoint {
   month: string;
   revenue: number;
@@ -662,14 +728,41 @@ export interface TherapySession {
   goalsAchieved: string[];
 }
 
+/** Who the video is for in the Training & Induction hub */
+export type TrainingAudience = "staff" | "parents";
+
+/** Staff content buckets */
+export type StaffTrainingTopic =
+  | "induction"
+  | "policy"
+  | "activity"
+  | "safety"
+  | "therapy";
+
+/** Parent content buckets */
+export type ParentTrainingTopic = "orientation" | "app_guide" | "policy";
+
+export type TrainingTopic = StaffTrainingTopic | ParentTrainingTopic;
+
+/** Role filter for staff library (legacy + audience targeting) */
+export type TrainingRoleCategory = "all" | "teachers" | "therapists";
+
 export interface TrainingVideo {
   id: string;
   title: string;
+  description: string;
   duration: string;
-  category: "all" | "teachers" | "therapists";
+  audience: TrainingAudience;
+  topic: TrainingTopic;
+  /** YouTube video id (watch?v=…) */
+  youtubeId: string;
+  /** Staff role targeting; ignored for parent videos */
+  category: TrainingRoleCategory;
   thumbnail?: string;
-  progress: number;
+  /** @deprecated prefer per-user completion store */
+  progress?: number;
   featured?: boolean;
+  active?: boolean;
 }
 
 export interface BranchScorecard {

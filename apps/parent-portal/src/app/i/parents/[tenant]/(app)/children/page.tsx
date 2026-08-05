@@ -6,18 +6,18 @@ import { mockChildren } from "@/data/mock";
 
 export default function ParentChildrenPage() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 md:space-y-6">
       <section>
-        <h1 className="font-heading text-xl font-bold text-heading">My children</h1>
+        <h1 className="font-heading text-xl font-bold text-heading md:text-2xl lg:text-3xl">My children</h1>
         <p className="mt-1 text-sm text-muted">Profiles, classrooms, and health notes</p>
       </section>
 
-      <ul className="space-y-3">
+      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 lg:gap-4">
         {mockChildren.map((child) => (
           <li key={child.id}>
             <Link
               href="/home"
-              className="block overflow-hidden rounded-2xl bg-surface shadow-card transition hover:shadow-[0_8px_28px_rgba(31,41,51,0.1)]"
+              className="block h-full overflow-hidden rounded-2xl bg-surface shadow-card transition hover:shadow-[0_8px_28px_rgba(31,41,51,0.1)]"
             >
               <div className="flex items-center gap-3 p-4">
                 <div

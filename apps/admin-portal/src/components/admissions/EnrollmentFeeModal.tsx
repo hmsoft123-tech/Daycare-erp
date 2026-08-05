@@ -94,6 +94,9 @@ export function EnrollmentFeeModal({
           {card && (
             <p className="mt-1 text-sm text-muted">
               Moving <span className="font-semibold text-heading">{card.studentName}</span> to {targetStageLabel}
+              {targetStageLabel.includes("HO") || targetStageLabel.includes("Unpaid")
+                ? " — Head Office must approve fee lock before pending payment"
+                : ""}
             </p>
           )}
         </div>

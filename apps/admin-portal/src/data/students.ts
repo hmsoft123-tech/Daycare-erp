@@ -21,7 +21,7 @@ export const students: Student[] = [
     allergies: ["Peanuts"],
     branchId: "branch-nn",
     classId: "c1",
-    className: "Toddler Room A",
+    className: "Infant Room A",
     enrollmentDate: "2024-01-10",
     status: "active",
     parentIds: ["p1", "p2"],
@@ -57,7 +57,7 @@ export const students: Student[] = [
     allergies: [],
     branchId: "branch-clifton",
     classId: "c2",
-    className: "Preschool B",
+    className: "Playgroup B",
     enrollmentDate: "2023-09-01",
     status: "active",
     parentIds: ["p3", "p4"],
@@ -125,7 +125,7 @@ export const students: Student[] = [
     allergies: ["Eggs"],
     branchId: "branch-clifton",
     classId: "c2",
-    className: "Preschool B",
+    className: "Playgroup B",
     enrollmentDate: "2024-02-14",
     status: "active",
     parentIds: ["p3"],
@@ -171,9 +171,9 @@ export const students: Student[] = [
 ];
 
 export const classes = [
-  { id: "c1", name: "Infant Room A", branchId: "branch-nn", teacherId: "st1", classGroup: "infant", ageBand: "40 days – 1.2 years", capacity: 12 },
+  { id: "c1", name: "Infant Room A", branchId: "branch-nn", teacherId: "st9", classGroup: "infant", ageBand: "40 days – 1.2 years", capacity: 12 },
   { id: "c2", name: "Playgroup B", branchId: "branch-clifton", teacherId: "st2", classGroup: "playgroup", capacity: 18 },
   { id: "c3", name: "Kindergarten", branchId: "branch-dha", teacherId: "st3", classGroup: "kindergarten", capacity: 20 },
-  { id: "c4", name: "Nursery", branchId: "branch-gulshan", teacherId: "st4", classGroup: "nursery", capacity: 18 },
-  { id: "c5", name: "Pre-Nursery", branchId: "branch-dha", teacherId: "st5", classGroup: "pre_nursery", capacity: 16 },
+  { id: "c4", name: "Nursery", branchId: "branch-gulshan", teacherId: "st10", classGroup: "nursery", capacity: 18 },
+  { id: "c5", name: "Pre-Nursery", branchId: "branch-dha", teacherId: "st3", classGroup: "pre_nursery", capacity: 16 },
 ];

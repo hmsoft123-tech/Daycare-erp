@@ -32,6 +32,7 @@ const EMAILS = [
 const stages: AdmissionStage[] = [
   "new_inquiry",
   "meeting_test_scheduled",
+  "pending_ho_fee",
   "enrol_unpaid",
   "paid",
   "waitlist",
@@ -76,7 +77,7 @@ const stageOverrides: Record<string, AdmissionStage> = {
   a3: "meeting_test_scheduled",
   a4: "meeting_test_scheduled",
   a5: "meeting_test_scheduled",
-  a6: "enrol_unpaid",
+  a6: "pending_ho_fee",
   a12: "enrol_unpaid",
   a28: "enrol_unpaid",
   a7: "paid",
@@ -105,17 +106,19 @@ export const admissions: AdmissionCard[] = cardData.map((card, i) => {
     extras.meetingLocation = "Front office · Campus tour desk";
     extras.meetingNotes = "Bring child for classroom visit";
   }
-  if (stage === "enrol_unpaid" || stage === "paid") {
+  if (stage === "enrol_unpaid" || stage === "paid" || stage === "pending_ho_fee") {
     extras.monthlyTuition = card.monthlyTuition ?? 80000;
     extras.admissionFee = card.registrationFee ?? (i % 3 === 0 ? 0 : 5000);
     extras.discountType = i % 4 === 0 ? "sibling" : i % 5 === 0 ? "percent" : "none";
     extras.discountValue = extras.discountType === "percent" ? 10 : extras.discountType === "sibling" ? 5000 : 0;
     extras.feeNotes =
-      extras.discountType === "sibling"
-        ? "Sibling discount applied; registration as agreed."
-        : extras.admissionFee === 0
-          ? "Admission fee waived for early commitment."
-          : "Standard fee plan.";
+      stage === "pending_ho_fee"
+        ? "Awaiting Head Office fee-lock approval before enrol unpaid."
+        : extras.discountType === "sibling"
+          ? "Sibling discount applied; registration as agreed."
+          : extras.admissionFee === 0
+            ? "Admission fee waived for early commitment."
+            : "Standard fee plan.";
   }
 
   return {
