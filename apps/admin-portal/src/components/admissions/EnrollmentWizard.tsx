@@ -43,6 +43,7 @@ import {
   planMonthlyTotal,
 } from "@/lib/services-catalog";
 import { requestEnrollmentFeeLock } from "@/lib/mock-service";
+import { generateGrNumber } from "@/lib/gr-number";
 import { toast } from "sonner";
 import { Check, ChevronLeft, ChevronRight, FileUp, Upload } from "lucide-react";
 import type { PortalIdCard, ServiceTier, Student } from "@/types";
@@ -384,6 +385,10 @@ export function EnrollmentWizard({
       extras: extrasFromSelection(data.classGroup, data.careTier, data.addOns),
       gender: data.gender === "other" ? "male" : data.gender,
       idCardNumber: isPublic ? undefined : cardNumber,
+      grNumber: generateGrNumber(
+        data.branchId,
+        students.map((s) => s.grNumber).filter(Boolean) as string[]
+      ),
     };
 
     // Public enrollments need HO fee-lock approval before pending payment

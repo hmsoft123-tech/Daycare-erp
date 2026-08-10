@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { classes } from "@/data/students";
-import { branches } from "@/data/branches";
 import { requestStudentFeeLock } from "@/lib/mock-service";
 import type { Student, StudentStatus } from "@/types";
 import { toast } from "sonner";
@@ -183,7 +182,7 @@ export function EditStudentModal({ open, student, onClose, onSave }: Props) {
           </div>
         </div>
         <div>
-          <Label>Class</Label>
+          <Label>Class (same branch only)</Label>
           <Select
             value={classId}
             onValueChange={(v) => {
@@ -194,13 +193,19 @@ export function EditStudentModal({ open, student, onClose, onSave }: Props) {
           >
             <SelectTrigger className="mt-1"><SelectValue placeholder="Select class" /></SelectTrigger>
             <SelectContent>
-              {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name} ({branches.find((b) => b.id === c.branchId)?.name.replace(" Campus", "")})
-                </SelectItem>
-              ))}
+              {classes
+                .filter((c) => c.branchId === (student?.branchId ?? branchId))
+                .map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
+          <p className="mt-1 text-xs text-muted">
+            To change campus, use <span className="font-semibold">Change branch</span> on the student
+            profile (new G.R. number is issued).
+          </p>
         </div>
         <div>
           <Label htmlFor="editFeePlan">Fee plan</Label>

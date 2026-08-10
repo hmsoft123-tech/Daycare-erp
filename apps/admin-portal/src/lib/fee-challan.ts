@@ -22,13 +22,14 @@ export const CHALLAN_BANK = {
   address: "B-43 BLOCK-N, North Nazimabad, Karachi",
 } as const;
 
+/** Exact bank-accepted wording from SDLC Bank Al Habib voucher */
 export const CHALLAN_TERMS = [
   "Fee is payable in advance every month.",
-  `After due date, late charges of Rs. ${LATE_FEE_AFTER_DUE.toLocaleString()} will be charged.`,
-  "After expiry date, the fee voucher will no longer be valid and will expire from all payment platforms including over the counter.",
-  `If the fee voucher has not been cleared on or before expiry date then an additional late surcharge of Rs. ${EXPIRY_SURCHARGE.toLocaleString()} (Total Rs. ${(LATE_FEE_AFTER_DUE + EXPIRY_SURCHARGE).toLocaleString()}) will be added on as arrears at the time of the next billing cycle.`,
-  "Interbank Funds Transfer (IBFT) is not allowed.",
-  "Fee will not be accepted in instalments.",
+  `After due date, late charges of Rs. ${LATE_FEE_AFTER_DUE.toLocaleString()} will be charged`,
+  "After expiry date, the fee voucher will no longer be valid and will expire from all payment platforms including over the counter",
+  `If the fee voucher has not been cleared on or before expiry date then an additional late surcharge of Rs. ${EXPIRY_SURCHARGE.toLocaleString()} (Total Rs. ${(LATE_FEE_AFTER_DUE + EXPIRY_SURCHARGE).toLocaleString()} ) will be added on as arrears at the time of the next billing cycle.`,
+  "Interbank Funds Transfer(IBFT) is not allowed",
+  "Fee will not be accepted in instalments",
 ] as const;
 
 export function addDaysIso(isoDate: string, days: number): string {

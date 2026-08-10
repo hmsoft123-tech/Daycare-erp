@@ -15,7 +15,11 @@ export function prefillStudentLetter(student: Student, kind: LetterKind): Letter
     parents.find((p) => student.parentIds.includes(p.id));
   const base: LetterValues = {
     branchName: branch?.name ?? "",
-    grNumber: student.idCardNumber?.replace(/\D/g, "").slice(-5) || student.id.replace(/\D/g, "") || "—",
+    grNumber:
+      student.grNumber ||
+      student.idCardNumber?.replace(/\D/g, "").slice(-5) ||
+      student.id.replace(/\D/g, "") ||
+      "—",
     childFullName: `${student.firstName} ${student.lastName}`,
     dateOfBirth: student.dob,
     fatherName: father?.name ?? "",

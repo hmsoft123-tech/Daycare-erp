@@ -24,6 +24,7 @@ const ADMIN_PREFIXES = [
   "/documents",
   "/parents",
   "/attendance",
+  "/academics",
   "/billing",
   "/inventory",
   "/hr",

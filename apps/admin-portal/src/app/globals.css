@@ -100,13 +100,41 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-card-hover);
 }
 
+.fee-challan .challan-sheet {
+  min-height: 560px;
+}
+.fee-challan,
+.fee-challan * {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 5mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
   body * {
     visibility: hidden !important;
   }
+  .challan-print-root,
+  .challan-print-root .fee-challan,
   .fee-challan,
   .fee-challan * {
     visibility: visible !important;
+  }
+  .challan-print-root {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: #fff !important;
+    overflow: visible !important;
   }
   .fee-challan {
     position: absolute;
@@ -114,11 +142,22 @@ h1, h2, h3, h4, h5, h6 {
     top: 0;
     width: 100%;
   }
-  .challan-copy {
-    page-break-after: always;
+  .print\:hidden {
+    display: none !important;
+    visibility: hidden !important;
   }
-  .challan-copy:last-child {
+  .challan-sheet {
+    page-break-after: always;
+    break-after: page;
+    height: 195mm;
+    width: 100%;
+  }
+  .challan-sheet-terms {
     page-break-after: auto;
+    break-after: auto;
+  }
+  .challan-pane {
+    height: 100%;
   }
   .letter-document,
   .letter-document * {

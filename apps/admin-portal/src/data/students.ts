@@ -29,6 +29,7 @@ export const students: Student[] = [
     feePlan: "Full Day Monthly",
     gender: "male",
     idCardNumber: "STU-2024-0001",
+    grNumber: "NN-45341",
     extras: [
       {
         id: "ex-s1-sat",
@@ -64,6 +65,7 @@ export const students: Student[] = [
     photo: "https://i.pravatar.cc/150?img=5",
     feePlan: "Half Day Monthly",
     gender: "female",
+    grNumber: "CL-45342",
   },
   {
     id: "s3",
@@ -81,6 +83,7 @@ export const students: Student[] = [
     photo: "https://i.pravatar.cc/150?img=3",
     feePlan: "Full Day Monthly",
     gender: "male",
+    grNumber: "DH-45343",
   },
   {
     id: "s4",
@@ -98,6 +101,7 @@ export const students: Student[] = [
     photo: "https://i.pravatar.cc/150?img=9",
     feePlan: "After School",
     gender: "female",
+    grNumber: "GU-45344",
   },
   {
     id: "s5",
@@ -108,13 +112,14 @@ export const students: Student[] = [
     allergies: [],
     branchId: "branch-nn",
     classId: "c1",
-    className: "Toddler Room A",
+    className: "Infant Room A",
     enrollmentDate: "2024-06-01",
     status: "active",
     parentIds: ["p1", "p2"],
     photo: "https://i.pravatar.cc/150?img=11",
     feePlan: "Full Day Monthly",
     gender: "male",
+    grNumber: "NN-45345",
   },
   {
     id: "s6",
@@ -132,6 +137,7 @@ export const students: Student[] = [
     photo: "https://i.pravatar.cc/150?img=16",
     feePlan: "Full Day Monthly",
     gender: "female",
+    grNumber: "CL-45346",
   },
   {
     id: "s7",
@@ -150,6 +156,7 @@ export const students: Student[] = [
     photo: "https://i.pravatar.cc/150?img=12",
     feePlan: "Full Day Monthly",
     gender: "male",
+    grNumber: "DH-45347",
   },
   {
     id: "s8",
@@ -159,14 +166,15 @@ export const students: Student[] = [
     bloodGroup: "B+",
     allergies: [],
     branchId: "branch-gulshan",
-    classId: "c3",
-    className: "Kindergarten",
+    classId: "c4",
+    className: "Nursery",
     enrollmentDate: "2023-01-15",
     status: "waitlist",
     parentIds: ["p7"],
     photo: "https://i.pravatar.cc/150?img=20",
     feePlan: "Half Day Monthly",
     gender: "female",
+    grNumber: "GU-45348",
   },
 ];
 

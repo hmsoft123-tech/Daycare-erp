@@ -121,8 +121,8 @@ function TransferStudentModal({
       toast.error("Select a class at the destination branch");
       return;
     }
-    if (cls.branchId === student.branchId && cls.id === student.classId) {
-      toast.error("Choose a different branch or class");
+    if (cls.branchId === student.branchId) {
+      toast.error("Pick a different branch — same-branch class moves use Classrooms or Edit student");
       return;
     }
     const updated = await transferStudentBranch(student.id, {
@@ -131,10 +131,14 @@ function TransferStudentModal({
       className: cls.name,
       notes: notes.trim() || undefined,
     });
-    if (!updated) return;
+    if (!updated) {
+      toast.error("Transfer failed — check destination class belongs to that branch");
+      return;
+    }
     onUpdated(updated);
     toast.success(
-      `Transferred to ${branches.find((b) => b.id === cls.branchId)?.name ?? "new branch"} · ${cls.name}`
+      `Moved to ${branches.find((b) => b.id === cls.branchId)?.name ?? "new branch"} · ${cls.name}` +
+        (updated.grNumber ? ` · New G.R. ${updated.grNumber}` : "")
     );
     onClose();
   };
@@ -145,6 +149,11 @@ function TransferStudentModal({
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
         <p className="text-xs text-muted">
           Current: {branches.find((b) => b.id === student.branchId)?.name} · {student.className}
+          {student.grNumber ? ` · G.R. ${student.grNumber}` : ""}
+        </p>
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Changing branch keeps the same student details and issues a <strong>new G.R. number</strong> for
+          the destination campus. A student can only belong to one branch and one class at a time.
         </p>
         <div>
           <Label>Destination branch</Label>
@@ -158,9 +167,13 @@ function TransferStudentModal({
           >
             <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-              ))}
+              {branches
+                .filter((b) => b.id !== student.branchId)
+                .map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>

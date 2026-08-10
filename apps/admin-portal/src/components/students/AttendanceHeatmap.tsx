@@ -14,7 +14,8 @@ const statusColors: Record<AttendanceRecord["status"], string> = {
   present: "bg-emerald-500",
   absent: "bg-red-500",
   late: "bg-amber-500",
-};
+  leave: "bg-sky-500",
+}
 
 export function AttendanceHeatmap({ records }: AttendanceHeatmapProps) {
   const days = useMemo(() => {

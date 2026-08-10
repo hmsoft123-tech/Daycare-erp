@@ -9,6 +9,7 @@ import {
   Bell,
   LogOut,
   GraduationCap,
+  School,
 } from "lucide-react";
 import { cn } from "@kinder-pilot/ui";
 import { useParentAuth } from "@/lib/auth-store";
@@ -16,6 +17,7 @@ import { useParentAuth } from "@/lib/auth-store";
 const tabs = [
   { href: "/home", label: "Feed", icon: Newspaper },
   { href: "/activity", label: "Activity", icon: Sparkles },
+  { href: "/school", label: "School", icon: School },
   { href: "/learn", label: "Learn", icon: GraduationCap },
   { href: "/billing", label: "Payments", icon: CreditCard },
 ];
@@ -36,7 +38,10 @@ export function AppShell({ children, schoolName }: AppShellProps) {
     router.refresh();
   };
 
-  const isActive = (href: string) => pathname === href || pathname.endsWith(href);
+  const isActive = (href: string) => {
+    if (href === "/school") return pathname.includes("/school");
+    return pathname === href || pathname.endsWith(href);
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -54,7 +59,7 @@ export function AppShell({ children, schoolName }: AppShellProps) {
             </div>
           </div>
 
-          <nav className="ml-4 hidden flex-1 items-center justify-center gap-1 md:flex lg:gap-2">
+          <nav className="ml-2 hidden flex-1 items-center justify-center gap-0.5 md:flex lg:gap-1">
             {tabs.map((tab) => {
               const active = isActive(tab.href);
               const Icon = tab.icon;
@@ -63,7 +68,7 @@ export function AppShell({ children, schoolName }: AppShellProps) {
                   key={tab.href}
                   href={tab.href}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition",
+                    "inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold transition lg:gap-2 lg:px-3.5",
                     active
                       ? "bg-brand-50 text-brand-600"
                       : "text-muted hover:bg-bg hover:text-heading"
@@ -92,7 +97,7 @@ export function AppShell({ children, schoolName }: AppShellProps) {
               aria-label="Sign out"
             >
               <LogOut className="h-5 w-5" />
-              <span className="hidden text-sm font-semibold md:inline">Sign out</span>
+              <span className="hidden text-sm font-semibold lg:inline">Sign out</span>
             </button>
           </div>
         </div>
@@ -102,9 +107,8 @@ export function AppShell({ children, schoolName }: AppShellProps) {
         <div className="animate-fade-up w-full">{children}</div>
       </main>
 
-      {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-surface/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-md md:hidden">
-        <ul className="mx-auto grid max-w-lg grid-cols-4 px-1">
+        <ul className="mx-auto grid max-w-lg grid-cols-5 px-0.5">
           {tabs.map((tab) => {
             const active = isActive(tab.href);
             const Icon = tab.icon;
@@ -113,11 +117,11 @@ export function AppShell({ children, schoolName }: AppShellProps) {
                 <Link
                   href={tab.href}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-semibold",
+                    "flex flex-col items-center gap-0.5 px-0.5 py-2 text-[9px] font-semibold sm:text-[10px]",
                     active ? "text-brand-500" : "text-muted"
                   )}
                 >
-                  <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.4 : 1.9} />
+                  <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.9} />
                   {tab.label}
                 </Link>
               </li>

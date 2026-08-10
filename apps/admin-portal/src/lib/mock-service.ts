@@ -11,6 +11,14 @@ import { purchaseRequisitions, inventoryItems, stockLevels } from "@/data/invent
 import { serviceOfferings } from "@/data/services";
 import { todayAttendance, generateAttendanceHistory } from "@/data/attendance";
 import {
+  parentSchoolAssignments,
+  parentSchoolAttendance,
+  parentSchoolHomework,
+  parentSchoolNotices,
+  parentSchoolProgress,
+  parentSchoolSyllabus,
+} from "@/data/parent-school";
+import {
   inactiveStudentMessage,
   isBillableStudent,
   isPayableStaff,
@@ -27,6 +35,8 @@ import {
   isPastDue,
 } from "@/lib/fee-challan";
 import { requisitionTotal } from "@/lib/procurement";
+import { generateGrNumber } from "@/lib/gr-number";
+import { generateStudentCardNumber } from "@/lib/id-card";
 import type {
   AdmissionCard,
   AdmissionStage,
@@ -57,8 +67,16 @@ import type {
   TrainingTopic,
   TrainingVideo,
   AttendanceRecord,
+  AttendanceStatus,
   ClassroomActivity,
   ClassRoom,
+  ParentSchoolAssignment,
+  ParentSchoolAttendance,
+  ParentSchoolHomework,
+  ParentSchoolNotice,
+  ParentSchoolProgress,
+  ParentSchoolSyllabus,
+  SchoolResource,
 } from "@/types";
 
 // TODO: Replace with API call to /api/branches
@@ -323,13 +341,38 @@ export async function transferStudentBranch(
 ): Promise<Student | undefined> {
   const row = students.find((s) => s.id === id);
   if (!row) return undefined;
+  const room = classes.find((c) => c.id === input.classId);
+  if (!room || room.branchId !== input.branchId) return undefined;
   if (row.branchId === input.branchId && row.classId === input.classId) return row;
-  return updateStudentRecord(id, {
-    previousBranchId: row.branchId,
+
+  const branchChanged = row.branchId !== input.branchId;
+  const patch: Partial<Student> = {
+    previousBranchId: branchChanged ? row.branchId : row.previousBranchId,
     branchId: input.branchId,
     classId: input.classId,
     className: input.className,
-  });
+  };
+
+  // One student → one branch/class. Branch change issues a new G.R. (same personal details).
+  if (branchChanged) {
+    const existingGr = students.map((s) => s.grNumber).filter(Boolean) as string[];
+    patch.previousGrNumber = row.grNumber;
+    patch.grNumber = generateGrNumber(input.branchId, existingGr);
+    patch.idCardNumber = generateStudentCardNumber(`${id}-${input.branchId}`);
+    // Keep open challans aligned with new campus G.R.
+    for (const inv of invoices) {
+      if (
+        inv.studentId === id &&
+        inv.status !== "paid" &&
+        inv.status !== "partial"
+      ) {
+        inv.branchId = input.branchId;
+        inv.grNumber = patch.grNumber!;
+      }
+    }
+  }
+
+  return updateStudentRecord(id, patch);
 }
 
 /** Withdraw student from campus (inactive — not billable) */
@@ -355,15 +398,26 @@ export async function rejoinStudent(
 ): Promise<Student | undefined> {
   const row = students.find((s) => s.id === id);
   if (!row) return undefined;
-  return updateStudentRecord(id, {
+  const room = classes.find((c) => c.id === input.classId);
+  if (!room || room.branchId !== input.branchId) return undefined;
+
+  const branchChanged = row.branchId !== input.branchId;
+  const patch: Partial<Student> = {
     status: "active",
     leaveDate: undefined,
     rejoinDate: input.rejoinDate ?? new Date().toISOString().slice(0, 10),
-    previousBranchId: row.branchId !== input.branchId ? row.branchId : row.previousBranchId,
+    previousBranchId: branchChanged ? row.branchId : row.previousBranchId,
     branchId: input.branchId,
     classId: input.classId,
     className: input.className,
-  });
+  };
+  if (branchChanged || !row.grNumber) {
+    const existingGr = students.map((s) => s.grNumber).filter(Boolean) as string[];
+    if (branchChanged) patch.previousGrNumber = row.grNumber;
+    patch.grNumber = generateGrNumber(input.branchId, existingGr);
+    patch.idCardNumber = generateStudentCardNumber(`${id}-rejoin-${input.branchId}`);
+  }
+  return updateStudentRecord(id, patch);
 }
 
 // TODO: Replace with API call to /api/parents
@@ -451,7 +505,12 @@ export async function createInvoice(input: {
   });
 
   const consumerNumber = String(10000 + students.findIndex((s) => s.id === student.id) + 691);
-  const grNumber = String(45000 + students.findIndex((s) => s.id === student.id) + 341);
+  if (!student.grNumber) {
+    const existingGr = students.map((s) => s.grNumber).filter(Boolean) as string[];
+    student.grNumber = generateGrNumber(student.branchId, existingGr);
+  }
+  /** Bank voucher G.R. is numeric only (sample: 45349) */
+  const grNumber = (student.grNumber ?? "").replace(/\D/g, "") || student.grNumber;
 
   let status: Invoice["status"] = "pending";
   if (isChallanExpired(validityDate)) status = "expired";
@@ -775,14 +834,183 @@ export async function updatePurchaseRequisitionStatus(
   return result.ok ? result.pr : undefined;
 }
 
+const SCHOOL_ATTENDANCE_TODAY = "2026-08-11";
+
 // TODO: Replace with API call to /api/attendance
-export async function getTodayAttendance(classId: string): Promise<AttendanceRecord[]> {
+export async function getTodayAttendance(
+  classId: string,
+  date = SCHOOL_ATTENDANCE_TODAY
+): Promise<AttendanceRecord[]> {
+  const fromSchool = parentSchoolAttendance
+    .filter((a) => a.date === date && (!a.classId || a.classId === classId))
+    .map((a) => ({
+      studentId: a.childId,
+      date: a.date,
+      classId: a.classId ?? classId,
+      status: a.status,
+    }));
+  if (fromSchool.length) return fromSchool;
   return todayAttendance.filter((a) => a.classId === classId);
 }
 
 // TODO: Replace with API call to /api/attendance/:studentId
 export async function getStudentAttendance(studentId: string): Promise<AttendanceRecord[]> {
+  const school = parentSchoolAttendance
+    .filter((a) => a.childId === studentId)
+    .map((a) => ({
+      studentId: a.childId,
+      date: a.date,
+      classId: a.classId ?? "c1",
+      status: a.status,
+    }));
+  if (school.length) return school.sort((a, b) => (a.date < b.date ? 1 : -1));
   return generateAttendanceHistory(studentId);
+}
+
+export async function saveDailyAttendance(input: {
+  date: string;
+  classId: string;
+  marks: { studentId: string; studentName: string; status: AttendanceStatus }[];
+}): Promise<ParentSchoolAttendance[]> {
+  const saved: ParentSchoolAttendance[] = [];
+  for (const mark of input.marks) {
+    const existing = parentSchoolAttendance.find(
+      (a) => a.childId === mark.studentId && a.date === input.date
+    );
+    if (existing) {
+      existing.status = mark.status;
+      existing.classId = input.classId;
+      existing.childName = mark.studentName.split(" ")[0] ?? mark.studentName;
+      if (mark.status === "present" || mark.status === "late") {
+        existing.checkIn = existing.checkIn ?? "08:15 AM";
+        existing.checkOut = existing.checkOut ?? "01:00 PM";
+      } else {
+        delete existing.checkIn;
+        delete existing.checkOut;
+      }
+      saved.push(existing);
+    } else {
+      const row: ParentSchoolAttendance = {
+        id: `at-${Date.now()}-${mark.studentId}`,
+        childId: mark.studentId,
+        childName: mark.studentName.split(" ")[0] ?? mark.studentName,
+        date: input.date,
+        status: mark.status,
+        classId: input.classId,
+        checkIn: mark.status === "present" || mark.status === "late" ? "08:15 AM" : undefined,
+        checkOut: mark.status === "present" || mark.status === "late" ? "01:00 PM" : undefined,
+      };
+      parentSchoolAttendance.unshift(row);
+      saved.push(row);
+    }
+  }
+  return saved;
+}
+
+export async function getParentSchoolAttendance(opts?: {
+  studentId?: string;
+}): Promise<ParentSchoolAttendance[]> {
+  let list = [...parentSchoolAttendance];
+  if (opts?.studentId) list = list.filter((a) => a.childId === opts.studentId);
+  return list.sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export async function getParentSchoolHomework(opts?: {
+  studentId?: string;
+}): Promise<ParentSchoolHomework[]> {
+  let list = [...parentSchoolHomework];
+  if (opts?.studentId) list = list.filter((h) => h.childId === opts.studentId);
+  return list;
+}
+
+export async function createParentSchoolHomework(
+  input: Omit<ParentSchoolHomework, "id">
+): Promise<ParentSchoolHomework> {
+  const item: ParentSchoolHomework = { ...input, id: `hw-${Date.now()}` };
+  parentSchoolHomework.unshift(item);
+  return item;
+}
+
+export async function getParentSchoolAssignments(opts?: {
+  studentId?: string;
+}): Promise<ParentSchoolAssignment[]> {
+  let list = [...parentSchoolAssignments];
+  if (opts?.studentId) list = list.filter((a) => a.childId === opts.studentId);
+  return list;
+}
+
+export async function createParentSchoolAssignment(
+  input: Omit<ParentSchoolAssignment, "id">
+): Promise<ParentSchoolAssignment> {
+  const item: ParentSchoolAssignment = { ...input, id: `as-${Date.now()}` };
+  parentSchoolAssignments.unshift(item);
+  return item;
+}
+
+export async function getParentSchoolProgress(opts?: {
+  studentId?: string;
+}): Promise<ParentSchoolProgress[]> {
+  let list = [...parentSchoolProgress];
+  if (opts?.studentId) list = list.filter((p) => p.childId === opts.studentId);
+  return list;
+}
+
+export async function createParentSchoolProgress(
+  input: Omit<ParentSchoolProgress, "id">
+): Promise<ParentSchoolProgress> {
+  const item: ParentSchoolProgress = { ...input, id: `pr-${Date.now()}` };
+  parentSchoolProgress.unshift(item);
+  return item;
+}
+
+export async function getParentSchoolNotices(): Promise<ParentSchoolNotice[]> {
+  return [...parentSchoolNotices].sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export async function createParentSchoolNotice(
+  input: Omit<ParentSchoolNotice, "id">
+): Promise<ParentSchoolNotice> {
+  const item: ParentSchoolNotice = { ...input, id: `n-${Date.now()}` };
+  parentSchoolNotices.unshift(item);
+  return item;
+}
+
+export async function getParentSchoolSyllabus(opts?: {
+  studentId?: string;
+}): Promise<ParentSchoolSyllabus[]> {
+  let list = [...parentSchoolSyllabus];
+  if (opts?.studentId) list = list.filter((s) => s.childId === opts.studentId);
+  return list;
+}
+
+export async function createParentSchoolSyllabus(
+  input: Omit<ParentSchoolSyllabus, "id">
+): Promise<ParentSchoolSyllabus> {
+  const item: ParentSchoolSyllabus = { ...input, id: `sy-${Date.now()}` };
+  parentSchoolSyllabus.unshift(item);
+  return item;
+}
+
+export async function getSchoolResource(
+  resource: SchoolResource,
+  studentId?: string
+): Promise<unknown[]> {
+  switch (resource) {
+    case "attendance":
+      return getParentSchoolAttendance({ studentId });
+    case "homework":
+      return getParentSchoolHomework({ studentId });
+    case "assignments":
+      return getParentSchoolAssignments({ studentId });
+    case "progress":
+      return getParentSchoolProgress({ studentId });
+    case "notices":
+      return getParentSchoolNotices();
+    case "syllabus":
+      return getParentSchoolSyllabus({ studentId });
+    default:
+      return [];
+  }
 }
 
 // TODO: Replace with API call to /api/admissions/:id
@@ -951,7 +1179,10 @@ export async function updateClassRoom(
   return classes[idx];
 }
 
-/** Assign student to a classroom (syncs branch + className) */
+/**
+ * Assign student to a classroom in the same branch only.
+ * One student → one class (moves out of previous class). Branch changes are student-section only.
+ */
 export async function assignStudentToClass(
   studentId: string,
   classId: string
@@ -960,9 +1191,15 @@ export async function assignStudentToClass(
   const room = classes.find((c) => c.id === classId);
   if (!student) return { ok: false, error: "Student not found." };
   if (!room) return { ok: false, error: "Classroom not found." };
-  student.previousBranchId =
-    student.branchId !== room.branchId ? student.branchId : student.previousBranchId;
-  student.branchId = room.branchId;
+  if (student.branchId !== room.branchId) {
+    return {
+      ok: false,
+      error: "Change branch from the student profile. Classrooms can only reassign within the same branch.",
+    };
+  }
+  if (student.classId === room.id) {
+    return { ok: false, error: "Student is already in this classroom." };
+  }
   student.classId = room.id;
   student.className = room.name;
   return { ok: true, student };

@@ -78,11 +78,12 @@ export function ClassroomDetailClient({
       s.status === "active" &&
       (s.role === "teacher" || s.role === "admin" || s.role === "executive")
   );
+  /** Same branch only — branch transfers happen on the student profile */
   const assignableStudents = students.filter(
     (s) =>
-      s.status === "active" &&
-      s.classId !== room.id &&
-      (s.branchId === room.branchId || true)
+      (s.status === "active" || s.status === "pending_first_payment") &&
+      s.branchId === room.branchId &&
+      s.classId !== room.id
   );
 
   const assignTeacher = async (teacherId: string) => {
@@ -195,21 +196,30 @@ export function ClassroomDetailClient({
                 <p className="text-sm text-muted">No students assigned yet.</p>
               )}
             </ul>
-            <div className="flex flex-col gap-2 border-t border-[#F1F3F5] pt-4 sm:flex-row">
-              <Select value={addStudentId} onValueChange={setAddStudentId}>
-                <SelectTrigger><SelectValue placeholder="Assign student…" /></SelectTrigger>
-                <SelectContent>
-                  {assignableStudents.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName}
-                      {s.branchId !== room.branchId ? " (other branch → moves here)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="button" onClick={moveStudent} disabled={!addStudentId}>
-                Assign
-              </Button>
+            <div className="space-y-2 border-t border-[#F1F3F5] pt-4">
+              <p className="text-xs text-muted">
+                Change class only (same branch). A student belongs to one class at a time.
+                Use the student profile to change branch (issues a new G.R. number).
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Select value={addStudentId} onValueChange={setAddStudentId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Move student into this class…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assignableStudents.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName}
+                        {s.className ? ` · from ${s.className}` : ""}
+                        {s.grNumber ? ` · G.R. ${s.grNumber}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" onClick={moveStudent} disabled={!addStudentId}>
+                  Change class
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

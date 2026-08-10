@@ -23,7 +23,7 @@ export type InquiryType = "admission" | "employment" | "tour" | "general";
 
 export type InvoiceStatus = "paid" | "overdue" | "pending" | "partial" | "expired";
 
-export type AttendanceStatus = "present" | "absent" | "late";
+export type AttendanceStatus = "present" | "absent" | "late" | "leave";
 
 /**
  * HO procurement pipeline (SDLC requisition → bill → pay → dispatch → receive):
@@ -113,6 +113,10 @@ export interface Student {
   gender: "male" | "female";
   /** Generated at enrollment when record is saved to the portal */
   idCardNumber?: string;
+  /** General Register number — unique per campus; regenerated on branch transfer */
+  grNumber?: string;
+  /** Previous G.R. before last branch transfer */
+  previousGrNumber?: string;
   /**
    * Recurring extras / benefits / charges applied automatically when an invoice is generated.
    * Managed from the student profile. Prefer `serviceId` when sourced from catalogue.
@@ -800,4 +804,82 @@ export interface ContextState {
   contextType: "head_office" | "branch";
   sidebarCollapsed: boolean;
   mobileSidebarOpen: boolean;
+}
+
+/** Parent-portal school feed — managed in Admin → Academics */
+export type SchoolResource =
+  | "attendance"
+  | "homework"
+  | "assignments"
+  | "progress"
+  | "notices"
+  | "syllabus";
+
+export interface ParentSchoolAttendance {
+  id: string;
+  childId: string;
+  childName: string;
+  date: string;
+  status: AttendanceStatus;
+  classId?: string;
+  checkIn?: string;
+  checkOut?: string;
+  note?: string;
+}
+
+export interface ParentSchoolHomework {
+  id: string;
+  childId: string;
+  childName: string;
+  title: string;
+  subject: string;
+  assignedOn: string;
+  dueOn: string;
+  status: "pending" | "submitted" | "checked";
+  instructions: string;
+}
+
+export interface ParentSchoolAssignment {
+  id: string;
+  childId: string;
+  childName: string;
+  title: string;
+  subject: string;
+  assignedOn: string;
+  dueOn: string;
+  status: "open" | "submitted" | "graded";
+  marks?: string;
+  brief: string;
+}
+
+export interface ParentSchoolProgress {
+  id: string;
+  childId: string;
+  childName: string;
+  term: string;
+  className: string;
+  issuedOn: string;
+  overall: string;
+  areas: { label: string; level: "emerging" | "developing" | "secure"; note: string }[];
+  teacherComment: string;
+}
+
+export interface ParentSchoolNotice {
+  id: string;
+  title: string;
+  body: string;
+  date: string;
+  audience: "all" | "branch" | "class";
+  priority: "normal" | "important";
+  childIds?: string[];
+}
+
+export interface ParentSchoolSyllabus {
+  id: string;
+  childId: string;
+  childName: string;
+  subject: string;
+  unit: string;
+  topics: string[];
+  weekOf: string;
 }

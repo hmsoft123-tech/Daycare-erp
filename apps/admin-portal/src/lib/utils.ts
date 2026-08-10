@@ -45,6 +45,7 @@ export const statusPillStyles = {
   present: "bg-soft-green text-brand-700",
   absent: "bg-soft-red text-danger",
   late: "bg-soft-yellow text-[#B76E00]",
+  leave: "bg-soft-blue text-[#4C8BF5]",
   active: "bg-soft-green text-brand-700",
   inquiry: "bg-soft-cyan text-[#006C9C]",
   waitlist: "bg-soft-yellow text-[#B76E00]",

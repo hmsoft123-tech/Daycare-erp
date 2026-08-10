@@ -1,9 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -22,6 +25,7 @@ interface AttendanceGridProps {
   classes: ClassRoom[];
   initialRecords: AttendanceRecord[];
   initialClassId?: string;
+  initialDate?: string;
 }
 
 export function AttendanceGrid({
@@ -29,13 +33,20 @@ export function AttendanceGrid({
   classes,
   initialRecords,
   initialClassId,
+  initialDate = "2026-08-11",
 }: AttendanceGridProps) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const [classId, setClassId] = useState(initialClassId ?? classes[0]?.id ?? "");
+  const [date, setDate] = useState(initialDate);
+  const [saving, setSaving] = useState(false);
 
   const classStudents = useMemo(() => {
     if (!classId) return students;
     const filtered = students.filter((s) => s.classId === classId);
-    return filtered.length > 0 ? filtered : students.filter((s) => s.status === "active").slice(0, 6);
+    return filtered.length > 0
+      ? filtered
+      : students.filter((s) => s.status === "active").slice(0, 6);
   }, [students, classId]);
 
   const selectedClass = classes.find((c) => c.id === classId);
@@ -58,40 +69,81 @@ export function AttendanceGrid({
     return st === "present" || st === "late";
   }).length;
 
+  const saveToParents = async () => {
+    setSaving(true);
+    try {
+      const marks = classStudents.map((s) => ({
+        studentId: s.id,
+        studentName: `${s.firstName} ${s.lastName}`,
+        status: records.get(s.id) ?? "absent",
+      }));
+      const res = await fetch("/api/school", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "saveAttendance",
+          date,
+          classId,
+          marks,
+        }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      toast.success("Attendance saved — parents can see it under School → Attendance");
+      startTransition(() => router.refresh());
+    } catch {
+      toast.error("Could not save attendance");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-2xl bg-surface p-4 shadow-card sm:flex-row sm:items-end sm:justify-between">
-        <div className="w-full max-w-xs space-y-1.5">
-          <Label>Class</Label>
-          <Select value={classId} onValueChange={setClassId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select class" />
-            </SelectTrigger>
-            <SelectContent>
-              {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedClass && (
-            <p className="text-xs text-muted">Marking attendance for {selectedClass.name} — Today</p>
-          )}
+        <div className="flex w-full flex-col gap-3 sm:max-w-xl sm:flex-row">
+          <div className="w-full max-w-xs space-y-1.5">
+            <Label>Class</Label>
+            <Select value={classId} onValueChange={setClassId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedClass && (
+              <p className="text-xs text-muted">
+                Marking {selectedClass.name} — synced to parent portal when saved
+              </p>
+            )}
+          </div>
+          <div className="w-full max-w-[180px] space-y-1.5">
+            <Label>Date</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
         </div>
-        <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
           <p className="text-sm text-muted">
             {presentCount} of {classStudents.length} marked present
           </p>
-          <RollCallButton
-            onMarkAllPresent={() => {
-              setRecords((prev) => {
-                const next = new Map(prev);
-                classStudents.forEach((s) => next.set(s.id, "present"));
-                return next;
-              });
-            }}
-          />
+          <div className="flex gap-2">
+            <RollCallButton
+              onMarkAllPresent={() => {
+                setRecords((prev) => {
+                  const next = new Map(prev);
+                  classStudents.forEach((s) => next.set(s.id, "present"));
+                  return next;
+                });
+              }}
+            />
+            <Button type="button" onClick={saveToParents} disabled={saving || pending}>
+              {saving ? "Saving…" : "Save for parents"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -112,7 +164,9 @@ export function AttendanceGrid({
                   )}
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{student.firstName} {student.lastName}</p>
+                  <p className="truncate font-medium">
+                    {student.firstName} {student.lastName}
+                  </p>
                   <p className="text-xs text-muted">{student.className}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -133,6 +187,14 @@ export function AttendanceGrid({
                       onClick={() => toggleStatus(student.id, "late")}
                     >
                       L
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={status === "leave" ? "default" : "outline"}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => toggleStatus(student.id, "leave")}
+                    >
+                      Lv
                     </Button>
                     <Button
                       size="sm"

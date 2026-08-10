@@ -23,7 +23,7 @@ import {
 } from "./EnrollmentFeeModal";
 import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
 import { useUIStore } from "@/lib/store";
-import { students } from "@/data/students";
+import { classes, students } from "@/data/students";
 import {
   decideFeeLockRequest,
   getFeeLockRequests,
@@ -31,6 +31,7 @@ import {
 } from "@/lib/mock-service";
 import { issueStudentIdCard } from "@/lib/id-card-store";
 import { generateStudentCardNumber } from "@/lib/id-card";
+import { generateGrNumber } from "@/lib/gr-number";
 import { IdCardPreviewModal } from "@/components/id-cards/IdCardPreviewModal";
 import type { AdmissionCard, AdmissionStage, PortalIdCard, Student } from "@/types";
 import { cn } from "@/lib/utils";
@@ -229,11 +230,25 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
         feePlan: "Full Day Monthly",
         gender: "male",
         idCardNumber: cardNumber,
+        grNumber: generateGrNumber(
+          card.branchId,
+          students.map((s) => s.grNumber).filter(Boolean) as string[]
+        ),
       };
+      // Ensure class belongs to admission branch (one campus / one class)
+      const branchClass =
+        classes.find((c) => c.branchId === card.branchId && c.name === student.className) ??
+        classes.find((c) => c.branchId === card.branchId);
+      if (branchClass) {
+        student.classId = branchClass.id;
+        student.className = branchClass.name;
+      }
       students.unshift(student);
       const idCard = await issueStudentIdCard(student.id);
       setIssuedCard(idCard);
-      toast.success(`Enrolled — student ID card ${cardNumber} generated`);
+      toast.success(
+        `Enrolled — G.R. ${student.grNumber} · ID card ${cardNumber}`
+      );
       return;
     }
 

@@ -99,6 +99,16 @@ export function StudentProfile({
             <StudentLifecycleActions student={student} onUpdated={setStudent} />
             <dl className="mt-4 w-full space-y-2 text-left text-sm">
               <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">G.R. Number</dt>
+                <dd className="text-right font-semibold">{student.grNumber ?? "—"}</dd>
+              </div>
+              {student.previousGrNumber && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Previous G.R.</dt>
+                  <dd className="text-right text-muted">{student.previousGrNumber}</dd>
+                </div>
+              )}
+              <div className="flex justify-between gap-2">
                 <dt className="text-gray-500">Branch</dt>
                 <dd className="text-right">{branch?.name?.replace(" Campus", "") ?? "—"}</dd>
               </div>
