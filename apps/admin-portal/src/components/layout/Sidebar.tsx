@@ -29,6 +29,12 @@ import {
   ChevronLeft,
   Lock,
   X,
+  MessageSquare,
+  Library,
+  AlertTriangle,
+  CalendarOff,
+  GitBranch,
+  MonitorPlay,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useUIStore } from "@/lib/store";
@@ -60,6 +66,9 @@ const navGroups = [
       { href: "/services", label: "Services & Classes", icon: Layers },
       { href: "/attendance", label: "Attendance", icon: CalendarCheck },
       { href: "/academics", label: "Academics", icon: BookOpen },
+      { href: "/academics/virtual", label: "Virtual Classroom", icon: MonitorPlay },
+      { href: "/incidents", label: "ABC Incidents", icon: AlertTriangle },
+      { href: "/library", label: "Digital Library", icon: Library },
       { href: "/therapy", label: "Therapy Logs", icon: HeartPulse },
     ],
   },
@@ -67,6 +76,7 @@ const navGroups = [
     label: "Family",
     items: [
       { href: "/parents", label: "Parent Management", icon: UsersRound },
+      { href: "/communications", label: "Communications", icon: MessageSquare },
     ],
   },
   {
@@ -86,6 +96,7 @@ const navGroups = [
       { href: "/hr/inquiries", label: "Staff Inquiries", icon: Briefcase },
       { href: "/hr/hire", label: "Hiring Wizard", icon: UserPlus },
       { href: "/hr/staff", label: "Staff Directory", icon: UserCog },
+      { href: "/hr/leave", label: "Leave Management", icon: CalendarOff },
       { href: "/hr/payroll", label: "Payroll", icon: Receipt },
       { href: "/hr/training", label: "Training & Induction", icon: Video },
     ],
@@ -100,7 +111,10 @@ const navGroups = [
   },
   {
     label: "Reports",
-    items: [{ href: "/reports", label: "Analytics", icon: BarChart3 }],
+    items: [
+      { href: "/reports", label: "Analytics", icon: BarChart3 },
+      { href: "/workflows", label: "Core Workflows", icon: GitBranch },
+    ],
   },
   {
     label: "Design & Layout",

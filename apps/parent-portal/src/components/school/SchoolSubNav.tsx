@@ -3,12 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Baby,
   BookOpen,
+  Calendar,
   CalendarCheck,
   ClipboardList,
   FileText,
+  FolderOpen,
+  FormInput,
+  Library,
   Megaphone,
+  MonitorPlay,
   NotebookPen,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@kinder-pilot/ui";
 
@@ -18,8 +25,15 @@ const links = [
   { href: "/school/homework", label: "Homework", icon: NotebookPen },
   { href: "/school/assignments", label: "Assignments", icon: ClipboardList },
   { href: "/school/progress", label: "Progress", icon: FileText },
+  { href: "/school/milestones", label: "Milestones", icon: Baby },
+  { href: "/school/virtual", label: "Virtual", icon: MonitorPlay },
+  { href: "/school/library", label: "Library", icon: Library },
+  { href: "/school/incidents", label: "Incidents", icon: AlertTriangle },
   { href: "/school/notices", label: "Notices", icon: Megaphone },
   { href: "/school/syllabus", label: "Syllabus", icon: BookOpen },
+  { href: "/school/calendar", label: "Calendar", icon: Calendar },
+  { href: "/school/documents", label: "Documents", icon: FolderOpen },
+  { href: "/school/forms", label: "Forms", icon: FormInput },
 ];
 
 export function SchoolSubNav() {

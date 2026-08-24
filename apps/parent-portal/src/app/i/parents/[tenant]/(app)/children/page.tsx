@@ -1,22 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ChevronRight, MapPin, UserRound } from "lucide-react";
+import { AlertTriangle, ChevronRight, MapPin, Shield, UserRound } from "lucide-react";
 import { mockChildren } from "@/data/mock";
 
 export default function ParentChildrenPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       <section>
-        <h1 className="font-heading text-xl font-bold text-heading md:text-2xl lg:text-3xl">My children</h1>
-        <p className="mt-1 text-sm text-muted">Profiles, classrooms, and health notes</p>
+        <h1 className="font-heading text-xl font-bold text-heading md:text-2xl lg:text-3xl">
+          My children
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          Profiles, G.R., program, pickup & photo consent · multi-child family view
+        </p>
       </section>
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 lg:gap-4">
         {mockChildren.map((child) => (
           <li key={child.id}>
             <Link
-              href="/home"
+              href="/school"
               className="block h-full overflow-hidden rounded-2xl bg-surface shadow-card transition hover:shadow-[0_8px_28px_rgba(31,41,51,0.1)]"
             >
               <div className="flex items-center gap-3 p-4">
@@ -30,6 +34,7 @@ export default function ParentChildrenPage() {
                   <p className="font-bold text-heading">{child.name}</p>
                   <p className="text-xs text-muted">
                     {child.className} · {child.ageLabel}
+                    {child.grNumber ? ` · ${child.grNumber}` : ""}
                   </p>
                   {child.checkInTime && (
                     <p className="mt-1 text-[11px] font-semibold text-success">
@@ -55,6 +60,21 @@ export default function ParentChildrenPage() {
                     <UserRound className="h-3.5 w-3.5 text-brand-500" /> {child.teacher}
                   </span>
                 </div>
+                {child.program && (
+                  <p className="text-[11px] text-muted">
+                    {child.program}
+                    {child.timings ? ` · ${child.timings}` : ""}
+                  </p>
+                )}
+                {child.authorizedPickup?.length ? (
+                  <p className="text-[11px] text-muted">
+                    Pickup: {child.authorizedPickup.join(" · ")}
+                  </p>
+                ) : null}
+                <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-heading">
+                  <Shield className="h-3.5 w-3.5 text-brand-500" />
+                  Photo consent: {child.photoConsent ? "Yes" : "No"}
+                </p>
               </div>
             </Link>
           </li>

@@ -10,6 +10,7 @@ import {
   LogOut,
   GraduationCap,
   School,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@kinder-pilot/ui";
 import { useParentAuth } from "@/lib/auth-store";
@@ -18,6 +19,7 @@ const tabs = [
   { href: "/home", label: "Feed", icon: Newspaper },
   { href: "/activity", label: "Activity", icon: Sparkles },
   { href: "/school", label: "School", icon: School },
+  { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/learn", label: "Learn", icon: GraduationCap },
   { href: "/billing", label: "Payments", icon: CreditCard },
 ];
@@ -82,14 +84,14 @@ export function AppShell({ children, schoolName }: AppShellProps) {
           </nav>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
+            <Link
+              href="/messages"
               className="relative rounded-full p-2 text-muted hover:bg-bg"
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white" />
-            </button>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}
@@ -108,7 +110,7 @@ export function AppShell({ children, schoolName }: AppShellProps) {
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-surface/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-md md:hidden">
-        <ul className="mx-auto grid max-w-lg grid-cols-5 px-0.5">
+        <ul className="mx-auto grid max-w-lg grid-cols-6 px-0.5">
           {tabs.map((tab) => {
             const active = isActive(tab.href);
             const Icon = tab.icon;

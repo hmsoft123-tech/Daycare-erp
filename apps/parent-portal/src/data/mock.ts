@@ -11,6 +11,14 @@ export type ParentChild = {
   allergies: string[];
   teacher: string;
   checkInTime?: string;
+  grNumber?: string;
+  dob?: string;
+  program?: string;
+  timings?: string;
+  emergencyContact?: string;
+  authorizedPickup?: string[];
+  photoConsent?: boolean;
+  disabilities?: string;
 };
 
 export type FeedItem = {
@@ -52,6 +60,13 @@ export const mockChildren: ParentChild[] = [
     allergies: ["Peanuts"],
     teacher: "Fatima Noor",
     checkInTime: "08:12 AM",
+    grNumber: "NN-2024-0142",
+    dob: "2021-03-12",
+    program: "Infant Plus",
+    timings: "8:00 AM – 1:00 PM",
+    emergencyContact: "Ayesha Khan · 0300-1234567",
+    authorizedPickup: ["Ayesha Khan (Mother)", "Imran Khan (Father)"],
+    photoConsent: true,
   },
   {
     id: "s2",
@@ -66,6 +81,13 @@ export const mockChildren: ParentChild[] = [
     allergies: [],
     teacher: "Nadia Farooq",
     checkInTime: "08:18 AM",
+    grNumber: "CL-2024-0088",
+    dob: "2022-01-20",
+    program: "Playgroup Lite",
+    timings: "8:00 AM – 12:30 PM",
+    emergencyContact: "Sara Siddiqui · 0321-9876543",
+    authorizedPickup: ["Sara Siddiqui (Mother)", "Hassan Siddiqui (Uncle)"],
+    photoConsent: false,
   },
   {
     id: "c3",
@@ -79,6 +101,13 @@ export const mockChildren: ParentChild[] = [
     initials: "ZK",
     allergies: [],
     teacher: "Fatima Noor",
+    grNumber: "NN-2025-0031",
+    dob: "2023-06-02",
+    program: "Infant Lite",
+    timings: "8:00 AM – 1:00 PM",
+    emergencyContact: "Ayesha Khan · 0300-1234567",
+    authorizedPickup: ["Ayesha Khan (Mother)"],
+    photoConsent: true,
   },
 ];
 

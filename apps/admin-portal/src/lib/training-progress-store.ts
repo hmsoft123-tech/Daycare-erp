@@ -8,6 +8,9 @@ type ProgressEntry = {
   completedAt?: string;
   lastWatchedAt?: string;
   viewCount: number;
+  quizPassed?: boolean;
+  certificateIssued?: boolean;
+  certificateNo?: string;
 };
 
 type TrainingProgressState = {
@@ -16,8 +19,11 @@ type TrainingProgressState = {
   recordView: (userId: string, videoId: string) => void;
   markComplete: (userId: string, videoId: string) => void;
   markIncomplete: (userId: string, videoId: string) => void;
+  markQuizPassed: (userId: string, videoId: string) => void;
+  issueCertificate: (userId: string, videoId: string, certificateNo: string) => void;
   getEntry: (userId: string, videoId: string) => ProgressEntry;
   completedCount: (userId: string, videoIds: string[]) => number;
+  certificatesCount: (userId: string, videoIds: string[]) => number;
 };
 
 const empty: ProgressEntry = { completed: false, viewCount: 0 };
@@ -82,6 +88,45 @@ export const useTrainingProgressStore = create<TrainingProgressState>()(
                   ...cur,
                   completed: false,
                   completedAt: undefined,
+                  quizPassed: false,
+                  certificateIssued: false,
+                  certificateNo: undefined,
+                },
+              },
+            },
+          };
+        }),
+
+      markQuizPassed: (userId, videoId) =>
+        set((s) => {
+          const user = s.byUser[userId] ?? {};
+          const cur = user[videoId] ?? empty;
+          return {
+            byUser: {
+              ...s.byUser,
+              [userId]: {
+                ...user,
+                [videoId]: { ...cur, quizPassed: true },
+              },
+            },
+          };
+        }),
+
+      issueCertificate: (userId, videoId, certificateNo) =>
+        set((s) => {
+          const user = s.byUser[userId] ?? {};
+          const cur = user[videoId] ?? empty;
+          return {
+            byUser: {
+              ...s.byUser,
+              [userId]: {
+                ...user,
+                [videoId]: {
+                  ...cur,
+                  completed: true,
+                  completedAt: cur.completedAt ?? new Date().toISOString(),
+                  certificateIssued: true,
+                  certificateNo,
                 },
               },
             },
@@ -91,6 +136,11 @@ export const useTrainingProgressStore = create<TrainingProgressState>()(
       completedCount: (userId, videoIds) => {
         const user = get().byUser[userId] ?? {};
         return videoIds.filter((id) => user[id]?.completed).length;
+      },
+
+      certificatesCount: (userId, videoIds) => {
+        const user = get().byUser[userId] ?? {};
+        return videoIds.filter((id) => user[id]?.certificateIssued).length;
       },
     }),
     { name: "kp-staff-training-progress" }

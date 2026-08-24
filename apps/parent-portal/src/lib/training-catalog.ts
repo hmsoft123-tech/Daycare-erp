@@ -1,4 +1,4 @@
-export type ParentTrainingTopic = "orientation" | "app_guide" | "policy";
+export type ParentTrainingTopic = "orientation" | "app_guide" | "policy" | "learning";
 
 export type ParentTrainingVideo = {
   id: string;
@@ -16,6 +16,7 @@ export const PARENT_TOPIC_LABELS: Record<ParentTrainingTopic | "all", string> = 
   orientation: "Orientation",
   app_guide: "App guides",
   policy: "Policies",
+  learning: "Learning at home",
 };
 
 export function youtubeEmbedUrl(youtubeId: string) {
@@ -83,6 +84,16 @@ export const fallbackParentVideos: ParentTrainingVideo[] = [
     topic: "policy",
     youtubeId: "jNQXAC9IVRw",
     thumbnail: "https://img.youtube.com/vi/jNQXAC9IVRw/hqdefault.jpg",
+  },
+  {
+    id: "par-learn-1",
+    title: "Supporting learning at home",
+    description: "Simple Montessori-inspired activities parents can do with toddlers.",
+    duration: "8:20",
+    topic: "learning",
+    youtubeId: "aqz-KE-bpKQ",
+    thumbnail: "https://img.youtube.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
+    featured: true,
   },
 ];
 

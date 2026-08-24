@@ -38,8 +38,13 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
 
   const recordView = useTrainingProgressStore((s) => s.recordView);
   const markComplete = useTrainingProgressStore((s) => s.markComplete);
+  const markQuizPassed = useTrainingProgressStore((s) => s.markQuizPassed);
+  const issueCertificate = useTrainingProgressStore((s) => s.issueCertificate);
   const getEntry = useTrainingProgressStore((s) => s.getEntry);
   const completedCount = useTrainingProgressStore((s) => s.completedCount);
+  const [quizStep, setQuizStep] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
+  const [showCert, setShowCert] = useState(false);
 
   const scoped = useMemo(
     () => videos.filter((v) => v.audience === audience && v.active !== false),
@@ -72,15 +77,44 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
 
   const openVideo = (video: TrainingVideo) => {
     recordView(userId, video.id);
+    setQuizStep(false);
+    setQuizAnswers([]);
+    setShowCert(false);
     setActive(video);
   };
 
   const completeActive = () => {
     if (!active) return;
+    if (audience === "staff" && active.quiz?.length && !getEntry(userId, active.id).quizPassed) {
+      setQuizStep(true);
+      setQuizAnswers(active.quiz.map(() => -1));
+      return;
+    }
     markComplete(userId, active.id);
     toast.success(
       audience === "staff" ? "Marked complete — tracked for induction" : "View recorded"
     );
+  };
+
+  const submitQuiz = () => {
+    if (!active?.quiz) return;
+    const ok = active.quiz.every((q, i) => quizAnswers[i] === q.correctIndex);
+    if (!ok) {
+      toast.error("Assessment not passed — review the video and reattempt");
+      return;
+    }
+    markQuizPassed(userId, active.id);
+    markComplete(userId, active.id);
+    setQuizStep(false);
+    toast.success("Assessment passed — you can issue a certificate");
+  };
+
+  const issueCert = () => {
+    if (!active) return;
+    const no = `SDLC-TR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+    issueCertificate(userId, active.id, no);
+    setShowCert(true);
+    toast.success("Certificate issued");
   };
 
   return (
@@ -204,21 +238,96 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
               </button>
             </div>
             <div className="space-y-4 p-5">
-              <div className="aspect-video overflow-hidden rounded-xl bg-black">
-                <iframe
-                  title={active.title}
-                  src={youtubeEmbedUrl(active.youtubeId)}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+              {!quizStep && (
+                <div className="aspect-video overflow-hidden rounded-xl bg-black">
+                  <iframe
+                    title={active.title}
+                    src={youtubeEmbedUrl(active.youtubeId)}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+
+              {quizStep && active.quiz && (
+                <div className="space-y-4 rounded-xl border border-[#F1F3F5] p-4">
+                  <p className="text-sm font-semibold text-heading">Assessment / quiz</p>
+                  <p className="text-xs text-muted">Pass required before completion certificate.</p>
+                  {active.quiz.map((q, qi) => (
+                    <div key={qi} className="space-y-2">
+                      <p className="text-sm font-medium">{qi + 1}. {q.question}</p>
+                      <div className="flex flex-col gap-1.5">
+                        {q.options.map((opt, oi) => (
+                          <button
+                            key={oi}
+                            type="button"
+                            onClick={() =>
+                              setQuizAnswers((prev) => {
+                                const next = [...prev];
+                                next[qi] = oi;
+                                return next;
+                              })
+                            }
+                            className={cn(
+                              "rounded-lg border px-3 py-2 text-left text-xs",
+                              quizAnswers[qi] === oi
+                                ? "border-brand-500 bg-brand-50 text-brand-800"
+                                : "border-[#F1F3F5] text-heading"
+                            )}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={submitQuiz}>
+                      Submit assessment
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setQuizStep(false)}>
+                      Back to video
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {showCert && getEntry(userId, active.id).certificateNo && (
+                <div className="rounded-xl border-2 border-brand-200 bg-brand-50/40 p-6 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+                    Certificate of completion
+                  </p>
+                  <p className="mt-2 font-heading text-xl font-bold text-heading">{userName}</p>
+                  <p className="mt-1 text-sm text-muted">has completed</p>
+                  <p className="mt-1 text-base font-semibold text-heading">{active.title}</p>
+                  <p className="mt-3 text-xs text-muted">
+                    Certificate no. {getEntry(userId, active.id).certificateNo}
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-2">
                 {audience === "staff" ? (
-                  <Button type="button" onClick={completeActive}>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Mark complete
-                  </Button>
+                  <>
+                    <Button type="button" onClick={completeActive}>
+                      <CheckCircle2 className="h-4 w-4" />
+                      {active.quiz?.length && !getEntry(userId, active.id).quizPassed
+                        ? "Complete & take quiz"
+                        : "Mark complete"}
+                    </Button>
+                    {getEntry(userId, active.id).completed &&
+                      !getEntry(userId, active.id).certificateIssued && (
+                        <Button type="button" variant="outline" onClick={issueCert}>
+                          Issue certificate
+                        </Button>
+                      )}
+                    {getEntry(userId, active.id).certificateIssued && (
+                      <Button type="button" variant="outline" onClick={() => setShowCert(true)}>
+                        View certificate
+                      </Button>
+                    )}
+                  </>
                 ) : (
                   <Button type="button" onClick={completeActive} variant="outline">
                     Record view
@@ -233,6 +342,7 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
                 <span className="ml-auto text-xs text-muted">
                   Views: {getEntry(userId, active.id).viewCount}
                   {getEntry(userId, active.id).completed ? " · Completed" : ""}
+                  {getEntry(userId, active.id).quizPassed ? " · Quiz passed" : ""}
                 </span>
               </div>
             </div>

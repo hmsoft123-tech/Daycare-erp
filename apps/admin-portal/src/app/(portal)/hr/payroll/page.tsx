@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PayrollClient } from "@/components/hr/PayrollClient";
+import { PayrollExtrasPanel } from "@/components/hr/PayrollExtrasPanel";
 import { getPayableStaff } from "@/lib/mock-service";
 import { buildPayrollBreakdown, netMonthlyPay, ensureSalary } from "@/lib/salary-determination";
 import { formatCurrency } from "@/lib/utils";
@@ -20,14 +21,14 @@ export default async function PayrollPage() {
         <CardHeader>
           <CardTitle>Monthly payroll run</CardTitle>
           <p className="text-xs text-muted">
-            Expand a row for pay-slip breakdown from each staff profile&apos;s salary determination (base bracket +
-            active lines), same pattern as student invoice extras.
+            Expand a row for pay-slip breakdown from each staff profile&apos;s salary determination.
           </p>
         </CardHeader>
         <CardContent>
           <PayrollClient payroll={payroll} />
         </CardContent>
       </Card>
+      <PayrollExtrasPanel />
     </>
   );
 }

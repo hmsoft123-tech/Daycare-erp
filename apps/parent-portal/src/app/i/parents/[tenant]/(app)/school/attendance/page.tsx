@@ -81,6 +81,11 @@ export default function AttendancePage() {
     };
   }, [rows]);
 
+  const attendancePct = useMemo(() => {
+    const denom = rows.length || 1;
+    return Math.round(((summary.present + summary.late) / denom) * 100);
+  }, [rows, summary]);
+
   return (
     <div className="space-y-4 md:space-y-6">
       <SchoolPageHeader
@@ -172,7 +177,11 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="rounded-2xl bg-surface p-3 shadow-card sm:col-span-1">
+          <p className="text-[11px] font-semibold text-muted">Attendance %</p>
+          <p className="mt-0.5 font-heading text-2xl font-bold text-brand-600">{attendancePct}%</p>
+        </div>
         {(
           [
             ["Present", summary.present, "text-[#0E9F6E]"],

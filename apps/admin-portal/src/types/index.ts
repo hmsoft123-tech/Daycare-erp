@@ -735,16 +735,23 @@ export interface TherapySession {
 /** Who the video is for in the Training & Induction hub */
 export type TrainingAudience = "staff" | "parents";
 
-/** Staff content buckets */
+/** Staff content buckets — aligned with Training Hub SDLC categories */
 export type StaffTrainingTopic =
   | "induction"
+  | "montessori"
+  | "ece"
+  | "daycare"
+  | "classroom_mgmt"
+  | "professional_dev"
   | "policy"
-  | "activity"
+  | "sop"
   | "safety"
+  | "parent_comms"
+  | "activity"
   | "therapy";
 
 /** Parent content buckets */
-export type ParentTrainingTopic = "orientation" | "app_guide" | "policy";
+export type ParentTrainingTopic = "orientation" | "app_guide" | "policy" | "learning";
 
 export type TrainingTopic = StaffTrainingTopic | ParentTrainingTopic;
 
@@ -767,6 +774,30 @@ export interface TrainingVideo {
   progress?: number;
   featured?: boolean;
   active?: boolean;
+  /** Required for new-hire onboarding track */
+  requiredForOnboarding?: boolean;
+  /** Optional short quiz after watch */
+  quiz?: { question: string; options: string[]; correctIndex: number }[];
+}
+
+export interface TrainingAssignment {
+  id: string;
+  staffId: string;
+  staffName: string;
+  branchId: string;
+  videoIds: string[];
+  assignedOn: string;
+  dueOn: string;
+  status: "assigned" | "in_progress" | "completed" | "overdue";
+  isNewHire: boolean;
+}
+
+export interface TrainingCertificate {
+  id: string;
+  staffName: string;
+  moduleTitle: string;
+  issuedOn: string;
+  certificateNo: string;
 }
 
 export interface BranchScorecard {

@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { BranchScorecard } from "@/components/reports/BranchScorecard";
 import { BranchMap } from "@/components/reports/BranchMap";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
+import { AnalyticsExtras } from "@/components/reports/AnalyticsExtras";
 import { getBranchScorecards, getBranchRevenueData, getRevenueData } from "@/lib/mock-service";
 import { ReportsRevenueClient } from "./ReportsRevenueClient";
 
@@ -14,7 +15,10 @@ export default async function ReportsPage() {
 
   return (
     <>
-      <PageHeader title="Analytics & Reports" subtitle="Branch performance and network overview" />
+      <PageHeader
+        title="Analytics & Reports"
+        subtitle="Branch performance · training · attendance · parent engagement"
+      />
       <div className="space-y-8">
         <BranchScorecard scorecards={scorecards} />
         <div className="grid gap-6 lg:grid-cols-2">
@@ -22,6 +26,7 @@ export default async function ReportsPage() {
           <RevenueChart data={revenue} />
         </div>
         <ReportsRevenueClient branchRevenue={branchRevenue} />
+        <AnalyticsExtras />
       </div>
     </>
   );
