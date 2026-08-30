@@ -2,12 +2,16 @@
 
 export type MessageThread = {
   id: string;
+  /** Brightwheel-style audience bucket */
+  audience: "parent" | "staff";
   parentId: string;
   parentName: string;
   withName: string;
-  withRole: "teacher" | "admin" | "group";
+  withRole: "teacher" | "admin" | "group" | "parent";
   childId?: string;
   childName?: string;
+  roomName?: string;
+  tags?: ("Admin" | "Parent" | "Teacher" | "Staff")[];
   preview: string;
   updatedAt: string;
   unread: number;
@@ -118,14 +122,17 @@ export type PayrollExtra = {
 export const messageThreads: MessageThread[] = [
   {
     id: "mt1",
+    audience: "parent",
     parentId: "p1",
     parentName: "Ayesha Khan",
-    withName: "Fatima Noor",
-    withRole: "teacher",
+    withName: "Ayesha Khan",
+    withRole: "parent",
     childId: "s1",
     childName: "Hamdan",
-    preview: "Hamdan had a wonderful story time today!",
-    updatedAt: "2026-08-24T14:10:00",
+    roomName: "Infant Room A",
+    tags: ["Parent"],
+    preview: "Thank you! We’ll practice the song at home.",
+    updatedAt: "2026-08-24T14:22:00",
     unread: 1,
     messages: [
       {
@@ -144,10 +151,36 @@ export const messageThreads: MessageThread[] = [
   },
   {
     id: "mt2",
+    audience: "parent",
+    parentId: "p3",
+    parentName: "Omar Siddiqui",
+    withName: "Omar Siddiqui",
+    withRole: "parent",
+    childId: "s2",
+    childName: "Zainab",
+    roomName: "Playgroup B",
+    tags: ["Parent"],
+    preview: "Can we reschedule pickup to 1:30?",
+    updatedAt: "2026-08-24T11:05:00",
+    unread: 1,
+    messages: [
+      {
+        id: "m2a",
+        from: "parent",
+        body: "Can we reschedule pickup to 1:30?",
+        at: "2026-08-24T11:05:00",
+      },
+    ],
+  },
+  {
+    id: "mt3",
+    audience: "parent",
     parentId: "p1",
     parentName: "Ayesha Khan",
     withName: "Front Desk",
     withRole: "admin",
+    roomName: "All Rooms",
+    tags: ["Admin", "Parent"],
     preview: "PTM slots for 20–21 Aug are open.",
     updatedAt: "2026-08-23T09:00:00",
     unread: 0,
@@ -157,6 +190,48 @@ export const messageThreads: MessageThread[] = [
         from: "staff",
         body: "PTM slots for 20–21 Aug are open. Book from Messages → PTM.",
         at: "2026-08-23T09:00:00",
+      },
+    ],
+  },
+  {
+    id: "mt4",
+    audience: "staff",
+    parentId: "staff-1",
+    parentName: "Fatima Noor",
+    withName: "Fatima Noor",
+    withRole: "teacher",
+    roomName: "Infant Room A",
+    tags: ["Teacher", "Staff"],
+    preview: "Ratio support needed after 12pm.",
+    updatedAt: "2026-08-24T12:40:00",
+    unread: 2,
+    messages: [
+      {
+        id: "m4",
+        from: "staff",
+        body: "Ratio support needed after 12pm.",
+        at: "2026-08-24T12:40:00",
+      },
+    ],
+  },
+  {
+    id: "mt5",
+    audience: "staff",
+    parentId: "staff-2",
+    parentName: "Nadia Farooq",
+    withName: "Nadia Farooq",
+    withRole: "teacher",
+    roomName: "Playgroup B",
+    tags: ["Teacher"],
+    preview: "Menu change confirmed for Friday.",
+    updatedAt: "2026-08-23T16:10:00",
+    unread: 0,
+    messages: [
+      {
+        id: "m5",
+        from: "staff",
+        body: "Menu change confirmed for Friday.",
+        at: "2026-08-23T16:10:00",
       },
     ],
   },

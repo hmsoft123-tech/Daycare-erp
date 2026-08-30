@@ -6,7 +6,7 @@ export default function CommunicationsPage() {
     <>
       <PageHeader
         title="Communications"
-        subtitle="Parent inbox · PTM slots · push notifications"
+        subtitle="Messages · Announcements · Newsletters · PTM — Parents & Staff"
       />
       <CommunicationsHub />
     </>

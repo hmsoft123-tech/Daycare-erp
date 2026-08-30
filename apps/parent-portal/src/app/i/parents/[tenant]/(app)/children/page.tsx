@@ -20,7 +20,7 @@ export default function ParentChildrenPage() {
         {mockChildren.map((child) => (
           <li key={child.id}>
             <Link
-              href="/school"
+              href={`/children/${child.id}`}
               className="block h-full overflow-hidden rounded-2xl bg-surface shadow-card transition hover:shadow-[0_8px_28px_rgba(31,41,51,0.1)]"
             >
               <div className="flex items-center gap-3 p-4">
