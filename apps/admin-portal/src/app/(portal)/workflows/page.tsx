@@ -6,7 +6,7 @@ export default function WorkflowsPage() {
     <>
       <PageHeader
         title="Core Workflows"
-        subtitle="Billing · Students · Inventory status boards (SDLC-aligned)"
+        subtitle="All 7 SDLC chains — Admission · Daily Care · Academics · Billing · Purchasing · Maintenance · HR"
       />
       <WorkflowBoards />
     </>
