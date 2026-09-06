@@ -2,7 +2,12 @@
 @config "../../tailwind.config.ts";
 
 @source "./**/*.{js,ts,jsx,tsx,mdx}";
+@source "../components/**/*.{js,ts,jsx,tsx,mdx}";
+@source "../lib/**/*.{js,ts,jsx,tsx,mdx}";
 @source "../../../../packages/ui/src/**/*.{js,ts,jsx,tsx}";
+
+/* Class-based dark mode (html.dark) — Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Brightwheel-inspired defaults (tenant CSS vars can override) */
 :root {
@@ -21,10 +26,40 @@
   --bg: #f7f8fa;
   --heading: #1f2933;
   --muted: #7b8794;
+  --border: #e4e7eb;
   --danger: #e12d39;
   --warning: #f0b429;
   --success: #3ebd93;
+  --soft-green: #e3f9f0;
+  --soft-blue: #e6f0ff;
+  --soft-yellow: #fff6db;
+  --soft-red: #ffe3e3;
   --shadow-card: 0 1px 2px rgba(31, 41, 51, 0.04), 0 8px 24px rgba(31, 41, 51, 0.06);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --brand-50: #2a1610;
+  --brand-100: #3a1e14;
+  --brand-200: #5a2e1c;
+  --brand-700: #ff9b6b;
+  --brand-800: #ffc4a8;
+  --brand-900: #ffe4d6;
+
+  --surface: #1e2630;
+  --bg: #12171e;
+  --heading: #f3f5f7;
+  --muted: #9aa5b1;
+  --border: #2d3743;
+  --danger: #f97066;
+  --warning: #f0b429;
+  --success: #3ebd93;
+  --soft-green: #1a332c;
+  --soft-blue: #1a2a3d;
+  --soft-yellow: #3a3020;
+  --soft-red: #3a1f1f;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 @theme {
@@ -42,13 +77,14 @@
   --color-bg: var(--bg);
   --color-heading: var(--heading);
   --color-muted: var(--muted);
+  --color-border: var(--border);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
   --color-success: var(--success);
-  --color-soft-green: #e3f9f0;
-  --color-soft-blue: #e6f0ff;
-  --color-soft-yellow: #fff6db;
-  --color-soft-red: #ffe3e3;
+  --color-soft-green: var(--soft-green);
+  --color-soft-blue: var(--soft-blue);
+  --color-soft-yellow: var(--soft-yellow);
+  --color-soft-red: var(--soft-red);
   --font-heading: var(--font-plus-jakarta), system-ui, sans-serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
 }
@@ -63,9 +99,75 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4 { font-family: var(--font-heading); }
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  color: var(--color-heading);
+}
 
 .shadow-card { box-shadow: var(--shadow-card); }
+
+/*
+ * Bridge common light-only utilities without rewriting every screen.
+ */
+html.dark .bg-white {
+  background-color: var(--surface);
+}
+html.dark .bg-white\/80 {
+  background-color: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+html.dark .bg-white\/90 {
+  background-color: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+html.dark .ring-white {
+  --tw-ring-color: var(--surface);
+}
+html.dark .border-white {
+  border-color: var(--surface);
+}
+html.dark .text-gray-400,
+html.dark .text-gray-500,
+html.dark .text-gray-600 {
+  color: var(--muted);
+}
+html.dark .text-gray-700,
+html.dark .text-gray-800,
+html.dark .text-gray-900 {
+  color: var(--heading);
+}
+html.dark .bg-gray-50,
+html.dark .bg-gray-100 {
+  background-color: var(--bg);
+}
+html.dark .bg-\[\#F7F8FA\],
+html.dark .bg-\[\#f7f8fa\] {
+  background-color: var(--bg);
+}
+html.dark .border-\[\#E4E7EB\],
+html.dark .border-\[\#e4e7eb\] {
+  border-color: var(--border);
+}
+html.dark .border-black\/\[0\.04\],
+html.dark .border-black\/\[0\.06\],
+html.dark .border-black\/10 {
+  border-color: var(--border);
+}
+html.dark .border-dashed.border-black\/10 {
+  border-color: var(--border);
+}
+html.dark .bg-black\/15 {
+  background-color: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+html.dark .bg-amber-50 {
+  background-color: #3a2e14;
+}
+html.dark .border-amber-300 {
+  border-color: #8a6d1f;
+}
+html.dark .text-amber-900,
+html.dark .text-amber-800,
+html.dark .text-amber-700 {
+  color: #f5d98a;
+}
 
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(8px); }

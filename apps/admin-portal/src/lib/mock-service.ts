@@ -1165,7 +1165,7 @@ export async function getClassById(id: string): Promise<ClassRoom | undefined> {
 
 export async function updateClassRoom(
   id: string,
-  patch: Partial<Pick<ClassRoom, "name" | "teacherId" | "capacity" | "classGroup" | "ageBand">>
+  patch: Partial<Pick<ClassRoom, "name" | "teacherId" | "capacity" | "classGroup" | "ageBand" | "enrollmentCap" | "staffChildRatio">>
 ): Promise<ClassRoom | undefined> {
   const idx = classes.findIndex((c) => c.id === id);
   if (idx < 0) return undefined;

@@ -8,8 +8,8 @@ export default async function FeeLocksPage() {
   return (
     <>
       <PageHeader
-        title="Fee lock approvals"
-        subtitle="Head Office must approve before a student becomes pending payment"
+        title="HO Fee / Discount Approvals"
+        subtitle="Pre-programmed fee plans apply automatically · discounts & exceptions need Head Office only"
       />
       <FeeLockInbox requests={requests} />
     </>

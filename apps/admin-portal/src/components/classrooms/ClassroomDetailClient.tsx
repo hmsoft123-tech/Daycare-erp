@@ -30,6 +30,15 @@ import type {
 } from "@/types";
 import { toast } from "sonner";
 
+function defaultRatio(room: ClassRoom) {
+  if (room.staffChildRatio) return room.staffChildRatio;
+  const n = `${room.name} ${room.ageBand ?? ""} ${room.classGroup ?? ""}`.toLowerCase();
+  if (n.includes("infant")) return "4:1";
+  if (n.includes("toddler")) return "6:1";
+  if (n.includes("after")) return "10:1";
+  return "8:1";
+}
+
 const ACTIVITY_TYPES: { value: ClassroomActivityType; label: string }[] = [
   { value: "checkin", label: "Check-in" },
   { value: "checkout", label: "Check-out" },
@@ -66,6 +75,10 @@ export function ClassroomDetailClient({
   const [logTitle, setLogTitle] = useState("");
   const [logBody, setLogBody] = useState("");
   const [visibleToParents, setVisibleToParents] = useState(true);
+
+  const [detailTab, setDetailTab] = useState<"roster" | "activity" | "monthly">("roster");
+  const [ratio, setRatio] = useState(initialRoom.staffChildRatio ?? defaultRatio(initialRoom));
+  const [cap, setCap] = useState(initialRoom.enrollmentCap ?? initialRoom.capacity ?? 12);
 
   const roster = useMemo(
     () => students.filter((s) => s.classId === room.id),
@@ -150,8 +163,58 @@ export function ClassroomDetailClient({
             <p className="text-sm text-muted">
               {branchName ?? room.branchId}
               {room.ageBand ? ` · ${room.ageBand}` : ""}
-              {room.capacity != null ? ` · Cap ${room.capacity}` : ""}
+              {` · Cap ${cap}`}
+              {` · Ratio ${ratio}`}
             </p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <div>
+                <Label className="text-[11px]">Enrollment cap</Label>
+                <Input
+                  type="number"
+                  className="mt-1 h-9 w-24"
+                  value={cap}
+                  onChange={(e) => setCap(Number(e.target.value) || 0)}
+                  onBlur={async () => {
+                    const updated = await updateClassRoom(room.id, {
+                      enrollmentCap: cap,
+                      capacity: cap,
+                    });
+                    if (updated) {
+                      setRoom(updated);
+                      toast.success("Enrollment cap saved");
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <Label className="text-[11px]">Staff : student ratio</Label>
+                <Select
+                  value={ratio}
+                  onValueChange={async (v) => {
+                    setRatio(v);
+                    const updated = await updateClassRoom(room.id, { staffChildRatio: v });
+                    if (updated) {
+                      setRoom(updated);
+                      toast.success("Ratio saved");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1 h-9 w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["4:1", "6:1", "8:1", "10:1"].map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-[10px] text-muted">
+                  Infant 4:1 · Toddler 6:1 · Pre/Nursery/KG 8:1 · Afterschool 10:1
+                </p>
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-[200px]">
@@ -174,6 +237,44 @@ export function ClassroomDetailClient({
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap gap-1.5">
+        {(
+          [
+            ["roster", "Roster & assign"],
+            ["activity", "Daily activity log"],
+            ["monthly", "Monthly activity & lessons"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setDetailTab(id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              detailTab === id ? "bg-brand-500 text-white" : "bg-bg text-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {detailTab === "monthly" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly activity & lesson overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted">FE review tab — classroom monthly plan (demo shell).</p>
+            <Input type="month" defaultValue="2026-09" />
+            <Textarea rows={5} placeholder="Themes, lessons, events for the month…" />
+            <Button type="button" onClick={() => toast.success("Monthly overview saved (demo)")}>
+              Save overview
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {detailTab !== "monthly" && (
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -292,7 +393,9 @@ export function ClassroomDetailClient({
           </CardContent>
         </Card>
       </div>
+      )}
 
+      {detailTab === "activity" || detailTab === "roster" ? (
       <Card>
         <CardHeader>
           <CardTitle>Classroom activity log</CardTitle>
@@ -328,6 +431,7 @@ export function ClassroomDetailClient({
           )}
         </CardContent>
       </Card>
+      ) : null}
     </div>
   );
 }

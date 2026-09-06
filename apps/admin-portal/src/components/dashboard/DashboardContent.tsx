@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Users,
-  Receipt,
   ClipboardList,
   CalendarCheck,
   AlertTriangle,
@@ -13,7 +12,9 @@ import {
   Wrench,
   Cake,
   MessageSquare,
-  Lock,
+  Utensils,
+  HeartPulse,
+  BarChart3,
 } from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
@@ -35,6 +36,17 @@ interface DashboardContentProps {
   students: Student[];
   admissions: AdmissionCard[];
   invoices: Invoice[];
+}
+
+/** FE review — default ratio targets by room name keywords */
+function ratioTarget(room: string) {
+  const n = room.toLowerCase();
+  if (n.includes("infant")) return "4:1";
+  if (n.includes("toddler")) return "6:1";
+  if (n.includes("pre") || n.includes("play")) return "8:1";
+  if (n.includes("nursery") || n.includes("kg") || n.includes("kinder")) return "8:1";
+  if (n.includes("after")) return "10:1";
+  return "8:1";
 }
 
 export function DashboardContent({
@@ -66,121 +78,80 @@ export function DashboardContent({
   );
 
   const onSite = Math.max(1, Math.round(branchKpis.totalStudents * (branchKpis.attendanceRate / 100)));
-  const overdueFees = invoices.filter((i) => i.status === "overdue" || i.status === "pending").length;
-  const staffPresent = Math.max(4, Math.round(onSite / 6));
+  const staffOnSite = Math.max(4, Math.round(onSite / 6));
+  const dailyCollection = invoices
+    .filter((i) => i.status === "paid")
+    .slice(0, 8)
+    .reduce((n, i) => n + i.amount, 0);
 
   const roomRatios = useMemo(() => {
     const scoped = branchId ? students.filter((s) => s.branchId === branchId) : students;
     const active = scoped.filter((s) => s.status === "active");
-    const byRoom = new Map<string, { students: number; staff: number }>();
+    const byRoom = new Map<string, number>();
     for (const s of active) {
       const room = s.className || "Unassigned";
-      const cur = byRoom.get(room) ?? { students: 0, staff: 0 };
-      cur.students += 1;
-      byRoom.set(room, cur);
+      byRoom.set(room, (byRoom.get(room) ?? 0) + 1);
     }
-    const rows = Array.from(byRoom.entries()).map(([room, v]) => ({
-      room,
-      studentsIn: Math.round(v.students * (branchKpis.attendanceRate / 100)),
-      staffIn: Math.max(1, Math.round((v.students * (branchKpis.attendanceRate / 100)) / 6)),
-    }));
-    const all = {
-      room: "All Rooms",
-      studentsIn: rows.reduce((n, r) => n + r.studentsIn, 0),
-      staffIn: rows.reduce((n, r) => n + r.staffIn, 0),
-    };
-    return [all, ...rows];
+    return Array.from(byRoom.entries()).map(([room, count]) => {
+      const inNow = Math.round(count * (branchKpis.attendanceRate / 100));
+      const target = ratioTarget(room);
+      const staffNeed = Math.max(1, Math.ceil(inNow / Number(target.split(":")[0] || 8)));
+      return { room, studentsIn: inNow, staffIn: staffNeed, target };
+    });
   }, [students, branchId, branchKpis.attendanceRate]);
 
-  const birthdays = useMemo(() => {
-    const scoped = (branchId ? students.filter((s) => s.branchId === branchId) : students)
+  const childBirthdays = useMemo(() => {
+    return (branchId ? students.filter((s) => s.branchId === branchId) : students)
       .filter((s) => s.dob)
       .map((s) => {
         const d = new Date(s.dob);
-        const now = new Date();
-        const age = Math.max(0, now.getFullYear() - d.getFullYear());
-        const label = `${d.getMonth() + 1}/${d.getDate()}`;
+        const age = Math.max(0, new Date().getFullYear() - d.getFullYear());
         return {
           id: s.id,
           name: `${s.firstName} ${s.lastName}`,
-          ageLabel: `${age} years old`,
-          dateLabel: label,
+          ageLabel: `${age} yrs`,
+          dateLabel: `${d.getMonth() + 1}/${d.getDate()}`,
           photo: s.photo,
+          href: `/students/${s.id}`,
         };
       })
       .slice(0, 4);
-    return scoped;
   }, [students, branchId]);
 
-  const opsCards = [
-    {
-      title: "Children on site",
-      value: String(onSite),
-      hint: `of ${branchKpis.totalStudents} active`,
-      icon: Baby,
-      href: "/attendance",
-    },
-    {
-      title: "Staff present",
-      value: String(staffPresent),
-      hint: "1 substitute available",
-      icon: UserCog,
-      href: "/hr/staff",
-    },
-    {
-      title: "Ratio alert",
-      value: "OK",
-      hint: "Infant · 1:4 within limit",
-      icon: Users,
-      href: "/classrooms",
-    },
-    {
-      title: "Outstanding fees",
-      value: String(overdueFees),
-      hint: "Invoices pending / overdue",
-      icon: Receipt,
-      href: "/billing",
-    },
-    {
-      title: "Fee lock queue",
-      value: "2",
-      hint: "HO approvals waiting",
-      icon: Lock,
-      href: "/billing/fee-locks",
-    },
-    {
-      title: "Open incidents",
-      value: "1",
-      hint: "Medication note due",
-      icon: AlertTriangle,
-      href: "/incidents",
-    },
-    {
-      title: "Low stock",
-      value: "3",
-      hint: "Branch reorder alerts",
-      icon: Package,
-      href: "/inventory/stock",
-    },
-    {
-      title: "Maintenance",
-      value: "1",
-      hint: "AC service reminder · Phase 2",
-      icon: Wrench,
-      href: "/workflows",
-    },
+  const staffBirthdays = [
+    { id: "st1", name: "Fatima Noor", ageLabel: "Teacher", dateLabel: "9/8", href: "/hr/staff" },
+    { id: "st2", name: "Nadia Farooq", ageLabel: "Teacher", dateLabel: "9/12", href: "/hr/staff" },
   ];
 
-  const planner = [
-    { when: "Today 10:00", what: "Tour — Siddiqui family", href: "/admissions" },
-    { when: "Today 14:30", what: "Staff interview — hiring", href: "/hr/inquiries" },
-    { when: "Tomorrow", what: "Birthday · Hamdan Khan", href: "/students" },
-    { when: "Fri", what: "PTM block · Infant Room A", href: "/communications" },
+  /** Live ops ≈ Daily report / communication (FE review) */
+  const dailyOps = [
+    { title: "Children on site", value: String(onSite), hint: `of ${branchKpis.totalStudents} active`, icon: Baby, href: "/attendance" },
+    { title: "Staff on site", value: String(staffOnSite), hint: "1 substitute available", icon: UserCog, href: "/hr/staff" },
+    { title: "Staff : child ratios", value: "Per class", hint: "See ratio table below", icon: Users, href: "/classrooms" },
+    { title: "Daily collection", value: formatCurrency(dailyCollection), hint: "Paid invoices (demo)", icon: BarChart3, href: "/billing" },
+    { title: "Open incidents", value: "1", hint: "Issues / medication follow-up", icon: AlertTriangle, href: "/incidents" },
+    { title: "Low stock", value: "3", hint: "Branch reorder alerts", icon: Package, href: "/inventory/stock" },
+    { title: "Maintenance", value: "1", hint: "Service reminder", icon: Wrench, href: "/workflows" },
+    { title: "Today's menu", value: "Daal · rice · fruit", hint: "Kitchen plan · demo", icon: Utensils, href: "/settings" },
+    { title: "Medication / treatment", value: "1 dose", hint: "Logged today · demo", icon: HeartPulse, href: "/therapy" },
   ];
+
+  const plannerDays = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      const hasAdmin = i === 0 || i === 2 || i === 5;
+      const hasAnnual = i === 3 || i === 10;
+      return { key, label: d.getDate(), dow: d.toLocaleDateString(undefined, { weekday: "short" }), hasAdmin, hasAnnual };
+    });
+  }, []);
 
   return (
     <div className="space-y-6">
-      <div className="grid auto-rows-fr gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Non-finance KPIs first */}
+      <div className="grid auto-rows-fr gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <KPICard
           title="Active Students"
           value={branchKpis.totalStudents}
@@ -188,14 +159,6 @@ export function DashboardContent({
           tone="green"
           subtitle={branchId ? "This branch" : "All branches"}
           trend={{ value: 5, label: "vs last month" }}
-        />
-        <KPICard
-          title="Monthly Revenue"
-          value={formatCurrency(branchKpis.monthlyRevenue)}
-          icon={Receipt}
-          tone="blue"
-          subtitle="Across selected context"
-          trend={{ value: 8, label: "vs last month" }}
         />
         <KPICard
           title="Pending Admissions"
@@ -215,15 +178,46 @@ export function DashboardContent({
         />
       </div>
 
+      {/* Branch evaluation + monthly summary shells (formats TBD) */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Branch evaluation</h2>
+            <span className="rounded-full bg-soft-green px-2.5 py-1 text-[11px] font-bold text-success">
+              Satisfactory
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            Full report format will be shared · header shows Satisfactory / Unsatisfactory.
+          </p>
+          <Link href="/reports" className="mt-3 inline-block text-xs font-semibold text-brand-600">
+            Open analytics →
+          </Link>
+        </div>
+        <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
+          <h2 className="text-sm font-semibold">Branch summary — last month</h2>
+          <p className="mt-2 text-xs text-muted">
+            Monthly branch summary format will be shared. Placeholder for last-month KPIs and notes.
+          </p>
+          <Link href="/reports" className="mt-3 inline-block text-xs font-semibold text-brand-600">
+            View reports →
+          </Link>
+        </div>
+      </div>
+
+      {/* Live operational snapshot = daily report / communication */}
       <div>
-        <div className="mb-3 flex items-end justify-between gap-2">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-heading">Live operational snapshot</h2>
-            <p className="text-xs text-muted">SDLC overview widgets · demo figures</p>
+            <p className="text-xs text-muted">Daily report / communication log items · FE review</p>
           </div>
+          <Link href="/communications" className="text-xs font-semibold text-brand-600">
+            Communication log →
+          </Link>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {opsCards.map((c) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {dailyOps.map((c) => (
             <Link
               key={c.title}
               href={c.href}
@@ -233,87 +227,74 @@ export function DashboardContent({
                 <p className="text-xs font-semibold text-muted">{c.title}</p>
                 <c.icon className="h-4 w-4 text-brand-500" />
               </div>
-              <p className="mt-2 text-xl font-bold text-heading">{c.value}</p>
+              <p className="mt-2 text-lg font-bold text-heading">{c.value}</p>
               <p className="mt-0.5 text-[11px] text-muted">{c.hint}</p>
             </Link>
           ))}
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RevenueChart data={revenue} />
-        </div>
-        <EnrollmentFeed items={filteredEnrollments} />
-      </div>
-
+      {/* Mini calendar + birthdays */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4 lg:col-span-2">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <Link href="/classrooms" className="text-sm font-semibold text-heading hover:text-brand-600">
-                Current room ratios →
-              </Link>
-              <p className="text-[11px] text-muted">
-                as of{" "}
-                {new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} ·{" "}
-                {new Date().toLocaleDateString()}
-              </p>
-            </div>
-            <Link
-              href="/attendance"
-              className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700"
-            >
-              Launch check-in
-            </Link>
+        <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4 lg:col-span-1">
+          <h3 className="text-sm font-semibold">Mini calendar</h3>
+          <p className="text-[11px] text-muted">Annual planner · Admin planner (formats TBD)</p>
+          <div className="mt-3 grid grid-cols-7 gap-1">
+            {plannerDays.map((d) => (
+              <div
+                key={d.key}
+                className={`rounded-lg px-1 py-2 text-center text-[10px] ${
+                  d.hasAnnual
+                    ? "bg-brand-500 text-white"
+                    : d.hasAdmin
+                      ? "bg-brand-50 text-brand-700"
+                      : "bg-bg text-muted"
+                }`}
+                title={d.hasAnnual ? "Annual planner" : d.hasAdmin ? "Admin planner" : undefined}
+              >
+                <div className="font-semibold">{d.label}</div>
+                <div className="opacity-70">{d.dow.slice(0, 2)}</div>
+              </div>
+            ))}
           </div>
-          <div className="overflow-hidden rounded-xl border border-[#F1F3F5]">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-bg text-[11px] uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="px-3 py-2 font-semibold">Room</th>
-                  <th className="px-3 py-2 font-semibold">Students in</th>
-                  <th className="px-3 py-2 font-semibold">Staff in</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roomRatios.map((r) => (
-                  <tr key={r.room} className="border-t border-[#F1F3F5]">
-                    <td className="px-3 py-2.5 font-medium text-heading">{r.room}</td>
-                    <td className="px-3 py-2.5 text-muted">{r.studentsIn}</td>
-                    <td className="px-3 py-2.5 text-muted">{r.staffIn}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="mt-2 text-[10px] text-muted">
+            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-brand-500" /> Annual{" "}
+            <span className="ml-2 mr-2 inline-block h-2 w-2 rounded-full bg-brand-200" /> Admin
+          </p>
         </div>
 
         <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
           <div className="mb-3 flex items-center gap-2">
             <Cake className="h-4 w-4 text-brand-500" />
-            <h3 className="text-sm font-semibold">Upcoming birthdays</h3>
+            <h3 className="text-sm font-semibold">Child birthdays</h3>
           </div>
           <ul className="space-y-2">
-            {birthdays.map((b) => (
+            {childBirthdays.map((b) => (
               <li key={b.id}>
-                <Link
-                  href={`/students/${b.id}`}
-                  className="flex items-center gap-3 rounded-xl bg-bg px-3 py-2.5 hover:bg-brand-50"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-[10px] font-bold text-brand-700">
-                    {b.photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={b.photo} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      b.name.slice(0, 2)
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-heading">{b.name}</p>
-                    <p className="text-[11px] text-muted">{b.ageLabel}</p>
-                  </div>
-                  <span className="text-xs font-semibold text-muted">{b.dateLabel}</span>
+                <Link href={b.href} className="flex items-center justify-between rounded-xl bg-bg px-3 py-2 text-sm hover:bg-brand-50">
+                  <span className="font-medium">{b.name}</span>
+                  <span className="text-[11px] text-muted">
+                    {b.ageLabel} · {b.dateLabel}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Cake className="h-4 w-4 text-brand-500" />
+            <h3 className="text-sm font-semibold">Staff birthdays</h3>
+          </div>
+          <ul className="space-y-2">
+            {staffBirthdays.map((b) => (
+              <li key={b.id}>
+                <Link href={b.href} className="flex items-center justify-between rounded-xl bg-bg px-3 py-2 text-sm hover:bg-brand-50">
+                  <span className="font-medium">{b.name}</span>
+                  <span className="text-[11px] text-muted">
+                    {b.ageLabel} · {b.dateLabel}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -321,47 +302,84 @@ export function DashboardContent({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Cake className="h-4 w-4 text-brand-500" />
-            <h3 className="text-sm font-semibold">Admin planner</h3>
+      {/* Room ratios */}
+      <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <Link href="/classrooms" className="text-sm font-semibold hover:text-brand-600">
+              Staff : child ratios by class →
+            </Link>
+            <p className="text-[11px] text-muted">Infant 4:1 · Toddler 6:1 · Pre/Nursery/KG 8:1 · Afterschool 10:1</p>
           </div>
-          <ul className="space-y-2">
-            {planner.map((p) => (
-              <li key={p.what}>
-                <Link
-                  href={p.href}
-                  className="flex items-center justify-between rounded-xl bg-bg px-3 py-2.5 text-sm hover:bg-brand-50"
-                >
-                  <span className="font-medium text-heading">{p.what}</span>
-                  <span className="text-[11px] text-muted">{p.when}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
         </div>
-        <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-brand-500" />
-            <h3 className="text-sm font-semibold">Communication log</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-bg text-[11px] uppercase text-muted">
+              <tr>
+                <th className="px-3 py-2">Room</th>
+                <th className="px-3 py-2">Students in</th>
+                <th className="px-3 py-2">Staff in</th>
+                <th className="px-3 py-2">Target ratio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roomRatios.map((r) => (
+                <tr key={r.room} className="border-t border-[#F1F3F5]">
+                  <td className="px-3 py-2.5 font-medium">{r.room}</td>
+                  <td className="px-3 py-2.5 text-muted">{r.studentsIn}</td>
+                  <td className="px-3 py-2.5 text-muted">{r.staffIn}</td>
+                  <td className="px-3 py-2.5 text-muted">{r.target}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Communication log */}
+      <div className="rounded-2xl border border-[#F1F3F5] bg-white p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-brand-500" />
+          <h3 className="text-sm font-semibold">Communication log (daily report)</h3>
+        </div>
+        <p className="mb-3 text-xs text-muted">Detailed daily report format will be shared.</p>
+        <ul className="grid gap-2 sm:grid-cols-3 text-sm">
+          <li className="rounded-xl bg-bg px-3 py-2.5">
+            <p className="font-medium">Emergency drill notice</p>
+            <p className="text-[11px] text-muted">In-app · all parents · 08:05</p>
+          </li>
+          <li className="rounded-xl bg-bg px-3 py-2.5">
+            <p className="font-medium">Fee reminder — August</p>
+            <p className="text-[11px] text-muted">Push · families · yesterday</p>
+          </li>
+          <li className="rounded-xl bg-bg px-3 py-2.5">
+            <p className="font-medium">PTM slots published</p>
+            <p className="text-[11px] text-muted">Messages · Infant Room A</p>
+          </li>
+        </ul>
+      </div>
+
+      {/* Finance at bottom — FE review */}
+      <div className="space-y-4 border-t border-[#F1F3F5] pt-6">
+        <h2 className="text-sm font-semibold text-heading">Finance</h2>
+        <p className="text-xs text-muted">Monthly revenue and financial charts sit below operational widgets.</p>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-3">
+            <RevenueChart data={revenue} />
+            <div className="rounded-2xl border border-[#F1F3F5] bg-white px-4 py-3 text-sm">
+              <span className="text-muted">Monthly revenue · </span>
+              <span className="font-bold text-heading">{formatCurrency(branchKpis.monthlyRevenue)}</span>
+              <span className="text-muted"> (under revenue chart)</span>
+            </div>
           </div>
-          <ul className="space-y-2 text-sm">
-            <li className="rounded-xl bg-bg px-3 py-2.5">
-              <p className="font-medium">Emergency drill notice sent</p>
-              <p className="text-[11px] text-muted">In-app · all parents · 08:05</p>
-            </li>
-            <li className="rounded-xl bg-bg px-3 py-2.5">
-              <p className="font-medium">Fee reminder — August</p>
-              <p className="text-[11px] text-muted">Push · 42 families · yesterday</p>
-            </li>
-            <li className="rounded-xl bg-bg px-3 py-2.5">
-              <p className="font-medium">PTM slots published</p>
-              <p className="text-[11px] text-muted">Messages hub · Infant Room A</p>
-            </li>
-          </ul>
-          <Link href="/communications" className="mt-3 inline-block text-xs font-semibold text-brand-600">
-            Open Communications →
+          <EnrollmentFeed items={filteredEnrollments} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/billing" className="rounded-xl bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700">
+            Billing & invoices
+          </Link>
+          <Link href="/billing/fee-locks" className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+            HO fee / discount approvals
           </Link>
         </div>
       </div>

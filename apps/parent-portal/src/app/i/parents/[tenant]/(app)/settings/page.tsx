@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@kinder-pilot/ui";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export default function ParentSettingsPage() {
   const [push, setPush] = useState(true);
@@ -14,6 +15,14 @@ export default function ParentSettingsPage() {
         <h1 className="font-heading text-xl font-bold text-heading md:text-2xl">Settings</h1>
         <p className="mt-1 text-sm text-muted">Notifications, consent, and account preferences</p>
       </section>
+
+      <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface px-4 py-3.5 shadow-card">
+        <div>
+          <p className="text-sm font-bold text-heading">Appearance</p>
+          <p className="text-xs text-muted">Light or dark mode for the parent app</p>
+        </div>
+        <ThemeToggle showLabel />
+      </div>
 
       <Toggle label="Push notifications" hint="Messages, check-in, and alerts" on={push} onChange={setPush} />
       <Toggle label="Email alerts" hint="Fee reminders and circulars" on={emailAlerts} onChange={setEmailAlerts} />
@@ -59,7 +68,7 @@ function Toggle({
       </div>
       <span className={cn("relative h-6 w-11 rounded-full transition", on ? "bg-brand-500" : "bg-black/15")}>
         <span
-          className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white transition", on ? "left-5" : "left-0.5")}
+          className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-[white] transition", on ? "left-5" : "left-0.5")}
         />
       </span>
     </button>

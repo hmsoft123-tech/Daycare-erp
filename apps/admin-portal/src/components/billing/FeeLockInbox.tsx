@@ -36,7 +36,7 @@ export function FeeLockInbox({ requests: initial }: Props) {
 
   const decide = async (req: FeeLockRequest, decision: "approved" | "rejected") => {
     if (!isHeadOffice) {
-      toast.error("Only Head Office can approve fee locks");
+      toast.error("Only Head Office can approve fee / discount exceptions");
       return;
     }
     const result = await decideFeeLockRequest(req.id, decision, {
@@ -50,8 +50,8 @@ export function FeeLockInbox({ requests: initial }: Props) {
     setItems((prev) => prev.map((r) => (r.id === req.id ? result.request : r)));
     toast.success(
       decision === "approved"
-        ? `${req.studentName} is now pending payment — parent portal fee-locked`
-        : `Fee lock rejected for ${req.studentName}`
+        ? `HO approved — ${req.studentName} (${req.discountType && req.discountType !== "none" ? "discount applied · " : ""}pending payment / unlock path)`
+        : `HO rejected exception for ${req.studentName}`
     );
   };
 
@@ -60,8 +60,8 @@ export function FeeLockInbox({ requests: initial }: Props) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted">
           {isHeadOffice
-            ? "Approve fee packages before students become pending payment (parent feed locked until paid)."
-            : "Branch fee-lock requests wait for Head Office. Students stay current until HO approves."}
+            ? "Standard fee plans are pre-programmed. Approve discounts, waivers, and special rates here (Head Office only)."
+            : "Branch may request discounts / exceptions. Only Head Office can approve. Standard admission & monthly fees need no HO step."}
         </p>
         <div className="flex gap-2">
           <Button
@@ -113,6 +113,12 @@ export function FeeLockInbox({ requests: initial }: Props) {
                       {req.requestedBy}
                     </p>
                     {req.feeNotes && <p className="mt-2 text-sm text-heading">{req.feeNotes}</p>}
+                    {req.discountType && req.discountType !== "none" && (
+                      <p className="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">
+                        Discount · {req.discountType}
+                        {req.discountValue != null ? ` · ${req.discountValue}%` : ""} — HO approval required
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="text-right text-sm">
@@ -141,7 +147,7 @@ export function FeeLockInbox({ requests: initial }: Props) {
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" onClick={() => decide(req, "approved")}>
                       <Check className="h-4 w-4" />
-                      Approve fee lock → pending
+                      Approve discount / exception
                     </Button>
                     <Button type="button" variant="outline" onClick={() => decide(req, "rejected")}>
                       <X className="h-4 w-4" />

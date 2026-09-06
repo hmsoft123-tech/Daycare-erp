@@ -13,10 +13,10 @@ export function GaugeChart({ label, value, max = 100 }: GaugeChartProps) {
   return (
     <div>
       <div className="mb-1 flex justify-between text-xs">
-        <span className="text-gray-600">{label}</span>
-        <span className="font-medium">{value}%</span>
+        <span className="text-muted">{label}</span>
+        <span className="font-medium text-heading">{value}%</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+      <div className="h-2 overflow-hidden rounded-full bg-bg">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, backgroundColor: color }}

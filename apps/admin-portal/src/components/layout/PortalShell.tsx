@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopNav } from "@/components/layout/TopNav";
 import { useUIStore } from "@/lib/store";
+import { useColorMode } from "@/components/providers/ColorModeProvider";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 
@@ -14,6 +15,7 @@ type PortalShellProps = {
 
 export function PortalShell({ children, schoolName }: PortalShellProps) {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const { mode } = useColorMode();
 
   return (
     <div className="min-h-screen bg-bg">
@@ -27,7 +29,7 @@ export function PortalShell({ children, schoolName }: PortalShellProps) {
         <TopNav />
         <main className="animate-fade-in-up px-4 pb-10 pt-2 md:px-8">{children}</main>
       </div>
-      <Toaster position="top-right" richColors />
+      <Toaster position="top-right" richColors theme={mode} />
     </div>
   );
 }

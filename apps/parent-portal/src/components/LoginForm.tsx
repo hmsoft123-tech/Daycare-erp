@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useParentAuth } from "@/lib/auth-store";
 
 type LoginFormProps = {
@@ -34,8 +35,11 @@ export function LoginForm({ schoolName }: LoginFormProps) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#F7F8FA] px-4 py-10 sm:px-6">
+    <div className="relative flex min-h-screen items-center justify-center bg-bg px-4 py-10 sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,106,61,0.12),_transparent_55%)]" />
+      <div className="absolute right-3 top-3 z-10 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -50,7 +54,7 @@ export function LoginForm({ schoolName }: LoginFormProps) {
           <p className="mt-1.5 text-sm text-muted">Sign in to your family account</p>
         </div>
 
-        <form onSubmit={onSubmit} className="rounded-3xl bg-white p-6 shadow-card sm:p-8">
+        <form onSubmit={onSubmit} className="rounded-3xl bg-surface p-6 shadow-card sm:p-8">
           <label className="mb-4 block">
             <span className="mb-1.5 block text-xs font-semibold text-muted">Email</span>
             <div className="relative">
@@ -59,7 +63,7 @@ export function LoginForm({ schoolName }: LoginFormProps) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12 w-full rounded-xl border border-[#E4E7EB] bg-white pl-10 pr-4 text-sm outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-50"
+                className="h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-4 text-sm text-heading outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-50"
                 placeholder="you@email.com"
                 autoComplete="email"
                 required
@@ -75,7 +79,7 @@ export function LoginForm({ schoolName }: LoginFormProps) {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 w-full rounded-xl border border-[#E4E7EB] bg-white pl-10 pr-12 text-sm outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-50"
+                className="h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-12 text-sm text-heading outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-50"
                 placeholder="••••••••"
                 autoComplete="current-password"
                 required

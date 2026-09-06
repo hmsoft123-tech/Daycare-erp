@@ -28,9 +28,10 @@ import type {
   Student,
 } from "@/types";
 
-type Tab = Exclude<SchoolResource, "attendance"> | "attendance";
+type Tab = Exclude<SchoolResource, "attendance"> | "attendance" | "planner";
 
 const tabs: { id: Tab; label: string; hint: string }[] = [
+  { id: "planner", label: "Planner", hint: "Daily / monthly / HO standard planner (discuss with Laiba)" },
   { id: "attendance", label: "Attendance", hint: "Marked under Attendance · synced to parents" },
   { id: "homework", label: "Homework", hint: "Daily / weekly home tasks" },
   { id: "assignments", label: "Assignments", hint: "Projects & graded work" },
@@ -63,7 +64,7 @@ export function AcademicsManager({
   syllabus,
 }: AcademicsManagerProps) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("homework");
+  const [tab, setTab] = useState<Tab>("planner");
   const [pending, startTransition] = useTransition();
   const active = students.filter((s) => s.status === "active");
 
@@ -113,6 +114,49 @@ export function AcademicsManager({
       </div>
 
       <p className="text-xs text-muted">{tabs.find((t) => t.id === tab)?.hint}</p>
+
+      {tab === "planner" && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <p className="text-sm font-semibold">Daily planner</p>
+              <p className="text-xs text-muted">
+                First Academics input per FE review. Day structure to be finalized with Laiba.
+              </p>
+              <Input placeholder="Theme / focus for today" />
+              <Textarea rows={4} placeholder="Blocks · circle time · outdoor · meals…" />
+              <Button type="button" onClick={() => toast.success("Daily planner saved (demo)")}>
+                Save daily
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <p className="text-sm font-semibold">Academic monthly planner</p>
+              <p className="text-xs text-muted">Month overview · units · assessments (format TBD with Laiba).</p>
+              <Input type="month" defaultValue="2026-09" />
+              <Textarea rows={4} placeholder="Monthly goals and lesson overview…" />
+              <Button type="button" variant="outline" onClick={() => toast.success("Monthly planner saved (demo)")}>
+                Save monthly
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <p className="text-sm font-semibold">HO standard planner</p>
+              <p className="text-xs text-muted">
+                Head Office standard academic planner shell — branch follows HO template.
+              </p>
+              <div className="rounded-xl bg-bg px-3 py-2 text-xs text-muted">
+                Status · Draft template · formats will be shared
+              </div>
+              <Button type="button" variant="secondary" onClick={() => toast.message("HO planner view (demo)")}>
+                View HO template
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {tab === "attendance" && (
         <AttendanceList rows={attendance} onGoMark={() => router.push("/attendance")} />

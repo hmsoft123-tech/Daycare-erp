@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@kinder-pilot/ui";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useParentAuth } from "@/lib/auth-store";
 
 const primaryTabs = [
@@ -183,13 +184,14 @@ export function AppShell({ children, schoolName }: AppShellProps) {
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center">
+            <ThemeToggle />
             <Link
               href="/messages"
               className="relative rounded-full p-2 text-muted hover:bg-bg"
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-surface" />
             </Link>
             <Link
               href="/settings"

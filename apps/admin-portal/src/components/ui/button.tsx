@@ -11,7 +11,7 @@ const buttonVariants = cva(
         default:
           "bg-brand-500 text-white shadow-sm hover:bg-brand-600 hover:shadow-[0_8px_16px_-4px_rgba(0,167,111,0.35)]",
         destructive: "bg-danger text-white hover:bg-red-600",
-        outline: "border border-[#DFE3E8] bg-surface text-heading hover:bg-bg hover:border-[#C4CDD5]",
+        outline: "border border-border bg-surface text-heading hover:bg-bg hover:border-[color:var(--kp-border-strong)]",
         secondary: "bg-brand-50 text-brand-700 hover:bg-brand-100",
         ghost: "text-muted hover:bg-bg hover:text-heading",
         link: "text-brand-500 underline-offset-4 hover:underline",

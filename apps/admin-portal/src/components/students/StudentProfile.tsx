@@ -160,6 +160,10 @@ export function StudentProfile({
           <Tabs defaultValue="overview">
             <TabsList className="flex h-auto flex-wrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="induction">Induction</TabsTrigger>
+              <TabsTrigger value="services">Services</TabsTrigger>
+              <TabsTrigger value="learning">Learning & development</TabsTrigger>
+              <TabsTrigger value="comms">Parent communication</TabsTrigger>
               <TabsTrigger value="billing">Billing extras</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
               <TabsTrigger value="therapy">Therapy</TabsTrigger>
@@ -172,10 +176,11 @@ export function StudentProfile({
                 <CardHeader><CardTitle>Parents / Guardians</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   {parents.map((p) => (
-                    <div key={p.id} className="flex justify-between text-sm">
+                    <div key={p.id} className="flex justify-between gap-3 text-sm">
                       <div>
                         <p className="font-medium">{p.name}</p>
                         <p className="text-gray-500 capitalize">{p.relation}</p>
+                        {p.cnic && <p className="mt-1 text-xs text-muted">CNIC · {p.cnic}</p>}
                       </div>
                       <div className="text-right text-gray-600">
                         <p>{p.phone}</p>
@@ -183,6 +188,106 @@ export function StudentProfile({
                       </div>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle>Siblings in SDLC</CardTitle></CardHeader>
+                <CardContent className="text-sm text-muted">
+                  {(student.siblingStudentIds?.length ?? 0) === 0 ? (
+                    <p>No linked siblings (current or alumni).</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {student.siblingStudentIds!.map((id) => (
+                        <li key={id}>
+                          <a href={`/students/${id}`} className="font-semibold text-brand-600">
+                            Sibling · {id}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="induction" className="mt-4">
+              <Card>
+                <CardHeader><CardTitle>Induction checklist</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {(student.inductionChecklist ?? [
+                    { id: "d1", label: "Documents collected", done: false },
+                    { id: "d2", label: "Medical form signed", done: false },
+                    { id: "d3", label: "Authorized pickup list", done: false },
+                    { id: "d4", label: "Parent portal orientation", done: false },
+                    { id: "d5", label: "Classroom visit / settling", done: false },
+                  ]).map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-xl border border-[#F1F3F5] px-3 py-2.5 text-sm"
+                    >
+                      <span className="font-medium">{item.label}</span>
+                      <span className={item.done ? "text-xs font-bold text-success" : "text-xs text-muted"}>
+                        {item.done ? "Done" : "Pending"}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="services" className="mt-4">
+              <Card>
+                <CardHeader><CardTitle>Services</CardTitle></CardHeader>
+                <CardContent className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    ["Meal plan", student.services?.mealPlan],
+                    ["Nazra", student.services?.nazra],
+                    ["Learning support", student.services?.learningSupport],
+                    ["Saturday service", student.services?.saturdayService],
+                  ].map(([label, on]) => (
+                    <div
+                      key={String(label)}
+                      className="flex items-center justify-between rounded-xl bg-bg px-3 py-2.5 text-sm"
+                    >
+                      <span className="font-medium">{label}</span>
+                      <span className={on ? "text-xs font-bold text-success" : "text-xs text-muted"}>
+                        {on ? "Active" : "Off"}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="learning" className="mt-4">
+              <Card>
+                <CardHeader><CardTitle>Learning & development progress</CardTitle></CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <p className="text-muted">
+                    Linked to Academics progress / Montessori observations. Open Academics to publish updates for parents.
+                  </p>
+                  <a href="/academics" className="inline-block text-xs font-semibold text-brand-600">
+                    Open Academics →
+                  </a>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="comms" className="mt-4">
+              <Card>
+                <CardHeader><CardTitle>Parent communication history</CardTitle></CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="rounded-xl bg-bg px-3 py-2.5">
+                    <p className="font-medium">Story time update</p>
+                    <p className="text-[11px] text-muted">Messages · yesterday</p>
+                  </div>
+                  <div className="rounded-xl bg-bg px-3 py-2.5">
+                    <p className="font-medium">Fee reminder</p>
+                    <p className="text-[11px] text-muted">Push · 3 days ago</p>
+                  </div>
+                  <a href="/communications" className="inline-block text-xs font-semibold text-brand-600">
+                    Open Communications →
+                  </a>
                 </CardContent>
               </Card>
             </TabsContent>

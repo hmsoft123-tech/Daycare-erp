@@ -6,6 +6,9 @@
 @source "./**/*.{js,ts,jsx,tsx,mdx}";
 @source "../../../../packages/ui/src/**/*.{js,ts,jsx,tsx}";
 
+/* Class-based dark mode (html.dark) — Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Default brand vars — overwritten per-tenant at runtime (zero CLS when set in layout head) */
 :root {
   --brand-50: #e9fbf0;
@@ -19,6 +22,69 @@
   --brand-800: #006c4a;
   --brand-900: #004b35;
   --brand-secondary: #ffab00;
+
+  /* Semantic tokens — light (existing ERP look) */
+  --kp-surface: #ffffff;
+  --kp-bg: #f4f6f8;
+  --kp-border: #f1f3f5;
+  --kp-border-strong: #dfe3e8;
+  --kp-muted: #637381;
+  --kp-heading: #1c252e;
+  --kp-placeholder: #919eab;
+  --kp-success: #22c55e;
+  --kp-warning: #ffab00;
+  --kp-danger: #ff5630;
+  --kp-info: #00b8d9;
+  --kp-soft-green: #d3fcd2;
+  --kp-soft-blue: #cafdf5;
+  --kp-soft-yellow: #fff5cc;
+  --kp-soft-red: #ffe9d5;
+  --kp-soft-cyan: #cff9fe;
+  --kp-warm-400: #f97316;
+  --kp-warm-50: #fff7ed;
+  --kp-shadow-card: 0 0 2px 0 rgba(145, 158, 171, 0.2), 0 12px 24px -4px rgba(145, 158, 171, 0.12);
+  --kp-shadow-card-hover: 0 0 2px 0 rgba(145, 158, 171, 0.24), 0 16px 32px -4px rgba(145, 158, 171, 0.16);
+  --kp-chart-grid: #f1f3f5;
+  --kp-chart-tick: #919eab;
+  --kp-chart-tooltip-bg: #ffffff;
+  --kp-chart-tooltip-border: #f1f3f5;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Brand stays vivid for accents; soft tints deepen for contrast */
+  --brand-50: #0f2a1f;
+  --brand-100: #143528;
+  --brand-200: #1a4a35;
+  --brand-700: #36b37e;
+  --brand-800: #6bc9a0;
+  --brand-900: #a3e0c4;
+
+  --kp-surface: #212b36;
+  --kp-bg: #161c24;
+  --kp-border: #2d3743;
+  --kp-border-strong: #454f5b;
+  --kp-muted: #919eab;
+  --kp-heading: #f4f6f8;
+  --kp-placeholder: #637381;
+  --kp-success: #36b37e;
+  --kp-warning: #ffc107;
+  --kp-danger: #ff6b4a;
+  --kp-info: #61f3f3;
+  --kp-soft-green: #1b3a2c;
+  --kp-soft-blue: #16353d;
+  --kp-soft-yellow: #3d3420;
+  --kp-soft-red: #3d241c;
+  --kp-soft-cyan: #14353d;
+  --kp-warm-400: #fb923c;
+  --kp-warm-50: #2a1c12;
+  --kp-shadow-card: 0 0 2px 0 rgba(0, 0, 0, 0.4), 0 12px 24px -4px rgba(0, 0, 0, 0.45);
+  --kp-shadow-card-hover: 0 0 2px 0 rgba(0, 0, 0, 0.5), 0 16px 32px -4px rgba(0, 0, 0, 0.55);
+  --kp-chart-grid: #2d3743;
+  --kp-chart-tick: #919eab;
+  --kp-chart-tooltip-bg: #212b36;
+  --kp-chart-tooltip-border: #2d3743;
 }
 
 @theme {
@@ -34,25 +100,25 @@
   --color-brand-100: var(--brand-100);
   --color-brand-50: var(--brand-50);
 
-  --color-surface: #ffffff;
-  --color-bg: #f4f6f8;
-  --color-border: #f1f3f5;
-  --color-muted: #637381;
-  --color-heading: #1c252e;
+  --color-surface: var(--kp-surface);
+  --color-bg: var(--kp-bg);
+  --color-border: var(--kp-border);
+  --color-muted: var(--kp-muted);
+  --color-heading: var(--kp-heading);
 
-  --color-success: #22c55e;
-  --color-warning: #ffab00;
-  --color-danger: #ff5630;
-  --color-info: #00b8d9;
+  --color-success: var(--kp-success);
+  --color-warning: var(--kp-warning);
+  --color-danger: var(--kp-danger);
+  --color-info: var(--kp-info);
 
-  --color-soft-green: #d3fcd2;
-  --color-soft-blue: #cafdf5;
-  --color-soft-yellow: #fff5cc;
-  --color-soft-red: #ffe9d5;
-  --color-soft-cyan: #cff9fe;
+  --color-soft-green: var(--kp-soft-green);
+  --color-soft-blue: var(--kp-soft-blue);
+  --color-soft-yellow: var(--kp-soft-yellow);
+  --color-soft-red: var(--kp-soft-red);
+  --color-soft-cyan: var(--kp-soft-cyan);
 
-  --color-warm-400: #f97316;
-  --color-warm-50: #fff7ed;
+  --color-warm-400: var(--kp-warm-400);
+  --color-warm-50: var(--kp-warm-50);
 
   --font-heading: var(--font-plus-jakarta), system-ui, sans-serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
@@ -60,23 +126,95 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
 
-  --shadow-card: 0 0 2px 0 rgba(145, 158, 171, 0.2), 0 12px 24px -4px rgba(145, 158, 171, 0.12);
-  --shadow-card-hover: 0 0 2px 0 rgba(145, 158, 171, 0.24), 0 16px 32px -4px rgba(145, 158, 171, 0.16);
+  --shadow-card: var(--kp-shadow-card);
+  --shadow-card-hover: var(--kp-shadow-card-hover);
 }
 
 * {
-  border-color: var(--color-border);
+  border-color: var(--kp-border);
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-heading);
+  background-color: var(--kp-bg);
+  color: var(--kp-heading);
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading), system-ui, sans-serif;
-  color: var(--color-heading);
+  color: var(--kp-heading);
+}
+
+/*
+ * Bridge common light-only utilities used across the ERP without rewriting every screen.
+ * Light mode utilities stay as authored; dark remaps to semantic tokens.
+ */
+html.dark .bg-white {
+  background-color: var(--kp-surface);
+}
+html.dark .hover\:bg-white:hover {
+  background-color: var(--kp-surface);
+}
+html.dark .bg-white\/80 {
+  background-color: color-mix(in srgb, var(--kp-surface) 80%, transparent);
+}
+html.dark .bg-white\/90 {
+  background-color: color-mix(in srgb, var(--kp-surface) 90%, transparent);
+}
+html.dark .ring-white {
+  --tw-ring-color: var(--kp-surface);
+}
+html.dark .border-white {
+  border-color: var(--kp-surface);
+}
+html.dark .text-gray-400,
+html.dark .text-gray-500,
+html.dark .text-gray-600 {
+  color: var(--kp-muted);
+}
+html.dark .text-gray-700,
+html.dark .text-gray-800,
+html.dark .text-gray-900 {
+  color: var(--kp-heading);
+}
+html.dark .bg-gray-50,
+html.dark .bg-gray-100 {
+  background-color: var(--kp-bg);
+}
+html.dark .border-\[\#F1F3F5\],
+html.dark .border-\[\#DFE3E8\],
+html.dark .border-\[\#C4CDD5\] {
+  border-color: var(--kp-border);
+}
+html.dark .hover\:border-\[\#C4CDD5\]:hover {
+  border-color: var(--kp-border-strong);
+}
+html.dark .text-\[\#919EAB\],
+html.dark .text-\[\#C4CDD5\],
+html.dark .placeholder\:text-\[\#919EAB\]::placeholder {
+  color: var(--kp-placeholder);
+}
+html.dark .bg-\[\#F4F6F8\],
+html.dark .bg-\[\#f4f6f8\] {
+  background-color: var(--kp-bg);
+}
+html.dark .hover\:bg-\[\#F4F6F8\]:hover,
+html.dark .hover\:bg-\[\#f4f6f8\]:hover {
+  background-color: var(--kp-bg);
+}
+html.dark .divide-\[\#F1F3F5\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--kp-border);
+}
+html.dark .text-\[\#1C252E\],
+html.dark .text-\[\#1c252e\],
+html.dark .text-\[\#454F5B\],
+html.dark .text-\[\#454f5b\] {
+  color: var(--kp-heading);
+}
+html.dark .border-black\/\[0\.04\],
+html.dark .border-black\/\[0\.06\],
+html.dark .border-black\/10 {
+  border-color: var(--kp-border);
 }
 
 @keyframes fade-in-up {

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 const TABS = [
   { id: "organization", label: "Organization" },
@@ -183,10 +184,17 @@ export function SettingsClient() {
             <CardTitle>Workspace preferences</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label>Appearance</Label>
+                <p className="text-xs text-muted">Light or dark mode for the ERP console</p>
+              </div>
+              <ThemeToggle showLabel />
+            </div>
             <div className="flex items-center justify-between">
               <div>
                 <Label>Collapsed Sidebar</Label>
-                <p className="text-xs text-gray-500">Start with sidebar collapsed</p>
+                <p className="text-xs text-muted">Start with sidebar collapsed</p>
               </div>
               <Switch checked={sidebarCollapsed} onCheckedChange={setSidebarCollapsed} />
             </div>

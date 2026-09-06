@@ -83,7 +83,7 @@ const navGroups = [
     label: "Finance",
     items: [
       { href: "/billing", label: "Billing & Invoices", icon: Receipt },
-      { href: "/billing/fee-locks", label: "Fee Lock Approvals", icon: Lock },
+      { href: "/billing/fee-locks", label: "HO Fee Approvals", icon: Lock },
     ],
   },
   {
@@ -132,7 +132,7 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
   const displayName = schoolName ?? "Kinder Pilot";
 
   const content = (
-    <div className="flex h-full flex-col border-r border-[#f1f3f5] bg-white text-heading">
+    <div className="flex h-full flex-col border-r border-border bg-surface text-heading">
       <div className={cn("flex h-[72px] items-center gap-2 px-4", sidebarCollapsed && "justify-center")}>
         {!sidebarCollapsed && (
           <Link href="/dashboard" className="flex items-center gap-3">
@@ -173,7 +173,7 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
           {navGroups.map((group) => (
             <div key={group.label} className="mb-5">
               {!sidebarCollapsed && (
-                <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#919EAB]">
+                <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
                   {group.label}
                 </p>
               )}
@@ -210,7 +210,7 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
                       <item.icon
                         className={cn(
                           "h-[22px] w-[22px] shrink-0 transition-colors",
-                          isActive ? "text-brand-500" : "text-[#919EAB] group-hover:text-heading"
+                          isActive ? "text-brand-500" : "text-muted group-hover:text-heading"
                         )}
                       />
                       {!sidebarCollapsed && <span>{item.label}</span>}

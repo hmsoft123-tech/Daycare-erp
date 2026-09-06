@@ -69,6 +69,17 @@ export function VirtualStudentTable({ students: initial }: { students: Student[]
         ),
       },
       {
+        id: "allergies",
+        header: "Allergy",
+        width: 140,
+        cell: (row) =>
+          row.allergies.length ? (
+            <span className="text-xs font-semibold text-danger">{row.allergies.join(", ")}</span>
+          ) : (
+            <span className="text-xs text-muted">None</span>
+          ),
+      },
+      {
         id: "status",
         header: "Status",
         width: 110,

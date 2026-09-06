@@ -66,6 +66,16 @@ export function StudentTable({ students: initial }: StudentTableProps) {
       },
       { accessorKey: "className", header: "Class" },
       {
+        id: "allergies",
+        header: "Allergy",
+        cell: ({ row }) =>
+          row.original.allergies.length ? (
+            <span className="text-xs font-semibold text-danger">{row.original.allergies.join(", ")}</span>
+          ) : (
+            <span className="text-xs text-muted">None</span>
+          ),
+      },
+      {
         id: "age",
         header: "Age",
         cell: ({ row }) => calculateAge(row.original.dob),

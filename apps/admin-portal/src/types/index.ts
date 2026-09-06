@@ -91,6 +91,8 @@ export interface Parent {
   relation: "father" | "mother" | "guardian";
   phone: string;
   email: string;
+  /** National ID — FE review */
+  cnic?: string;
 }
 
 export interface Student {
@@ -106,6 +108,8 @@ export interface Student {
   enrollmentDate: string;
   status: StudentStatus;
   parentIds: string[];
+  /** Sibling student ids currently or formerly in SDLC */
+  siblingStudentIds?: string[];
   photo?: string;
   feePlan?: string;
   /** Link to SDLC services catalogue plan (core class + tier) */
@@ -128,6 +132,15 @@ export interface Student {
   rejoinDate?: string;
   /** Previous campus before last branch transfer */
   previousBranchId?: string;
+  /** Optional service flags — FE review */
+  services?: {
+    mealPlan?: boolean;
+    nazra?: boolean;
+    learningSupport?: boolean;
+    saturdayService?: boolean;
+  };
+  /** Induction checklist items completed */
+  inductionChecklist?: { id: string; label: string; done: boolean }[];
 }
 
 /** Extra line items attached to a student and billed on invoice generation */
@@ -663,6 +676,10 @@ export interface ClassRoom {
   classGroup?: string;
   ageBand?: string;
   capacity?: number;
+  /** Enrollment cap (FE review) — defaults to capacity */
+  enrollmentCap?: number;
+  /** Staff:child ratio target e.g. "4:1" */
+  staffChildRatio?: string;
 }
 
 /** Teacher daily log — visible on parent portal activity feed */

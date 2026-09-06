@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { ColorModeProvider } from "@/components/providers/ColorModeProvider";
+import { COLOR_MODE_BOOT_SCRIPT } from "@/lib/color-mode";
 import "./globals.css";
 
 const inter = Inter({
@@ -19,8 +21,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${plusJakarta.variable} font-body antialiased`}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: COLOR_MODE_BOOT_SCRIPT }} />
+      </head>
+      <body className={`${inter.variable} ${plusJakarta.variable} font-body antialiased`}>
+        <ColorModeProvider>{children}</ColorModeProvider>
+      </body>
     </html>
   );
 }

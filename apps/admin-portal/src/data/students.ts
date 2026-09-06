@@ -1,14 +1,14 @@
 import type { Parent, Student } from "@/types";
 
 export const parents: Parent[] = [
-  { id: "p1", name: "Ahmed Khan", relation: "father", phone: "+92 300 1234567", email: "ahmed.khan@email.com" },
-  { id: "p2", name: "Fatima Khan", relation: "mother", phone: "+92 321 7654321", email: "fatima.khan@email.com" },
-  { id: "p3", name: "Omar Siddiqui", relation: "father", phone: "+92 333 9876543", email: "omar.s@email.com" },
-  { id: "p4", name: "Aisha Siddiqui", relation: "mother", phone: "+92 345 1122334", email: "aisha.s@email.com" },
-  { id: "p5", name: "Hassan Malik", relation: "father", phone: "+92 312 5566778", email: "hassan.m@email.com" },
-  { id: "p6", name: "Sara Ahmed", relation: "mother", phone: "+92 322 9988776", email: "sara.a@email.com" },
-  { id: "p7", name: "Zaid Hussain", relation: "father", phone: "+92 301 4455667", email: "zaid.h@email.com" },
-  { id: "p8", name: "Maryam Ali", relation: "mother", phone: "+92 334 2233445", email: "maryam.a@email.com" },
+  { id: "p1", name: "Ahmed Khan", relation: "father", phone: "+92 300 1234567", email: "ahmed.khan@email.com", cnic: "42101-1234567-1" },
+  { id: "p2", name: "Fatima Khan", relation: "mother", phone: "+92 321 7654321", email: "fatima.khan@email.com", cnic: "42101-7654321-2" },
+  { id: "p3", name: "Omar Siddiqui", relation: "father", phone: "+92 333 9876543", email: "omar.s@email.com", cnic: "42201-1111222-3" },
+  { id: "p4", name: "Aisha Siddiqui", relation: "mother", phone: "+92 345 1122334", email: "aisha.s@email.com", cnic: "42201-3333444-4" },
+  { id: "p5", name: "Hassan Malik", relation: "father", phone: "+92 312 5566778", email: "hassan.m@email.com", cnic: "42301-5555666-5" },
+  { id: "p6", name: "Sara Ahmed", relation: "mother", phone: "+92 322 9988776", email: "sara.a@email.com", cnic: "42301-7777888-6" },
+  { id: "p7", name: "Zaid Hussain", relation: "father", phone: "+92 301 4455667", email: "zaid.h@email.com", cnic: "42401-9999000-7" },
+  { id: "p8", name: "Maryam Ali", relation: "mother", phone: "+92 334 2233445", email: "maryam.a@email.com", cnic: "42401-1212121-8" },
 ];
 
 export const students: Student[] = [
@@ -19,6 +19,15 @@ export const students: Student[] = [
     dob: "2021-03-15",
     bloodGroup: "B+",
     allergies: ["Peanuts"],
+    siblingStudentIds: [],
+    services: { mealPlan: true, nazra: false, learningSupport: false, saturdayService: true },
+    inductionChecklist: [
+      { id: "ind1", label: "Documents collected", done: true },
+      { id: "ind2", label: "Medical form signed", done: true },
+      { id: "ind3", label: "Authorized pickup list", done: true },
+      { id: "ind4", label: "Parent portal orientation", done: false },
+      { id: "ind5", label: "Classroom visit / settling", done: true },
+    ],
     branchId: "branch-nn",
     classId: "c1",
     className: "Infant Room A",
