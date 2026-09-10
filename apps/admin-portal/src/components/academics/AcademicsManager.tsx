@@ -28,10 +28,15 @@ import type {
   Student,
 } from "@/types";
 
-type Tab = Exclude<SchoolResource, "attendance"> | "attendance" | "planner";
+type Tab = Exclude<SchoolResource, "attendance"> | "attendance" | "planner" | "daily-report";
 
 const tabs: { id: Tab; label: string; hint: string }[] = [
   { id: "planner", label: "Planner", hint: "Daily / monthly / HO standard planner (discuss with Laiba)" },
+  {
+    id: "daily-report",
+    label: "Student daily report",
+    hint: "Daycare activity + school-going mix · HO format TBD",
+  },
   { id: "attendance", label: "Attendance", hint: "Marked under Attendance · synced to parents" },
   { id: "homework", label: "Homework", hint: "Daily / weekly home tasks" },
   { id: "assignments", label: "Assignments", hint: "Projects & graded work" },
@@ -156,6 +161,57 @@ export function AcademicsManager({
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {tab === "daily-report" && (
+        <Card>
+          <CardContent className="space-y-4 p-4">
+            <div>
+              <p className="text-sm font-semibold text-heading">Student daily report</p>
+              <p className="mt-1 text-xs text-muted">
+                Mix of daycare daily activity + school-going classroom notes. Exact layout will be
+                provided by Head Office — this is a capture shell only.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Student</Label>
+                <Select defaultValue={active[0]?.id ?? ""}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {active.slice(0, 12).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Date</Label>
+                <Input type="date" defaultValue="2026-09-10" />
+              </div>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Daycare activity (meals · naps · outdoor)</Label>
+                <Textarea rows={4} placeholder="Awaiting HO daycare daily report fields…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>School / class progress</Label>
+                <Textarea rows={4} placeholder="Awaiting HO school-going report fields…" />
+              </div>
+            </div>
+            <Button
+              type="button"
+              onClick={() => toast.message("Daily report saved as draft · HO format pending")}
+            >
+              Save draft (demo)
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {tab === "attendance" && (

@@ -31,28 +31,58 @@ const categoryLabel: Record<InventoryItem["category"], string> = {
 export function InventoryItemsClient({ items: initial }: Props) {
   const [items, setItems] = useState(initial);
   const [q, setQ] = useState("");
+  const [category, setCategory] = useState<string>("course");
   const [addOpen, setAddOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return items;
-    return items.filter(
-      (i) =>
+    return items.filter((i) => {
+      const isCourse =
+        i.category === "books" ||
+        i.category === "courses" ||
+        i.category === "stationery" ||
+        i.category === "printed";
+      if (category === "course" && !isCourse) return false;
+      if (category !== "all" && category !== "course" && i.category !== category) return false;
+      if (!query) return true;
+      return (
         i.name.toLowerCase().includes(query) ||
         i.sku.toLowerCase().includes(query) ||
-        i.category.includes(query)
-    );
-  }, [items, q]);
+        i.category.toLowerCase().includes(query)
+      );
+    });
+  }, [items, q, category]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          placeholder="Search SKU, name, category…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="max-w-sm"
-        />
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          <Input
+            placeholder="Search SKU, name, category…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="max-w-sm"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: "course", label: "Course materials" },
+              { id: "all", label: "All stock" },
+              { id: "books", label: "Books" },
+              { id: "stationery", label: "Stationery" },
+            ].map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCategory(c.id)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  category === c.id ? "bg-brand-500 text-white" : "bg-bg text-muted"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <Button type="button" onClick={() => setAddOpen(true)}>
           <PackagePlus className="h-4 w-4" />
           Add item

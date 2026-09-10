@@ -131,7 +131,7 @@ export function DashboardContent({
     { title: "Daily collection", value: formatCurrency(dailyCollection), hint: "Paid invoices (demo)", icon: BarChart3, href: "/billing" },
     { title: "Open incidents", value: "1", hint: "Issues / medication follow-up", icon: AlertTriangle, href: "/incidents" },
     { title: "Low stock", value: "3", hint: "Branch reorder alerts", icon: Package, href: "/inventory/stock" },
-    { title: "Maintenance", value: "1", hint: "Service reminder", icon: Wrench, href: "/workflows" },
+    { title: "Maintenance", value: "1", hint: "Service reminder", icon: Wrench, href: "/maintenance" },
     { title: "Today's menu", value: "Daal · rice · fruit", hint: "Kitchen plan · demo", icon: Utensils, href: "/settings" },
     { title: "Medication / treatment", value: "1 dose", hint: "Logged today · demo", icon: HeartPulse, href: "/therapy" },
   ];

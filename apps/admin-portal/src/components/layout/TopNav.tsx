@@ -1,10 +1,12 @@
 "use client";
 
-import { Menu, Search, Bell, Settings } from "lucide-react";
+import Link from "next/link";
+import { Menu, Search, Settings } from "lucide-react";
 import { useUIStore } from "@/lib/store";
 import { ContextSwitcher } from "./ContextSwitcher";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { getInitials } from "@/lib/utils";
 
 interface TopNavProps {
@@ -12,7 +14,8 @@ interface TopNavProps {
 }
 
 export function TopNav({ breadcrumbs = [] }: TopNavProps) {
-  const { setMobileSidebarOpen } = useUIStore();
+  const { setMobileSidebarOpen, userName } = useUIStore();
+  const displayName = userName?.trim() || "Admin User";
 
   return (
     <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 bg-bg/80 px-4 backdrop-blur-md lg:px-8">
@@ -53,22 +56,17 @@ export function TopNav({ breadcrumbs = [] }: TopNavProps) {
           </kbd>
         </button>
         <ThemeToggle />
-        <button
-          className="relative rounded-full bg-surface p-2.5 text-muted shadow-card transition hover:text-heading"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger ring-2 ring-surface" />
-        </button>
-        <button
+        <NotificationCenter />
+        <Link
+          href="/settings"
           className="rounded-full bg-surface p-2.5 text-muted shadow-card transition hover:text-heading"
           aria-label="Settings"
         >
           <Settings className="h-5 w-5" />
-        </button>
+        </Link>
         <Avatar className="ml-1 h-9 w-9 cursor-pointer ring-2 ring-surface shadow-card">
           <AvatarFallback className="bg-brand-500 text-xs font-semibold text-white">
-            {getInitials("Admin User")}
+            {getInitials(displayName)}
           </AvatarFallback>
         </Avatar>
       </div>

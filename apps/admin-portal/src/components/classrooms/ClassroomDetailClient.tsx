@@ -274,6 +274,40 @@ export function ClassroomDetailClient({
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Broadcast to parents</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted">
+            Send general reports, notices, and student diary to all parents in this class (FE review).
+          </p>
+          <Textarea rows={3} placeholder="Notice / diary message for the whole class…" />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => toast.success("General notice sent to all class parents (demo)")}
+            >
+              Send notice
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => toast.success("Class report shared with parents (demo)")}
+            >
+              Send report
+            </Button>
+            <Button
+              type="button"
+              onClick={() => toast.success("Student diary posted to all parents (demo)")}
+            >
+              Send diary
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {detailTab !== "monthly" && (
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

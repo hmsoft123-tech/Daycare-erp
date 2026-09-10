@@ -1,7 +1,22 @@
-import type { AdmissionCard, AdmissionStage, AdmissionTag, InquiryType } from "@/types";
+import type {
+  AdmissionCard,
+  AdmissionStage,
+  AdmissionTag,
+  InquirySource,
+  InquiryType,
+} from "@/types";
 
 const TAGS: AdmissionTag[] = ["hot_lead", "walk_in", "referral", "sibling", "online", "campaign"];
 const TYPES: InquiryType[] = ["admission", "tour", "general", "employment"];
+const SOURCES: InquirySource[] = [
+  "instagram",
+  "facebook",
+  "whatsapp",
+  "website",
+  "walk_in",
+  "referral",
+  "other",
+];
 
 const DESCRIPTIONS = [
   "Interested in full-time toddler care starting next month.",
@@ -31,28 +46,28 @@ const EMAILS = [
 
 const stages: AdmissionStage[] = [
   "new_inquiry",
+  "waitlist",
   "meeting_test_scheduled",
   "pending_ho_fee",
   "enrol_unpaid",
   "paid",
-  "waitlist",
 ];
 
 const cardData: Omit<AdmissionCard, "stage" | "tag" | "type" | "description" | "email" | "inquiryTime">[] = [
-  { id: "a1", studentName: "Yusuf Ahmed", age: 3, parentName: "Kamran Ahmed", program: "Daycare", branchId: "branch-nn", daysInStage: 2, avatar: "https://i.pravatar.cc/150?img=52", createdAt: "2025-06-20", parentPhone: "+92 300 1110001" },
-  { id: "a2", studentName: "Mariam Noor", age: 4, parentName: "Saima Noor", program: "Preschool", branchId: "branch-clifton", daysInStage: 5, avatar: "https://i.pravatar.cc/150?img=53", createdAt: "2025-06-17" },
-  { id: "a3", studentName: "Arham Saleem", age: 2, parentName: "Faisal Saleem", program: "Daycare", branchId: "branch-dha", daysInStage: 1, avatar: "https://i.pravatar.cc/150?img=54", createdAt: "2025-06-23" },
-  { id: "a4", studentName: "Hania Rizvi", age: 5, parentName: "Ali Rizvi", program: "Kindergarten", branchId: "branch-gulshan", daysInStage: 8, avatar: "https://i.pravatar.cc/150?img=55", createdAt: "2025-06-14" },
-  { id: "a5", studentName: "Rayyan Iqbal", age: 3, parentName: "Nabeel Iqbal", program: "Daycare", branchId: "branch-nn", daysInStage: 3, avatar: "https://i.pravatar.cc/150?img=56", createdAt: "2025-06-19" },
-  { id: "a6", studentName: "Zara Mahmood", age: 4, parentName: "Tariq Mahmood", program: "Preschool", branchId: "branch-clifton", daysInStage: 4, avatar: "https://i.pravatar.cc/150?img=57", createdAt: "2025-06-10", classroom: "Preschool A", monthlyTuition: 80000, registrationFee: 0, invoiceNumber: "INV-2026-8801" },
-  { id: "a7", studentName: "Ahmed Raza", age: 2, parentName: "Imran Raza", program: "Daycare", branchId: "branch-dha", daysInStage: 6, avatar: "https://i.pravatar.cc/150?img=58", createdAt: "2025-06-16" },
-  { id: "a8", studentName: "Laiba Khan", age: 5, parentName: "Shahid Khan", program: "After School", branchId: "branch-gulshan", daysInStage: 4, avatar: "https://i.pravatar.cc/150?img=59", createdAt: "2025-06-18" },
-  { id: "a9", studentName: "Mustafa Ali", age: 3, parentName: "Javed Ali", program: "Daycare", branchId: "branch-nn", daysInStage: 15, avatar: "https://i.pravatar.cc/150?img=60", createdAt: "2025-06-07" },
+  { id: "a1", studentName: "Yusuf Ahmed", age: 3, parentName: "Kamran Ahmed", program: "Daycare", branchId: "branch-nn", daysInStage: 2, avatar: "https://i.pravatar.cc/150?img=52", createdAt: "2025-06-20", parentPhone: "+92 300 1110001", parentCnic: "42101-1234567-1", childDob: "2022-04-12", followUpStatus: "welcome_sent", welcomeSentAt: "2025-06-20" },
+  { id: "a2", studentName: "Mariam Noor", age: 4, parentName: "Saima Noor", program: "Preschool", branchId: "branch-clifton", daysInStage: 5, avatar: "https://i.pravatar.cc/150?img=53", createdAt: "2025-06-17", parentCnic: "42101-7654321-2", childDob: "2021-08-03", followUpStatus: "post_meeting" },
+  { id: "a3", studentName: "Arham Saleem", age: 2, parentName: "Faisal Saleem", program: "Daycare", branchId: "branch-dha", daysInStage: 1, avatar: "https://i.pravatar.cc/150?img=54", createdAt: "2025-06-23", parentPhone: "+92 300 2223344", parentCnic: "42201-9988776-3", childDob: "2023-11-01", followUpStatus: "welcome_sent" },
+  { id: "a4", studentName: "Hania Rizvi", age: 5, parentName: "Ali Rizvi", program: "Kindergarten", branchId: "branch-gulshan", daysInStage: 8, avatar: "https://i.pravatar.cc/150?img=55", createdAt: "2025-06-14", parentCnic: "42101-5566778-4", childDob: "2020-02-20", followUpStatus: "post_meeting" },
+  { id: "a5", studentName: "Rayyan Iqbal", age: 3, parentName: "Nabeel Iqbal", program: "Daycare", branchId: "branch-nn", daysInStage: 3, avatar: "https://i.pravatar.cc/150?img=56", createdAt: "2025-06-19", parentCnic: "42101-1122334-5", childDob: "2022-09-15" },
+  { id: "a6", studentName: "Zara Mahmood", age: 4, parentName: "Tariq Mahmood", program: "Preschool", branchId: "branch-clifton", daysInStage: 4, avatar: "https://i.pravatar.cc/150?img=57", createdAt: "2025-06-10", classroom: "Preschool A", monthlyTuition: 80000, registrationFee: 0, invoiceNumber: "INV-2026-8801", parentCnic: "42201-3344556-6", childDob: "2021-05-08" },
+  { id: "a7", studentName: "Ahmed Raza", age: 2, parentName: "Imran Raza", program: "Daycare", branchId: "branch-dha", daysInStage: 6, avatar: "https://i.pravatar.cc/150?img=58", createdAt: "2025-06-16", followUpOutcome: "admission_done", followUpStatus: "final" },
+  { id: "a8", studentName: "Laiba Khan", age: 5, parentName: "Shahid Khan", program: "After School", branchId: "branch-gulshan", daysInStage: 4, avatar: "https://i.pravatar.cc/150?img=59", createdAt: "2025-06-18", followUpStatus: "final", followUpOutcome: "admission_done" },
+  { id: "a9", studentName: "Mustafa Ali", age: 3, parentName: "Javed Ali", program: "Daycare", branchId: "branch-nn", daysInStage: 15, avatar: "https://i.pravatar.cc/150?img=60", createdAt: "2025-06-07", parentCnic: "42101-7788990-7", followUpStatus: "post_meeting", followUpNotes: "Capacity hold — prefer morning slot" },
   { id: "a10", studentName: "Ayesha Tariq", age: 4, parentName: "Waqas Tariq", program: "Preschool", branchId: "branch-clifton", daysInStage: 7, avatar: "https://i.pravatar.cc/150?img=61", createdAt: "2025-06-15" },
   { id: "a11", studentName: "Daniyal Shah", age: 2, parentName: "Asad Shah", program: "Daycare", branchId: "branch-dha", daysInStage: 10, avatar: "https://i.pravatar.cc/150?img=62", createdAt: "2025-06-12" },
   { id: "a12", studentName: "Noor Fatima", age: 5, parentName: "Hamza Fatima", program: "Kindergarten", branchId: "branch-gulshan", daysInStage: 3, avatar: "https://i.pravatar.cc/150?img=63", createdAt: "2025-06-02", classroom: "Kindergarten A", monthlyTuition: 85000, invoiceNumber: "INV-2026-8802" },
   { id: "a13", studentName: "Hassan Mir", age: 3, parentName: "Adnan Mir", program: "Daycare", branchId: "branch-nn", daysInStage: 9, avatar: "https://i.pravatar.cc/150?img=64", createdAt: "2025-06-13" },
-  { id: "a14", studentName: "Sana Qureshi", age: 4, parentName: "Farhan Qureshi", program: "Preschool", branchId: "branch-clifton", daysInStage: 14, avatar: "https://i.pravatar.cc/150?img=65", createdAt: "2025-06-08" },
+  { id: "a14", studentName: "Sana Qureshi", age: 4, parentName: "Farhan Qureshi", program: "Preschool", branchId: "branch-clifton", daysInStage: 14, avatar: "https://i.pravatar.cc/150?img=65", createdAt: "2025-06-08", followUpStatus: "final", followUpOutcome: "deferred", followUpNotes: "Deferred to next session" },
   { id: "a15", studentName: "Bilal Hassan", age: 2, parentName: "Rizwan Hassan", program: "Daycare", branchId: "branch-dha", daysInStage: 11, avatar: "https://i.pravatar.cc/150?img=66", createdAt: "2025-06-11" },
   { id: "a16", studentName: "Mehreen Akhtar", age: 5, parentName: "Salman Akhtar", program: "After School", branchId: "branch-gulshan", daysInStage: 18, avatar: "https://i.pravatar.cc/150?img=67", createdAt: "2025-06-04" },
   { id: "a17", studentName: "Saad Javed", age: 3, parentName: "Khalid Javed", program: "Daycare", branchId: "branch-nn", daysInStage: 25, avatar: "https://i.pravatar.cc/150?img=68", createdAt: "2025-05-28" },
@@ -97,6 +112,7 @@ export const admissions: AdmissionCard[] = cardData.map((card, i) => {
   const minute = (i * 7) % 60;
   const inquiryTime = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   const stage = stageOverrides[card.id] ?? stages[i % stages.length];
+  const inquirySource = SOURCES[i % SOURCES.length];
 
   const extras: Partial<AdmissionCard> = {};
   if (stage === "meeting_test_scheduled") {
@@ -132,5 +148,9 @@ export const admissions: AdmissionCard[] = cardData.map((card, i) => {
     inquiryTime,
     inquiryType: type,
     parentEmail: email,
+    inquirySource: card.inquirySource ?? inquirySource,
+    followUpStatus:
+      card.followUpStatus ??
+      (stage === "new_inquiry" ? "welcome_sent" : stage === "waitlist" ? "post_meeting" : undefined),
   };
 });

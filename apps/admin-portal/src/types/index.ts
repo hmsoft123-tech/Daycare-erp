@@ -26,11 +26,13 @@ export type InvoiceStatus = "paid" | "overdue" | "pending" | "partial" | "expire
 export type AttendanceStatus = "present" | "absent" | "late" | "leave";
 
 /**
- * HO procurement pipeline (SDLC requisition → bill → pay → dispatch → receive):
- * pending → billed → paid → dispatched → received | rejected
+ * HO procurement pipeline:
+ * pending → quotation (SQ) → po_issued (PO) → billed → paid → dispatched → received | rejected
  */
 export type PRStatus =
   | "pending"
+  | "quotation"
+  | "po_issued"
   | "billed"
   | "paid"
   | "dispatched"
@@ -39,7 +41,7 @@ export type PRStatus =
   /** @deprecated use billed / received — kept for older seeds during migration */
   | "approved";
 
-/** SDLC requisition catalogue kinds + extras (books, courses, general inventory) */
+/** SDLC requisition catalogue kinds + HO operational categories */
 export type RequisitionKind =
   | "stationery"
   | "groceries"
@@ -47,17 +49,44 @@ export type RequisitionKind =
   | "printed"
   | "books"
   | "courses"
+  | "montessori"
+  | "fixed_assets"
+  | "maintenance"
+  | "it"
   | "inventory"
   | "other";
 
 export type AdmissionStage =
   | "new_inquiry"
+  | "waitlist"
   | "meeting_test_scheduled"
   /** Branch submitted fee package — awaiting Head Office fee-lock approval */
   | "pending_ho_fee"
   | "enrol_unpaid"
-  | "paid"
-  | "waitlist";
+  | "paid";
+
+/** How the inquiry reached the school */
+export type InquirySource =
+  | "instagram"
+  | "facebook"
+  | "whatsapp"
+  | "website"
+  | "walk_in"
+  | "referral"
+  | "other";
+
+/** Structured inquiry follow-up progression */
+export type InquiryFollowUpStatus =
+  | "welcome_sent"
+  | "post_meeting"
+  | "final";
+
+export type InquiryFollowUpOutcome =
+  | "admission_done"
+  | "not_interested"
+  | "deferred"
+  | "no_response"
+  | "other";
 
 /**
  * Head Office must approve fee locking before a student/admission becomes
@@ -614,6 +643,18 @@ export interface AdmissionCard {
   meetingTime?: string;
   meetingLocation?: string;
   meetingNotes?: string;
+  /** Parent CNIC on inquiry */
+  parentCnic?: string;
+  /** Lead source platform */
+  inquirySource?: InquirySource;
+  /** Child date of birth (ISO date) when known */
+  childDob?: string;
+  /** Structured follow-up stage */
+  followUpStatus?: InquiryFollowUpStatus;
+  /** Final outcome when follow-up completes */
+  followUpOutcome?: InquiryFollowUpOutcome;
+  followUpNotes?: string;
+  welcomeSentAt?: string;
 }
 
 export type StaffInquiryStage =

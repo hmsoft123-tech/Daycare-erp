@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -44,6 +44,7 @@ import {
 } from "@/lib/services-catalog";
 import { requestEnrollmentFeeLock } from "@/lib/mock-service";
 import { generateGrNumber } from "@/lib/gr-number";
+import { recommendClassGroupFromDob } from "@/lib/age-brackets";
 import { toast } from "sonner";
 import { Check, ChevronLeft, ChevronRight, FileUp, Upload } from "lucide-react";
 import type { PortalIdCard, ServiceTier, Student } from "@/types";
@@ -119,6 +120,13 @@ const enrollmentSchema = z.object({
   careTier: z.enum(["base", "lite", "plus", "pro"]),
   addOns: z.array(z.string()),
   completionMode: z.enum(["invite_to_pay", "mark_enrolled"]),
+  /** Opens daycare-specific fields after common program selection */
+  daycareTrack: z.boolean(),
+  daycareDropOff: z.string().optional(),
+  daycarePickUp: z.string().optional(),
+  daycareNapNotes: z.string().optional(),
+  daycareFeedingNotes: z.string().optional(),
+  daycareAuthorizedPickup: z.string().optional(),
   // Step 5
   docPassportPhotos: z.string().min(1, "Passport photographs required"),
   docFatherCnic: z.string().min(1, "Father CNIC copy required"),
@@ -242,6 +250,12 @@ export function EnrollmentWizard({
       careTier: "base",
       addOns: [],
       completionMode: isPublic ? "mark_enrolled" : "mark_enrolled",
+      daycareTrack: false,
+      daycareDropOff: "",
+      daycarePickUp: "",
+      daycareNapNotes: "",
+      daycareFeedingNotes: "",
+      daycareAuthorizedPickup: "",
       docPassportPhotos: "",
       docFatherCnic: "",
       docMotherCnic: "",
@@ -259,6 +273,16 @@ export function EnrollmentWizard({
 
   const { register, watch, setValue, trigger, formState: { errors } } = form;
   const values = watch();
+
+  useEffect(() => {
+    if (!values.dob) return;
+    const recommended = recommendClassGroupFromDob(values.dob);
+    if (!recommended) return;
+    if (!values.classGroup) {
+      setValue("classGroup", recommended, { shouldValidate: true });
+      if (recommended === "infant") setValue("daycareTrack", true);
+    }
+  }, [values.dob, values.classGroup, setValue]);
 
   const feeSummary = useMemo(() => {
     const group = values.classGroup || "";
@@ -805,6 +829,9 @@ export function EnrollmentWizard({
                       </div>
                       <div>
                         <Label>Class / program</Label>
+                        <p className="mt-0.5 text-xs text-muted">
+                          Auto-selected from date of birth (SDLC age brackets). Authorized staff can change it.
+                        </p>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           {CLASS_GROUPS.map((g) => {
                             const tier = (values.careTier || "base") as ServiceTier;
@@ -818,6 +845,7 @@ export function EnrollmentWizard({
                                 type="button"
                                 onClick={() => {
                                   setValue("classGroup", g.id, { shouldValidate: true });
+                                  if (g.id === "infant") setValue("daycareTrack", true);
                                   if (g.id === "after_school" && (values.careTier === "base" || values.careTier === "pro")) {
                                     setValue("careTier", "lite", { shouldValidate: true });
                                   }
@@ -843,6 +871,53 @@ export function EnrollmentWizard({
                           <p className="mt-1 text-xs text-danger">{errors.classGroup.message}</p>
                         )}
                       </div>
+
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-bg px-3 py-3">
+                        <Checkbox
+                          checked={!!values.daycareTrack}
+                          onCheckedChange={(c) => setValue("daycareTrack", c === true)}
+                        />
+                        <span>
+                          <span className="block text-sm font-semibold text-heading">Daycare enrollment</span>
+                          <span className="text-xs text-muted">
+                            After the common form, capture daycare-specific care details (HO form shell).
+                          </span>
+                        </span>
+                      </label>
+
+                      {values.daycareTrack && (
+                        <div className="space-y-3 rounded-2xl border border-brand-200 bg-brand-50/40 p-4">
+                          <div>
+                            <h3 className="text-sm font-bold text-heading">Daycare enrollment form</h3>
+                            <p className="text-xs text-muted">
+                              Separate from standard enrollment · full HO template pending
+                            </p>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <Label htmlFor="daycareDropOff">Preferred drop-off</Label>
+                              <Input id="daycareDropOff" className="mt-1" {...register("daycareDropOff")} placeholder="e.g. 08:00" />
+                            </div>
+                            <div>
+                              <Label htmlFor="daycarePickUp">Preferred pick-up</Label>
+                              <Input id="daycarePickUp" className="mt-1" {...register("daycarePickUp")} placeholder="e.g. 16:30" />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="daycareNapNotes">Nap / rest notes</Label>
+                            <Textarea id="daycareNapNotes" className="mt-1" rows={2} {...register("daycareNapNotes")} />
+                          </div>
+                          <div>
+                            <Label htmlFor="daycareFeedingNotes">Feeding / formula notes</Label>
+                            <Textarea id="daycareFeedingNotes" className="mt-1" rows={2} {...register("daycareFeedingNotes")} />
+                          </div>
+                          <div>
+                            <Label htmlFor="daycareAuthorizedPickup">Authorized pickup persons</Label>
+                            <Input id="daycareAuthorizedPickup" className="mt-1" {...register("daycareAuthorizedPickup")} placeholder="Names as on CNIC" />
+                          </div>
+                        </div>
+                      )}
+
                       <div>
                         <Label>Care tier (Lite / Plus / Pro)</Label>
                         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">

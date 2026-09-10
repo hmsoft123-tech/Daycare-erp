@@ -31,7 +31,10 @@ export function ProcurementInbox({ requisitions, catalog }: ProcurementInboxProp
   const isHeadOffice = contextType === "head_office";
   const [items, setItems] = useState(requisitions);
   const [addOpen, setAddOpen] = useState(false);
-  const filtered = branchId ? items.filter((r) => r.branchId === branchId) : items;
+  const [kindFilter, setKindFilter] = useState<string>("all");
+  const filtered = (branchId ? items.filter((r) => r.branchId === branchId) : items).filter(
+    (r) => kindFilter === "all" || r.kind === kindFilter
+  );
 
   const runAdvance = async (pr: PurchaseRequisition, next: PurchaseRequisition["status"]) => {
     const result = await advancePurchaseRequisition(pr.id, next);
@@ -48,13 +51,37 @@ export function ProcurementInbox({ requisitions, catalog }: ProcurementInboxProp
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted">
           {isHeadOffice
-            ? "Head Office: price lines → generate bill → pay → dispatch inventory to the requesting branch."
-            : "Submit requisitions for stationery, groceries, books, courses, or any inventory. HO manages billing & delivery."}
+            ? "HO flow: PR → SQ → PO → Invoice → Pay → Dispatch → GRN. Filter by category; each PR stays in its category."
+            : "Submit a categorized purchase requisition. HO runs SQ → PO → delivery → GRN."}
         </p>
         <Button type="button" onClick={() => setAddOpen(true)}>
           <ClipboardPlus className="h-4 w-4" />
           New requisition
         </Button>
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <button
+          type="button"
+          onClick={() => setKindFilter("all")}
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+            kindFilter === "all" ? "bg-brand-500 text-white" : "bg-bg text-muted"
+          }`}
+        >
+          All categories
+        </button>
+        {REQUISITION_KINDS.map((k) => (
+          <button
+            key={k.value}
+            type="button"
+            onClick={() => setKindFilter(k.value)}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+              kindFilter === k.value ? "bg-brand-500 text-white" : "bg-bg text-muted"
+            }`}
+          >
+            {k.label}
+          </button>
+        ))}
       </div>
 
       {filtered.length === 0 && (
@@ -107,11 +134,9 @@ export function ProcurementInbox({ requisitions, catalog }: ProcurementInboxProp
                 </div>
                 {pr.status === "pending" && isHeadOffice && (
                   <div className="flex gap-2">
-                    <Button size="sm" asChild>
-                      <Link href={`/inventory/${pr.id}`}>
-                        Price &amp; bill
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
+                    <Button size="sm" onClick={() => runAdvance(pr, "quotation")}>
+                      Record SQ
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       size="sm"
@@ -126,7 +151,7 @@ export function ProcurementInbox({ requisitions, catalog }: ProcurementInboxProp
                   <Button
                     size="sm"
                     onClick={() => {
-                      if (next.action === "billed") {
+                      if (next.action === "billed" || next.action === "po_issued") {
                         window.location.href = `/inventory/${pr.id}`;
                         return;
                       }

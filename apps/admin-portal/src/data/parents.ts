@@ -1,4 +1,4 @@
-export type ParentAccountStatus = "active" | "pending" | "inactive";
+export type ParentAccountStatus = "active" | "pending" | "inactive" | "alumni";
 
 export type ParentAccount = {
   id: string;
@@ -11,9 +11,29 @@ export type ParentAccount = {
   portalAccess: boolean;
   lastLogin?: string;
   createdAt: string;
+  /** Consecutive months without fee payment (demo). ≥6 auto-deactivates portal. */
+  unpaidFeeMonths?: number;
 };
 
-export const parentAccounts: ParentAccount[] = [
+/** Apply HO rule: unpaid ≥ 6 months → inactive + portal off. Alumni keep portal off. */
+export function applyParentAccessRules(accounts: ParentAccount[]): ParentAccount[] {
+  return accounts.map((p) => {
+    if (p.status === "alumni") {
+      return { ...p, portalAccess: false };
+    }
+    const months = p.unpaidFeeMonths ?? 0;
+    if (months >= 6 && p.status !== "pending") {
+      return {
+        ...p,
+        status: "inactive",
+        portalAccess: false,
+      };
+    }
+    return p;
+  });
+}
+
+export const parentAccounts: ParentAccount[] = applyParentAccessRules([
   {
     id: "par-001",
     name: "Fatima Khan",
@@ -25,6 +45,7 @@ export const parentAccounts: ParentAccount[] = [
     portalAccess: true,
     lastLogin: "2025-07-14",
     createdAt: "2024-01-10",
+    unpaidFeeMonths: 0,
   },
   {
     id: "par-002",
@@ -37,6 +58,7 @@ export const parentAccounts: ParentAccount[] = [
     portalAccess: true,
     lastLogin: "2025-07-12",
     createdAt: "2024-01-10",
+    unpaidFeeMonths: 1,
   },
   {
     id: "par-003",
@@ -49,6 +71,7 @@ export const parentAccounts: ParentAccount[] = [
     portalAccess: true,
     lastLogin: "2025-07-10",
     createdAt: "2023-09-01",
+    unpaidFeeMonths: 0,
   },
   {
     id: "par-004",
@@ -60,6 +83,7 @@ export const parentAccounts: ParentAccount[] = [
     childrenNames: ["Zainab Siddiqui"],
     portalAccess: false,
     createdAt: "2025-06-20",
+    unpaidFeeMonths: 0,
   },
   {
     id: "par-005",
@@ -72,6 +96,7 @@ export const parentAccounts: ParentAccount[] = [
     portalAccess: true,
     lastLogin: "2025-07-08",
     createdAt: "2023-06-15",
+    unpaidFeeMonths: 7,
   },
   {
     id: "par-006",
@@ -84,18 +109,20 @@ export const parentAccounts: ParentAccount[] = [
     portalAccess: false,
     lastLogin: "2025-03-02",
     createdAt: "2023-06-15",
+    unpaidFeeMonths: 8,
   },
   {
     id: "par-007",
     name: "Maryam Ali",
     email: "maryam.a@email.com",
     phone: "+92 334 2233445",
-    status: "active",
+    status: "alumni",
     branchId: "branch-gulshan",
     childrenNames: ["Sara Hussain"],
-    portalAccess: true,
-    lastLogin: "2025-07-13",
+    portalAccess: false,
+    lastLogin: "2024-12-01",
     createdAt: "2022-08-20",
+    unpaidFeeMonths: 0,
   },
   {
     id: "par-008",
@@ -143,6 +170,7 @@ export const parentAccounts: ParentAccount[] = [
     portalAccess: false,
     lastLogin: "2025-01-15",
     createdAt: "2025-06-19",
+    unpaidFeeMonths: 6,
   },
   {
     id: "par-012",
@@ -155,7 +183,7 @@ export const parentAccounts: ParentAccount[] = [
     portalAccess: false,
     createdAt: "2025-07-14",
   },
-];
+]);
 
 /** Sample CSV template content for bulk parent import */
 export const PARENT_CSV_TEMPLATE = `name,email,phone,branch,childName,relation,portalAccess

@@ -780,7 +780,9 @@ export async function advancePurchaseRequisition(
   }
 
   const allowed: Partial<Record<PRStatus, PRStatus[]>> = {
-    pending: ["billed"],
+    pending: ["quotation", "billed"],
+    quotation: ["po_issued"],
+    po_issued: ["billed"],
     billed: ["paid"],
     paid: ["dispatched"],
     dispatched: ["received"],
@@ -797,14 +799,25 @@ export async function advancePurchaseRequisition(
   if (opts?.deliveryDate) pr.deliveryDate = opts.deliveryDate;
   if (opts?.hoNotes !== undefined) pr.hoNotes = opts.hoNotes || undefined;
 
+  if (nextStatus === "quotation") {
+    if (opts?.vendor) pr.vendor = opts.vendor;
+    pr.hoNotes = pr.hoNotes ?? "Supplier quotation recorded (SQ).";
+  }
+  if (nextStatus === "po_issued") {
+    pr.billNumber = pr.billNumber ?? `PO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    pr.hoNotes = [pr.hoNotes, "Purchase order issued."].filter(Boolean).join(" ");
+  }
   if (nextStatus === "billed") {
     if (pr.items.some((i) => i.unitPrice < 0 || i.qty <= 0)) {
       return { ok: false, error: "Every line needs qty and a non-negative unit amount." };
     }
     if (pr.totalAmount <= 0) {
-      return { ok: false, error: "Enter per-item amounts before generating the bill." };
+      return { ok: false, error: "Enter per-item amounts before recording the invoice." };
     }
-    pr.billNumber = pr.billNumber ?? `BILL-PR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    pr.billNumber =
+      pr.billNumber?.startsWith("PO-")
+        ? `BILL-${pr.billNumber.slice(3)}`
+        : pr.billNumber ?? `BILL-PR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
     pr.billedAt = today;
     pr.totalAmount = requisitionTotal(pr.items);
   }

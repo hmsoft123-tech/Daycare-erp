@@ -39,11 +39,11 @@ import { toast } from "sonner";
 
 const STAGES: { id: AdmissionStage; label: string; color: string }[] = [
   { id: "new_inquiry", label: "New Inquiry", color: "border-blue-400" },
+  { id: "waitlist", label: "Waitlist", color: "border-amber-400" },
   { id: "meeting_test_scheduled", label: "Tour Scheduled", color: "border-purple-400" },
   { id: "pending_ho_fee", label: "HO Fee Lock", color: "border-amber-500" },
   { id: "enrol_unpaid", label: "Enrol Unpaid", color: "border-orange-400" },
   { id: "paid", label: "Enrolled", color: "border-emerald-400" },
-  { id: "waitlist", label: "Waitlist", color: "border-amber-400" },
 ];
 
 interface KanbanBoardProps {

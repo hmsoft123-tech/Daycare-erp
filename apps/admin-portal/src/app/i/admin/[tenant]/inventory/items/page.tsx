@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { InventoryItemsClient } from "@/components/inventory/InventoryItemsClient";
+import { CourseInventoryOps } from "@/components/inventory/CourseInventoryOps";
 import { getInventoryItems } from "@/lib/mock-service";
 
 export default async function InventoryItemsPage() {
@@ -8,10 +9,13 @@ export default async function InventoryItemsPage() {
   return (
     <>
       <PageHeader
-        title="Inventory items"
-        subtitle="Catalog of supplies, food, cleaning, therapy, and playground materials"
+        title="Course inventory"
+        subtitle="Course books · copies · workbooks · stationery · sales & valuation"
       />
-      <InventoryItemsClient items={items} />
+      <div className="space-y-6">
+        <CourseInventoryOps items={items} />
+        <InventoryItemsClient items={items} />
+      </div>
     </>
   );
 }

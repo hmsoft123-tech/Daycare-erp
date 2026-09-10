@@ -29,10 +29,11 @@ import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
 import { formatDate, getInitials, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const statusVariant: Record<ParentAccountStatus, "success" | "warning" | "secondary"> = {
+const statusVariant: Record<ParentAccountStatus, "success" | "warning" | "secondary" | "info"> = {
   active: "success",
   pending: "warning",
   inactive: "secondary",
+  alumni: "info",
 };
 
 const PAGE_SIZE = 10;
@@ -131,7 +132,7 @@ export function ParentsDirectory() {
             Parent User Management
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Manage parent accounts, portal access, and approval status.
+            Active vs alumni portal access · unpaid ≥ 6 months auto-deactivates the parent portal.
           </p>
         </div>
         <div className="rounded-full bg-brand-50 px-3.5 py-1.5 text-xs font-bold text-brand-700">
@@ -168,6 +169,7 @@ export function ParentsDirectory() {
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="alumni">Alumni</SelectItem>
           </SelectContent>
         </Select>
         {!branchFilter && (
@@ -284,6 +286,12 @@ export function ParentsDirectory() {
                       >
                         {row.portalAccess ? "Enabled" : "Off"}
                       </span>
+                      {(row.unpaidFeeMonths ?? 0) >= 6 && (
+                        <p className="text-[10px] font-medium text-danger">Unpaid ≥6 mo</p>
+                      )}
+                      {row.status === "alumni" && (
+                        <p className="text-[10px] font-medium text-muted">Alumni · no portal</p>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-muted">
                       {row.lastLogin ? formatDate(row.lastLogin) : "Never"}

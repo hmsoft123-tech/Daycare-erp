@@ -7,8 +7,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getInitials, cn, formatCurrency } from "@/lib/utils";
-import type { AdmissionCard, AdmissionTag, DiscountType, InquiryType, MeetingKind } from "@/types";
-import { CalendarClock, Clock, CreditCard, Mail, Percent } from "lucide-react";
+import type {
+  AdmissionCard,
+  AdmissionTag,
+  DiscountType,
+  InquirySource,
+  InquiryType,
+  MeetingKind,
+} from "@/types";
+import { CalendarClock, Clock, CreditCard, Mail, Percent, Phone } from "lucide-react";
 
 interface KanbanCardProps {
   card: AdmissionCard;
@@ -37,6 +44,16 @@ const TYPE_LABELS: Record<InquiryType, string> = {
   employment: "Employment",
   tour: "Tour",
   general: "General",
+};
+
+const SOURCE_LABELS: Record<InquirySource, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  whatsapp: "WhatsApp",
+  website: "Website",
+  walk_in: "Walk-in",
+  referral: "Referral",
+  other: "Other",
 };
 
 const MEETING_LABELS: Record<MeetingKind, string> = {
@@ -121,7 +138,27 @@ export function KanbanCard({ card }: KanbanCardProps) {
                 Age {card.age} · {card.program}
               </p>
               <p className="text-xs text-muted">{card.parentName}</p>
+              {card.parentPhone && (
+                <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted">
+                  <Phone className="h-3 w-3" />
+                  {card.parentPhone}
+                </p>
+              )}
             </div>
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-medium text-muted">
+            {card.inquirySource && (
+              <span className="rounded-md bg-bg px-1.5 py-0.5">{SOURCE_LABELS[card.inquirySource]}</span>
+            )}
+            {card.parentCnic && (
+              <span className="rounded-md bg-bg px-1.5 py-0.5">CNIC {card.parentCnic}</span>
+            )}
+            {card.followUpStatus && (
+              <span className="rounded-md bg-soft-blue px-1.5 py-0.5 text-[#006C9C]">
+                Follow-up · {card.followUpStatus.replace(/_/g, " ")}
+              </span>
+            )}
           </div>
 
           <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted">{card.description}</p>

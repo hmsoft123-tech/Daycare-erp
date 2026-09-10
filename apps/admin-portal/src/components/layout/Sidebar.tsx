@@ -35,6 +35,7 @@ import {
   CalendarOff,
   GitBranch,
   MonitorPlay,
+  Wrench,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useUIStore } from "@/lib/store";
@@ -83,7 +84,9 @@ const navGroups = [
     label: "Finance",
     items: [
       { href: "/billing", label: "Billing & Invoices", icon: Receipt },
+      { href: "/billing/ops", label: "HO Billing Pipeline", icon: Receipt },
       { href: "/billing/fee-locks", label: "HO Fee Approvals", icon: Lock },
+      { href: "/finance", label: "Finance & Accounts", icon: Receipt },
     ],
   },
   {
@@ -102,11 +105,12 @@ const navGroups = [
     ],
   },
   {
-    label: "Inventory",
+    label: "Operations",
     items: [
-      { href: "/inventory/items", label: "Items", icon: Boxes },
+      { href: "/maintenance", label: "Maintenance", icon: Wrench },
+      { href: "/inventory/items", label: "Course Inventory", icon: Boxes },
       { href: "/inventory/stock", label: "Stock", icon: Warehouse },
-      { href: "/inventory", label: "Procurement", icon: Package },
+      { href: "/inventory", label: "Procurement (PR)", icon: Package },
     ],
   },
   {
@@ -170,7 +174,7 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         <TooltipProvider delayDuration={0}>
-          {navGroups.map((group) => (
+          {navGroups.filter((group) => group.items.length > 0).map((group) => (
             <div key={group.label} className="mb-5">
               {!sidebarCollapsed && (
                 <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
