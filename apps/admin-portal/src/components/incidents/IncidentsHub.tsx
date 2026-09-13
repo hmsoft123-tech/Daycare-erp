@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { abcIncidents, appNotifications, type AbcIncident } from "@/data/extended-ops";
+import { abcIncidents, type AbcIncident } from "@/data/extended-ops";
 import { students } from "@/data/students";
+import { postParentOpsAction } from "@/lib/parent-ops-client";
 
 export function IncidentsHub() {
   const [rows, setRows] = useState(abcIncidents);
@@ -27,45 +28,31 @@ export function IncidentsHub() {
   const [consequence, setConsequence] = useState("");
   const [firstAid, setFirstAid] = useState("");
 
-  const submit = (notify: boolean) => {
-    const student = students.find((s) => s.id === studentId);
-    if (!student || !behavior.trim()) {
+  const submit = async (notify: boolean) => {
+    if (!behavior.trim()) {
       toast.error("Student and behaviour required");
       return;
     }
-    const row: AbcIncident = {
-      id: `inc-${Date.now()}`,
-      studentId: student.id,
-      studentName: `${student.firstName} ${student.lastName}`,
-      date: new Date().toISOString().slice(0, 10),
-      time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-      activityArea: activityArea || "Classroom",
-      antecedent: antecedent || "—",
-      behavior,
-      consequence: consequence || "—",
-      firstResponder: "On-duty educator",
-      verifier: "Center Coordinator",
-      firstAid: firstAid || undefined,
-      minimizeIdeas: ["Review supervision ratios", "Document trigger"],
-      branchId: student.branchId,
-      notifiedParent: notify,
-      status: notify ? "parent_notified" : "submitted",
-    };
-    setRows((prev) => [row, ...prev]);
-    if (notify) {
-      appNotifications.unshift({
-        id: `n-inc-${Date.now()}`,
-        audience: "parent",
-        title: `Incident report — ${student.firstName}`,
-        body: `ABC report filed for ${row.date}. Open School → Incidents for details.`,
-        createdAt: new Date().toISOString(),
-        type: "incident",
-        childId: student.id,
-      });
-      toast.success("Incident saved and parent notified");
-    } else {
-      toast.success("Incident submitted");
+    const result = await postParentOpsAction<AbcIncident>({
+      action: "createIncident",
+      studentId,
+      activityArea,
+      antecedent,
+      behavior: behavior.trim(),
+      consequence,
+      firstAid,
+      notifyParent: notify,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
     }
+    setRows((prev) => [result.item, ...prev]);
+    toast.success(
+      notify
+        ? "Incident saved — parent School → Incidents & Alerts updated"
+        : "Incident submitted (not yet shown to parent)"
+    );
     setBehavior("");
     setAntecedent("");
     setConsequence("");

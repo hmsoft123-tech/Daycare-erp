@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -14,8 +14,9 @@ import {
   Shield,
   Utensils,
 } from "lucide-react";
-import { mockChildren, mockFeed } from "@/data/mock";
+import { mockChildren, mockFeed, type ParentChild } from "@/data/mock";
 import { montessoriWorks, portfolioItems, type MontessoriStage } from "@/data/sdlc-parent";
+import { fetchParentOps } from "@/lib/parent-ops-api";
 import { cn } from "@kinder-pilot/ui";
 
 const TABS = [
@@ -42,8 +43,23 @@ export function ChildProfileClient({ childId }: { childId: string }) {
   const initial = (search.get("tab") as TabId) || "overview";
   const [tab, setTab] = useState<TabId>(TABS.some((t) => t.id === initial) ? initial : "overview");
   const [cctvOpen, setCctvOpen] = useState(false);
+  const [child, setChild] = useState<ParentChild | undefined>(
+    () => mockChildren.find((c) => c.id === childId)
+  );
 
-  const child = mockChildren.find((c) => c.id === childId);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const items = await fetchParentOps<ParentChild>("children", mockChildren);
+      if (cancelled) return;
+      const found = items.find((c) => c.id === childId) ?? mockChildren.find((c) => c.id === childId);
+      setChild(found);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [childId]);
+
   const works = useMemo(() => montessoriWorks.filter((w) => w.childId === childId), [childId]);
   const portfolio = useMemo(() => portfolioItems.filter((p) => p.childId === childId), [childId]);
   const dayItems = useMemo(

@@ -15,6 +15,7 @@ import {
   type MessageThread,
   type PtmSlot,
 } from "@/data/extended-ops";
+import { postParentOpsAction } from "@/lib/parent-ops-client";
 import { cn } from "@/lib/utils";
 
 type MainTab = "messages" | "announcements" | "newsletters" | "ptm";
@@ -108,82 +109,93 @@ export function CommunicationsHub() {
     }
   };
 
-  const sendReply = () => {
+  const sendReply = async () => {
     if (!active || !draft.trim()) return;
-    const msg = {
-      id: `m-${Date.now()}`,
-      from: "staff" as const,
-      body: draft.trim(),
-      at: new Date().toISOString(),
-    };
-    const updated = {
-      ...active,
-      messages: [...active.messages, msg],
-      preview: msg.body,
-      updatedAt: msg.at,
-      unread: 0,
-    };
+    const text = draft.trim();
+    const result = await postParentOpsAction<MessageThread>({
+      action: "sendMessage",
+      threadId: active.id,
+      text,
+      from: "staff",
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    const updated = result.item;
     setThreads((prev) => prev.map((t) => (t.id === active.id ? updated : t)));
     setActive(updated);
     setDraft("");
-    toast.success(active.audience === "parent" ? "Reply sent to parent" : "Reply sent to staff");
+    toast.success(
+      active.audience === "parent"
+        ? "Reply sent — visible on parent Messages"
+        : "Reply sent to staff"
+    );
   };
 
-  const createMessage = () => {
+  const createMessage = async () => {
     if (!composeTo.trim() || !composeBody.trim()) return;
-    const now = new Date().toISOString();
-    const thread: MessageThread = {
-      id: `mt-${Date.now()}`,
+    const result = await postParentOpsAction<MessageThread>({
+      action: "createThread",
       audience,
-      parentId: `new-${Date.now()}`,
+      toName: composeTo.trim(),
       parentName: composeTo.trim(),
-      withName: composeTo.trim(),
-      withRole: audience === "parent" ? "parent" : "teacher",
-      tags: audience === "parent" ? ["Parent"] : ["Staff"],
+      text: composeBody.trim(),
       roomName: filterRoom !== "all" ? filterRoom : "All Rooms",
-      preview: composeBody.trim(),
-      updatedAt: now,
-      unread: 0,
-      messages: [{ id: `m-${Date.now()}`, from: "staff", body: composeBody.trim(), at: now }],
-    };
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    const thread = result.item;
     setThreads((prev) => [thread, ...prev]);
     setActive(thread);
     setComposeTo("");
     setComposeBody("");
     setComposeOpen(false);
     setMainTab("messages");
-    toast.success("Message created");
+    toast.success(
+      audience === "parent" ? "Message created — parent can read it" : "Message created"
+    );
   };
 
-  const bookOrOpen = (slot: PtmSlot) => {
-    if (slot.status === "open") {
-      setSlots((prev) =>
-        prev.map((s) =>
-          s.id === slot.id
-            ? { ...s, status: "booked", parentName: "Walk-in parent", childName: "TBD" }
-            : s
-        )
-      );
-      toast.success("Slot marked booked");
+  const bookOrOpen = async (slot: PtmSlot) => {
+    if (slot.status !== "open") return;
+    const result = await postParentOpsAction<PtmSlot>({
+      action: "staffBookPtm",
+      slotId: slot.id,
+      parentName: "Walk-in parent",
+      childName: "TBD",
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
     }
+    setSlots((prev) => prev.map((s) => (s.id === slot.id ? result.item : s)));
+    toast.success("Slot booked — synced for parent PTM");
   };
 
-  const pushNotify = (asNewsletter = false) => {
+  const pushNotify = async (asNewsletter = false) => {
     if (!noteTitle.trim() || !noteBody.trim()) return;
-    setNotes((prev) => [
-      {
-        id: `n-${Date.now()}`,
-        audience: "parent",
-        title: noteTitle,
-        body: noteBody,
-        createdAt: new Date().toISOString(),
-        type: asNewsletter ? "announcement" : "announcement",
-      },
-      ...prev,
-    ]);
+    const result = await postParentOpsAction<(typeof notes)[number]>({
+      action: "createNotification",
+      audience: "parent",
+      title: noteTitle.trim(),
+      body: noteBody.trim(),
+      type: "announcement",
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setNotes((prev) => [result.item, ...prev]);
     setNoteTitle("");
     setNoteBody("");
-    toast.success(asNewsletter ? "Newsletter published (demo)" : "Announcement sent");
+    toast.success(
+      asNewsletter
+        ? "Newsletter published — parent Alerts updated"
+        : "Announcement sent — parent Alerts updated"
+    );
   };
 
   return (

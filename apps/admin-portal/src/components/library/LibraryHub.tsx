@@ -14,48 +14,38 @@ import {
 } from "@/components/ui/select";
 import { libraryBooks, libraryLoans, type LibraryLoan } from "@/data/extended-ops";
 import { students } from "@/data/students";
+import { postParentOpsAction } from "@/lib/parent-ops-client";
 
 export function LibraryHub() {
   const [loans, setLoans] = useState(libraryLoans);
   const [bookId, setBookId] = useState(libraryBooks.find((b) => b.available > 0)?.id ?? "");
   const [studentId, setStudentId] = useState("s1");
 
-  const issue = () => {
-    const book = libraryBooks.find((b) => b.id === bookId);
-    const student = students.find((s) => s.id === studentId);
-    if (!book || !student || book.available < 1) {
-      toast.error("Book unavailable");
+  const issue = async () => {
+    const result = await postParentOpsAction<LibraryLoan>({
+      action: "issueLoan",
+      bookId,
+      studentId,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
       return;
     }
-    const loan: LibraryLoan = {
-      id: `l-${Date.now()}`,
-      bookId: book.id,
-      bookTitle: book.title,
-      childId: student.id,
-      childName: student.firstName,
-      issuedOn: new Date().toISOString().slice(0, 10),
-      dueOn: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
-      status: "issued",
-    };
-    book.available -= 1;
-    setLoans((prev) => [loan, ...prev]);
-    toast.success("Issued — visible on parent Library");
+    setLoans((prev) => [result.item, ...prev]);
+    toast.success("Issued — visible on parent School → Library");
   };
 
-  const returnLoan = (id: string) => {
-    setLoans((prev) =>
-      prev.map((l) => {
-        if (l.id !== id || l.status === "returned") return l;
-        const book = libraryBooks.find((b) => b.id === l.bookId);
-        if (book) book.available = Math.min(book.copies, book.available + 1);
-        return {
-          ...l,
-          status: "returned",
-          returnedOn: new Date().toISOString().slice(0, 10),
-        };
-      })
-    );
-    toast.success("Returned — parent status updated");
+  const returnLoan = async (id: string) => {
+    const result = await postParentOpsAction<LibraryLoan>({
+      action: "returnLoan",
+      loanId: id,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setLoans((prev) => prev.map((l) => (l.id === id ? result.item : l)));
+    toast.success("Returned — parent Library status updated");
   };
 
   return (

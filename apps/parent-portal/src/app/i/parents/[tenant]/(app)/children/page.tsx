@@ -1,10 +1,30 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronRight, MapPin, Shield, UserRound } from "lucide-react";
-import { mockChildren } from "@/data/mock";
+import { mockChildren, type ParentChild } from "@/data/mock";
+import { fetchParentOps } from "@/lib/parent-ops-api";
 
 export default function ParentChildrenPage() {
+  const [children, setChildren] = useState<ParentChild[]>(mockChildren);
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const items = await fetchParentOps<ParentChild>("children", []);
+      if (cancelled) return;
+      if (items.length) {
+        setChildren(items);
+        setLive(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-4 md:space-y-6">
       <section>
@@ -13,11 +33,12 @@ export default function ParentChildrenPage() {
         </h1>
         <p className="mt-1 text-sm text-muted">
           Profiles, G.R., program, pickup & photo consent · multi-child family view
+          {live ? " · synced from admin Students" : ""}
         </p>
       </section>
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 lg:gap-4">
-        {mockChildren.map((child) => (
+        {children.map((child) => (
           <li key={child.id}>
             <Link
               href={`/children/${child.id}`}

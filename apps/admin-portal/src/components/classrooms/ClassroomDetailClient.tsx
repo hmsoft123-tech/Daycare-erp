@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import {
   assignStudentToClass,
-  createClassroomActivity,
   updateClassRoom,
 } from "@/lib/mock-service";
 import { formatDate } from "@/lib/utils";
@@ -79,6 +78,52 @@ export function ClassroomDetailClient({
   const [detailTab, setDetailTab] = useState<"roster" | "activity" | "monthly">("roster");
   const [ratio, setRatio] = useState(initialRoom.staffChildRatio ?? defaultRatio(initialRoom));
   const [cap, setCap] = useState(initialRoom.enrollmentCap ?? initialRoom.capacity ?? 12);
+  const [broadcastBody, setBroadcastBody] = useState("");
+
+  const sendBroadcast = async (kind: "notice" | "report" | "diary") => {
+    const body = broadcastBody.trim();
+    if (!body) {
+      toast.error("Enter a message first");
+      return;
+    }
+    const title =
+      kind === "notice"
+        ? `${room.name} · Class notice`
+        : kind === "report"
+          ? `${room.name} · Class report`
+          : `${room.name} · Student diary`;
+    try {
+      const res = await fetch("/api/school", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "notices",
+          data: {
+            title,
+            body,
+            date: new Date().toISOString().slice(0, 10),
+            audience: "class",
+            priority: "normal",
+            childIds: roster.map((s) => s.id),
+          },
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Could not publish to parent notices");
+        return;
+      }
+      setBroadcastBody("");
+      toast.success(
+        kind === "notice"
+          ? "Notice published — parent School → Notices"
+          : kind === "report"
+            ? "Class report published — parent School → Notices"
+            : "Diary posted — parent School → Notices"
+      );
+    } catch {
+      toast.error("Could not publish to parent notices");
+    }
+  };
 
   const roster = useMemo(
     () => students.filter((s) => s.classId === room.id),
@@ -132,26 +177,39 @@ export function ClassroomDetailClient({
       return;
     }
     const teacherStaff = staff.find((s) => s.id === room.teacherId);
-    const activity = await createClassroomActivity({
-      type: logType,
-      title: logTitle.trim(),
-      body: logBody.trim(),
-      studentId: student.id,
-      studentName: `${student.firstName} ${student.lastName}`,
-      classId: room.id,
-      branchId: room.branchId,
-      teacherId: room.teacherId,
-      teacherName: teacherStaff?.name ?? "Teacher",
-      visibleToParents,
-    });
-    setActivities((prev) => [activity, ...prev]);
-    setLogTitle("");
-    setLogBody("");
-    toast.success(
-      visibleToParents
-        ? "Activity logged — visible on parent portal feed"
-        : "Activity logged (internal only)"
-    );
+    try {
+      const res = await fetch("/api/classroom-activities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: logType,
+          title: logTitle.trim(),
+          body: logBody.trim(),
+          studentId: student.id,
+          studentName: `${student.firstName} ${student.lastName}`,
+          classId: room.id,
+          branchId: room.branchId,
+          teacherId: room.teacherId,
+          teacherName: teacherStaff?.name ?? "Teacher",
+          visibleToParents,
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Could not save activity");
+        return;
+      }
+      const data = (await res.json()) as { activity: ClassroomActivity };
+      setActivities((prev) => [data.activity, ...prev]);
+      setLogTitle("");
+      setLogBody("");
+      toast.success(
+        visibleToParents
+          ? "Activity logged — visible on parent Activity feed"
+          : "Activity logged (internal only)"
+      );
+    } catch {
+      toast.error("Could not save activity");
+    }
   };
 
   return (
@@ -282,26 +340,28 @@ export function ClassroomDetailClient({
           <p className="text-xs text-muted">
             Send general reports, notices, and student diary to all parents in this class (FE review).
           </p>
-          <Textarea rows={3} placeholder="Notice / diary message for the whole class…" />
+          <Textarea
+            rows={3}
+            placeholder="Notice / diary message for the whole class…"
+            value={broadcastBody}
+            onChange={(e) => setBroadcastBody(e.target.value)}
+          />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => toast.success("General notice sent to all class parents (demo)")}
+              onClick={() => void sendBroadcast("notice")}
             >
               Send notice
             </Button>
             <Button
               type="button"
               variant="outline"
-              onClick={() => toast.success("Class report shared with parents (demo)")}
+              onClick={() => void sendBroadcast("report")}
             >
               Send report
             </Button>
-            <Button
-              type="button"
-              onClick={() => toast.success("Student diary posted to all parents (demo)")}
-            >
+            <Button type="button" onClick={() => void sendBroadcast("diary")}>
               Send diary
             </Button>
           </div>

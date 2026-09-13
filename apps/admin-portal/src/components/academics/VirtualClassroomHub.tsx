@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { virtualClasses, type VirtualClass } from "@/data/extended-ops";
+import { postParentOpsAction } from "@/lib/parent-ops-client";
 
 export function VirtualClassroomHub() {
   const [rows, setRows] = useState(virtualClasses);
@@ -23,27 +24,28 @@ export function VirtualClassroomHub() {
   const [joinUrl, setJoinUrl] = useState("");
   const [className, setClassName] = useState("Infant Room A");
 
-  const add = () => {
+  const add = async () => {
     if (!title.trim() || !joinUrl.trim()) {
       toast.error("Title and join URL required");
       return;
     }
-    const row: VirtualClass = {
-      id: `vc-${Date.now()}`,
-      title,
+    const result = await postParentOpsAction<VirtualClass>({
+      action: "createVirtualClass",
+      title: title.trim(),
       className,
-      teacherName: "Staff",
       provider,
-      joinUrl,
-      startsAt: new Date(Date.now() + 3600000).toISOString(),
-      durationMin: 30,
+      joinUrl: joinUrl.trim(),
+      teacherName: "Staff",
       childIds: ["s1", "s2"],
-      status: "upcoming",
-    };
-    setRows((prev) => [row, ...prev]);
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setRows((prev) => [result.item, ...prev]);
     setTitle("");
     setJoinUrl("");
-    toast.success("Session published to parent Virtual Classroom");
+    toast.success("Session published — parent School → Virtual Class");
   };
 
   return (
