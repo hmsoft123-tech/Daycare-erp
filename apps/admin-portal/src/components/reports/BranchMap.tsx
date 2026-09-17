@@ -6,11 +6,14 @@ import { branches } from "@/data/branches";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const DEFAULT_POSITION = { top: "50%", left: "50%" };
+
 const branchPositions: Record<string, { top: string; left: string }> = {
   "branch-nn": { top: "25%", left: "55%" },
   "branch-clifton": { top: "70%", left: "45%" },
   "branch-dha": { top: "75%", left: "60%" },
   "branch-gulshan": { top: "35%", left: "70%" },
+  "branch-north": { top: "15%", left: "40%" },
 };
 
 export function BranchMap() {
@@ -23,7 +26,7 @@ export function BranchMap() {
         <div className="relative mx-auto aspect-[4/3] max-w-lg rounded-xl bg-brand-50">
           <div className="absolute inset-4 rounded-lg border-2 border-dashed border-brand-200" />
           {branches.map((branch) => {
-            const pos = branchPositions[branch.id];
+            const pos = branchPositions[branch.id] ?? DEFAULT_POSITION;
             return (
               <div
                 key={branch.id}

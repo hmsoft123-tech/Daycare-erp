@@ -6,10 +6,11 @@ import { parentSchoolAttendance } from "@/data/parent-school";
 import { cn } from "@/lib/utils";
 
 const branchLabels: Record<string, string> = {
-  "branch-nn": "North Nazimabad",
-  "branch-clifton": "Clifton",
-  "branch-dha": "DHA",
+  "branch-nn": "Nazimabad",
+  "branch-clifton": "Johar",
+  "branch-dha": "PECHS",
   "branch-gulshan": "Gulshan",
+  "branch-north": "North",
 };
 
 type Props = {
