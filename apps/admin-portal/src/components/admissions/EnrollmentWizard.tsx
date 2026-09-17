@@ -42,7 +42,7 @@ import {
   planLabel,
   planMonthlyTotal,
 } from "@/lib/services-catalog";
-import { requestEnrollmentFeeLock } from "@/lib/mock-service";
+import { createMandatoryFormEntries, requestEnrollmentFeeLock } from "@/lib/mock-service";
 import { generateGrNumber } from "@/lib/gr-number";
 import { recommendClassGroupFromDob } from "@/lib/age-brackets";
 import { toast } from "sonner";
@@ -413,6 +413,16 @@ export function EnrollmentWizard({
         data.branchId,
         students.map((s) => s.grNumber).filter(Boolean) as string[]
       ),
+      daycare: data.daycareTrack
+        ? {
+            track: true,
+            dropOff: data.daycareDropOff,
+            pickUp: data.daycarePickUp,
+            napNotes: data.daycareNapNotes,
+            feedingNotes: data.daycareFeedingNotes,
+            authorizedPickup: data.daycareAuthorizedPickup,
+          }
+        : undefined,
     };
 
     // Public enrollments need HO fee-lock approval before pending payment
@@ -437,6 +447,7 @@ export function EnrollmentWizard({
     }
 
     students.unshift(student);
+    await createMandatoryFormEntries(student.id);
     const card = await issueStudentIdCard(student.id);
     toast.success(`Enrollment saved — ID card ${cardNumber} generated`);
     setIssuedCard(card);

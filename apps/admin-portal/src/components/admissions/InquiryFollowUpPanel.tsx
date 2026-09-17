@@ -11,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { InquiryFollowUpOutcome, InquiryFollowUpStatus } from "@/types";
+import type { AdmissionFollowUpEntry, InquiryFollowUpOutcome, InquiryFollowUpStatus } from "@/types";
+import { saveAdmissionFollowUp } from "@/lib/mock-service";
+import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS: { id: InquiryFollowUpStatus; label: string }[] = [
@@ -29,17 +31,27 @@ const OUTCOME_OPTIONS: { id: InquiryFollowUpOutcome; label: string }[] = [
 ];
 
 type Props = {
+  admissionId: string;
   initialStatus?: InquiryFollowUpStatus;
   initialOutcome?: InquiryFollowUpOutcome;
   initialNotes?: string;
+  initialHistory?: AdmissionFollowUpEntry[];
 };
 
-export function InquiryFollowUpPanel({ initialStatus, initialOutcome, initialNotes }: Props) {
+export function InquiryFollowUpPanel({
+  admissionId,
+  initialStatus,
+  initialOutcome,
+  initialNotes,
+  initialHistory,
+}: Props) {
   const [status, setStatus] = useState<InquiryFollowUpStatus>(initialStatus ?? "welcome_sent");
   const [outcome, setOutcome] = useState<InquiryFollowUpOutcome | "">(initialOutcome ?? "");
   const [notes, setNotes] = useState(initialNotes ?? "");
+  const [history, setHistory] = useState<AdmissionFollowUpEntry[]>(initialHistory ?? []);
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     if (status === "final" && !outcome) {
       toast.error("Select a final outcome");
       return;
@@ -48,7 +60,19 @@ export function InquiryFollowUpPanel({ initialStatus, initialOutcome, initialNot
       toast.error("Record feedback / reason when admission is not completed");
       return;
     }
-    toast.success("Follow-up updated (demo)");
+    setSaving(true);
+    const result = await saveAdmissionFollowUp(admissionId, {
+      status,
+      outcome: outcome || undefined,
+      notes: notes.trim() || undefined,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setHistory(result.admission.followUpHistory ?? []);
+    toast.success("Follow-up updated");
   };
 
   return (
@@ -57,6 +81,28 @@ export function InquiryFollowUpPanel({ initialStatus, initialOutcome, initialNot
         <h3 className="text-sm font-bold text-heading">Inquiry follow-up</h3>
         <p className="text-xs text-muted">Welcome → post-meeting → final admission result</p>
       </div>
+      {history.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-border bg-bg p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Follow-up history</p>
+          <ul className="space-y-2">
+            {[...history].reverse().map((entry, i) => (
+              <li key={i} className="text-xs">
+                <span className="font-medium text-heading">
+                  {STATUS_OPTIONS.find((o) => o.id === entry.status)?.label ?? entry.status}
+                </span>
+                {entry.outcome && (
+                  <span className="text-muted">
+                    {" "}
+                    · {OUTCOME_OPTIONS.find((o) => o.id === entry.outcome)?.label ?? entry.outcome}
+                  </span>
+                )}
+                <span className="text-muted"> · {formatDate(entry.savedAt)} · {entry.savedBy}</span>
+                {entry.notes && <p className="mt-0.5 text-muted">{entry.notes}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div>
         <Label>Follow-up stage</Label>
         <Select value={status} onValueChange={(v) => setStatus(v as InquiryFollowUpStatus)}>
@@ -100,8 +146,8 @@ export function InquiryFollowUpPanel({ initialStatus, initialOutcome, initialNot
           placeholder="Reason if not admitted, parent comments…"
         />
       </div>
-      <Button type="button" onClick={save}>
-        Save follow-up
+      <Button type="button" onClick={() => void save()} disabled={saving}>
+        {saving ? "Saving…" : "Save follow-up"}
       </Button>
     </div>
   );

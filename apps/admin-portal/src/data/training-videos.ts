@@ -221,6 +221,7 @@ const catalog: TrainingVideo[] = [
     category: "all",
     featured: true,
     active: true,
+    requiredForOnboarding: true,
   },
   {
     id: "par-ori-2",

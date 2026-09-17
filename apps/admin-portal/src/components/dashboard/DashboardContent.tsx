@@ -19,6 +19,9 @@ import {
 import { KPICard } from "@/components/dashboard/KPICard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { EnrollmentFeed } from "@/components/dashboard/EnrollmentFeed";
+import { AnnualAdminPlannerCard } from "@/components/dashboard/AnnualAdminPlannerCard";
+import { BranchMonthlyPlannerCard } from "@/components/dashboard/BranchMonthlyPlannerCard";
+import { StandardBranchProtocolCard } from "@/components/dashboard/StandardBranchProtocolCard";
 import { CategoryNav, SectionCategory } from "@/components/layout/SectionCategory";
 import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
 import { formatCurrency } from "@/lib/utils";
@@ -180,24 +183,6 @@ export function DashboardContent({
     { title: "Daily collection", value: formatCurrency(dailyCollection), hint: "Paid invoices (demo)", icon: BarChart3, href: "/billing" },
   ];
 
-  const plannerDays = useMemo(() => {
-    const today = new Date();
-    return Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const key = d.toISOString().slice(0, 10);
-      const hasAdmin = i === 0 || i === 2 || i === 5;
-      const hasAnnual = i === 3 || i === 10;
-      return {
-        key,
-        label: d.getDate(),
-        dow: d.toLocaleDateString(undefined, { weekday: "short" }),
-        hasAdmin,
-        hasAnnual,
-      };
-    });
-  }, []);
-
   return (
     <div className="space-y-5">
       <CategoryNav items={NAV} />
@@ -330,35 +315,12 @@ export function DashboardContent({
         id="dash-calendar"
         eyebrow="Category 6"
         title="Calendar & celebrations"
-        description="Planner markers and upcoming birthdays."
+        description="Annual & branch planners, standard branch protocol, and upcoming birthdays."
       >
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-border bg-bg p-4">
-            <h3 className="text-sm font-semibold text-heading">Mini calendar</h3>
-            <p className="text-[11px] text-muted">Annual · Admin planner (formats TBD)</p>
-            <div className="mt-3 grid grid-cols-7 gap-1">
-              {plannerDays.map((d) => (
-                <div
-                  key={d.key}
-                  className={`rounded-lg px-1 py-2 text-center text-[10px] ${
-                    d.hasAnnual
-                      ? "bg-brand-500 text-white"
-                      : d.hasAdmin
-                        ? "bg-brand-50 text-brand-700"
-                        : "bg-surface text-muted"
-                  }`}
-                  title={d.hasAnnual ? "Annual planner" : d.hasAdmin ? "Admin planner" : undefined}
-                >
-                  <div className="font-semibold">{d.label}</div>
-                  <div className="opacity-70">{d.dow.slice(0, 2)}</div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[10px] text-muted">
-              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-brand-500" /> Annual{" "}
-              <span className="ml-2 mr-2 inline-block h-2 w-2 rounded-full bg-brand-200" /> Admin
-            </p>
-          </div>
+          <AnnualAdminPlannerCard />
+          <BranchMonthlyPlannerCard />
+          <StandardBranchProtocolCard />
 
           <div className="rounded-xl border border-border bg-bg p-4">
             <div className="mb-3 flex items-center gap-2">

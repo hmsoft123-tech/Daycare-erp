@@ -23,6 +23,12 @@ export const LETTER_FIELD_LABELS: Record<LetterFieldKey, string> = {
   effectiveDate: "Effective date",
   reason: "Reason / remarks",
   issueDate: "Issue date",
+  fromBranchName: "Transferring from branch",
+  toBranchName: "Transferring to branch",
+  transferDate: "Transfer effective date",
+  incidentDate: "Incident date",
+  warningLevel: "Warning level",
+  description: "Incident description",
 };
 
 /** SDLC Child Enrollment Letter + other ERP letters/certificates */
@@ -125,6 +131,54 @@ export const LETTER_TEMPLATES: LetterTemplate[] = [
     paragraphs: [
       "This is to certify that {{childFullName}}, son/daughter of {{fatherName}}, G.R. No. {{grNumber}}, is/was a student of {{className}} at Dr. Sofia's Daycare and Learning Center — {{branchName}} since {{joiningDate}}.",
       "To the best of our knowledge, the child's character and behaviour have been good and we have no adverse remarks on record.",
+    ],
+  },
+  {
+    kind: "inter_branch_transfer_letter",
+    audience: "student",
+    title: "Inter-Branch Transfer Letter",
+    subtitle: "Transfer between SDLC branches",
+    style: "letter",
+    fields: [
+      "childFullName",
+      "grNumber",
+      "fatherName",
+      "className",
+      "fromBranchName",
+      "toBranchName",
+      "transferDate",
+      "issueDate",
+      "coordinatorName",
+    ],
+    paragraphs: [
+      "This is to certify that {{childFullName}}, son/daughter of {{fatherName}}, G.R. No. {{grNumber}}, currently enrolled in {{className}} at Dr. Sofia's Daycare and Learning Center — {{fromBranchName}}, is being transferred to our {{toBranchName}} branch.",
+      "The transfer is effective from {{transferDate}}. All student records, fee status and enrollment history will be carried forward to the receiving branch.",
+      "We request the {{toBranchName}} branch administration to continue the child's enrollment without interruption.",
+    ],
+  },
+  {
+    kind: "conduct_warning_notice",
+    audience: "student",
+    title: "Student Behavior / Conduct Warning Notice",
+    subtitle: "Formal conduct warning issued to parent/guardian",
+    style: "letter",
+    fields: [
+      "childFullName",
+      "grNumber",
+      "fatherName",
+      "className",
+      "branchName",
+      "incidentDate",
+      "warningLevel",
+      "description",
+      "issueDate",
+      "coordinatorName",
+    ],
+    paragraphs: [
+      "Dear {{fatherName}},",
+      "This notice concerns the conduct of {{childFullName}} (G.R. No. {{grNumber}}), enrolled in {{className}} at Dr. Sofia's Daycare and Learning Center — {{branchName}}.",
+      "On {{incidentDate}}, the following behavior was observed and is being recorded as a {{warningLevel}} warning: {{description}}",
+      "We request your support in addressing this matter with your child. Repeated incidents may result in further disciplinary action as per SDLC policy.",
     ],
   },
   {

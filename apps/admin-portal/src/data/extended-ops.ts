@@ -1,5 +1,7 @@
 /** Extended ops data — messaging, PTM, library, virtual class, ABC incidents, leave, payroll extras */
 
+import type { CalendarEvent } from "@kinder-pilot/types";
+
 export type MessageThread = {
   id: string;
   /** Brightwheel-style audience bucket */
@@ -40,6 +42,18 @@ export type AppNotification = {
   read?: boolean;
 };
 
+export type MandatoryFormKind = "pick_drop_details" | "parent_consent";
+
+export type MandatoryFormSubmission = {
+  id: string;
+  childId: string;
+  kind: MandatoryFormKind;
+  status: "pending" | "submitted";
+  values: Record<string, string>;
+  submittedAt?: string;
+  submittedBy?: string;
+};
+
 export type VirtualClass = {
   id: string;
   title: string;
@@ -51,6 +65,12 @@ export type VirtualClass = {
   durationMin: number;
   childIds: string[];
   status: "upcoming" | "live" | "ended";
+  /** Live join-link session vs a topic-wise recorded lesson */
+  sessionCategory: "live" | "recorded";
+  /** Recorded lessons only — link to the stored recording */
+  recordingUrl?: string;
+  /** Recorded lessons only — subject/topic used to group the library */
+  topic?: string;
 };
 
 export type LibraryBook = {
@@ -322,6 +342,7 @@ export const virtualClasses: VirtualClass[] = [
     durationMin: 30,
     childIds: ["s1"],
     status: "upcoming",
+    sessionCategory: "live",
   },
   {
     id: "vc2",
@@ -334,6 +355,7 @@ export const virtualClasses: VirtualClass[] = [
     durationMin: 40,
     childIds: ["s2"],
     status: "live",
+    sessionCategory: "live",
   },
   {
     id: "vc3",
@@ -346,7 +368,70 @@ export const virtualClasses: VirtualClass[] = [
     durationMin: 45,
     childIds: ["s1", "s2"],
     status: "ended",
+    sessionCategory: "recorded",
+    recordingUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    topic: "Orientation",
   },
+  {
+    id: "vc4",
+    title: "Phonics basics — recorded lesson",
+    className: "Playgroup B",
+    teacherName: "Nadia Farooq",
+    provider: "zoom",
+    joinUrl: "",
+    startsAt: "2026-08-18T11:00:00",
+    durationMin: 25,
+    childIds: ["s2"],
+    status: "ended",
+    sessionCategory: "recorded",
+    recordingUrl: "https://www.youtube.com/watch?v=ScMzIvxBSi4",
+    topic: "Phonics",
+  },
+];
+
+export const calendarEvents: CalendarEvent[] = [
+  {
+    id: "cal1",
+    title: "Annual fire drill",
+    date: "2026-10-05",
+    type: "drill",
+    audience: "all",
+    description: "Full-campus fire evacuation drill — all branches.",
+    createdAt: "2026-08-01T09:00:00",
+  },
+  {
+    id: "cal2",
+    title: "Evacuation drill — Gulshan Campus",
+    date: "2026-11-12",
+    type: "drill",
+    audience: "staff",
+    branchId: "branch-gulshan",
+    description: "Branch-level evacuation walkthrough with fire marshal.",
+    createdAt: "2026-08-01T09:05:00",
+  },
+  {
+    id: "cal3",
+    title: "PTM week",
+    date: "2026-08-20",
+    type: "ptm",
+    audience: "all",
+    createdAt: "2026-08-01T09:10:00",
+  },
+  {
+    id: "cal4",
+    title: "Founders' Day",
+    date: "2026-09-30",
+    type: "holiday",
+    audience: "all",
+    createdAt: "2026-08-01T09:15:00",
+  },
+];
+
+export const mandatoryFormSubmissions: MandatoryFormSubmission[] = [
+  { id: "mf-s1-pd", childId: "s1", kind: "pick_drop_details", status: "pending", values: {} },
+  { id: "mf-s1-pc", childId: "s1", kind: "parent_consent", status: "pending", values: {} },
+  { id: "mf-s2-pd", childId: "s2", kind: "pick_drop_details", status: "pending", values: {} },
+  { id: "mf-s2-pc", childId: "s2", kind: "parent_consent", status: "pending", values: {} },
 ];
 
 export const libraryBooks: LibraryBook[] = [

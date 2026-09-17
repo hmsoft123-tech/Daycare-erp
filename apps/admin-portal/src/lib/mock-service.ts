@@ -1,5 +1,13 @@
 import { admissions } from "@/data/admissions";
 import { branches } from "@/data/branches";
+import { adminPlannerEntries, branchProtocols } from "@/data/planner";
+import { milestoneRecords } from "@/data/milestones";
+import {
+  calendarEvents,
+  mandatoryFormSubmissions,
+  type MandatoryFormKind,
+  type MandatoryFormSubmission,
+} from "@/data/extended-ops";
 import { invoices, revenueData, branchRevenue } from "@/data/billing";
 import { students, parents, classes } from "@/data/students";
 import { classroomActivities } from "@/data/classroom-activities";
@@ -37,9 +45,16 @@ import {
 import { requisitionTotal } from "@/lib/procurement";
 import { generateGrNumber } from "@/lib/gr-number";
 import { generateStudentCardNumber } from "@/lib/id-card";
+import type { CalendarEvent } from "@kinder-pilot/types";
 import type {
   AdmissionCard,
+  AdmissionFollowUpEntry,
   AdmissionStage,
+  AdminPlannerEntry,
+  BranchProtocol,
+  MilestoneRecord,
+  InquiryFollowUpOutcome,
+  InquiryFollowUpStatus,
   Branch,
   BranchScorecard,
   DiscountType,
@@ -1029,6 +1044,144 @@ export async function getSchoolResource(
 // TODO: Replace with API call to /api/admissions/:id
 export async function getAdmissionById(id: string): Promise<AdmissionCard | undefined> {
   return admissions.find((a) => a.id === id);
+}
+
+/** Persist a Kanban stage move (plain drags + post-schedule/fee transitions) to the shared admissions array. */
+export async function moveAdmissionStage(
+  admissionId: string,
+  to: AdmissionStage,
+  patch: Partial<AdmissionCard> = {}
+): Promise<{ ok: true; admission: AdmissionCard } | { ok: false; error: string }> {
+  const idx = admissions.findIndex((a) => a.id === admissionId);
+  if (idx < 0) return { ok: false, error: "Admission not found." };
+  admissions[idx] = { ...admissions[idx], ...patch, stage: to, daysInStage: 0 };
+  return { ok: true, admission: admissions[idx] };
+}
+
+/** Persist an inquiry follow-up save, appending to the timeline instead of only overwriting current state. */
+export async function saveAdmissionFollowUp(
+  admissionId: string,
+  input: { status: InquiryFollowUpStatus; outcome?: InquiryFollowUpOutcome; notes?: string; savedBy?: string }
+): Promise<{ ok: true; admission: AdmissionCard } | { ok: false; error: string }> {
+  const idx = admissions.findIndex((a) => a.id === admissionId);
+  if (idx < 0) return { ok: false, error: "Admission not found." };
+  const card = admissions[idx];
+  const entry: AdmissionFollowUpEntry = {
+    status: input.status,
+    outcome: input.outcome,
+    notes: input.notes,
+    savedAt: new Date().toISOString(),
+    savedBy: input.savedBy ?? "Branch Admin",
+  };
+  admissions[idx] = {
+    ...card,
+    followUpStatus: input.status,
+    followUpOutcome: input.outcome,
+    followUpNotes: input.notes,
+    followUpHistory: [...(card.followUpHistory ?? []), entry],
+  };
+  return { ok: true, admission: admissions[idx] };
+}
+
+/** Annual (Head Office) + branch-wise monthly planner entries */
+export async function getPlannerEntries(opts?: {
+  scope?: AdminPlannerEntry["scope"];
+  branchId?: string;
+}): Promise<AdminPlannerEntry[]> {
+  let result = adminPlannerEntries;
+  if (opts?.scope) result = result.filter((p) => p.scope === opts.scope);
+  if (opts?.branchId) result = result.filter((p) => p.branchId === opts.branchId);
+  return [...result].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function createPlannerEntry(
+  input: Omit<AdminPlannerEntry, "id" | "createdAt">
+): Promise<AdminPlannerEntry> {
+  const entry: AdminPlannerEntry = {
+    ...input,
+    id: `pl-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+  };
+  adminPlannerEntries.unshift(entry);
+  // Annual drill dates also surface on the shared parent/staff calendar
+  if (entry.scope === "annual" && (entry.category === "evacuation_drill" || entry.category === "fire_drill")) {
+    const drillEvent: CalendarEvent = {
+      id: `cal-${entry.id}`,
+      title: entry.title,
+      date: entry.date,
+      type: "drill",
+      audience: "all",
+      branchId: entry.branchId,
+      description: entry.notes,
+      createdAt: entry.createdAt,
+    };
+    calendarEvents.unshift(drillEvent);
+  }
+  return entry;
+}
+
+export async function deletePlannerEntry(id: string): Promise<boolean> {
+  const idx = adminPlannerEntries.findIndex((p) => p.id === id);
+  if (idx < 0) return false;
+  adminPlannerEntries.splice(idx, 1);
+  return true;
+}
+
+/** Resolves a branch-specific protocol override, falling back to the standard protocol */
+export async function getBranchProtocol(branchId?: string): Promise<BranchProtocol | undefined> {
+  return (
+    (branchId ? branchProtocols.find((p) => p.branchId === branchId) : undefined) ??
+    branchProtocols.find((p) => !p.branchId)
+  );
+}
+
+export async function getMilestones(studentId?: string): Promise<MilestoneRecord[]> {
+  return studentId
+    ? milestoneRecords.filter((m) => m.studentId === studentId)
+    : milestoneRecords;
+}
+
+export async function createMilestone(
+  input: Omit<MilestoneRecord, "id" | "enteredAt">
+): Promise<MilestoneRecord> {
+  const record: MilestoneRecord = {
+    ...input,
+    id: `ms-${Date.now()}`,
+    enteredAt: new Date().toISOString(),
+  };
+  milestoneRecords.unshift(record);
+  return record;
+}
+
+export async function updateMilestone(
+  id: string,
+  patch: Partial<MilestoneRecord>
+): Promise<MilestoneRecord | undefined> {
+  const idx = milestoneRecords.findIndex((m) => m.id === id);
+  if (idx < 0) return undefined;
+  milestoneRecords[idx] = { ...milestoneRecords[idx], ...patch };
+  return milestoneRecords[idx];
+}
+
+export async function getMandatoryForms(childId?: string): Promise<MandatoryFormSubmission[]> {
+  return childId
+    ? mandatoryFormSubmissions.filter((f) => f.childId === childId)
+    : mandatoryFormSubmissions;
+}
+
+/** Auto-create pending Pick & Drop / Parent Consent entries once a student is enrolled */
+export async function createMandatoryFormEntries(childId: string): Promise<void> {
+  const kinds: MandatoryFormKind[] = ["pick_drop_details", "parent_consent"];
+  for (const kind of kinds) {
+    if (mandatoryFormSubmissions.some((f) => f.childId === childId && f.kind === kind)) continue;
+    mandatoryFormSubmissions.push({
+      id: `mf-${childId}-${kind}`,
+      childId,
+      kind,
+      status: "pending",
+      values: {},
+    });
+  }
 }
 
 // TODO: Replace with API call to /api/inventory/requisitions/:id

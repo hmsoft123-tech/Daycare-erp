@@ -25,8 +25,10 @@ import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
 import { useUIStore } from "@/lib/store";
 import { classes, students } from "@/data/students";
 import {
+  createMandatoryFormEntries,
   decideFeeLockRequest,
   getFeeLockRequests,
+  moveAdmissionStage,
   requestAdmissionFeeLock,
 } from "@/lib/mock-service";
 import { issueStudentIdCard } from "@/lib/id-card-store";
@@ -106,11 +108,23 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
   };
 
   const applyMove = (cardId: string, to: AdmissionStage, patch: Partial<AdmissionCard> = {}) => {
+    const prevItem = items.find((item) => item.id === cardId);
     setItems((prev) =>
       prev.map((item) =>
         item.id === cardId ? { ...item, ...patch, stage: to, daysInStage: 0 } : item
       )
     );
+    void (async () => {
+      const result = await moveAdmissionStage(cardId, to, patch);
+      if (!result.ok) {
+        toast.error(result.error);
+        if (prevItem) {
+          setItems((prev) => prev.map((item) => (item.id === cardId ? prevItem : item)));
+        }
+        return;
+      }
+      setItems((prev) => prev.map((item) => (item.id === cardId ? result.admission : item)));
+    })();
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -244,6 +258,7 @@ export function KanbanBoard({ admissions }: KanbanBoardProps) {
         student.className = branchClass.name;
       }
       students.unshift(student);
+      await createMandatoryFormEntries(student.id);
       const idCard = await issueStudentIdCard(student.id);
       setIssuedCard(idCard);
       toast.success(

@@ -2,20 +2,26 @@ import { NextResponse } from "next/server";
 import {
   abcIncidents,
   appNotifications,
+  calendarEvents,
   libraryBooks,
   libraryLoans,
+  mandatoryFormSubmissions,
   messageThreads,
   ptmSlots,
   virtualClasses,
   type AbcIncident,
   type AppNotification,
   type LibraryLoan,
+  type MandatoryFormKind,
+  type MandatoryFormSubmission,
   type MessageThread,
   type VirtualClass,
 } from "@/data/extended-ops";
 import { students, parents, classes } from "@/data/students";
 import { branches } from "@/data/branches";
 import { staff } from "@/data/staff";
+import { milestoneRecords } from "@/data/milestones";
+import type { CalendarEvent } from "@kinder-pilot/types";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +66,7 @@ function mapStudentToParentChild(s: (typeof students)[number]) {
         : undefined,
     authorizedPickup: [mother?.name, father?.name].filter(Boolean) as string[],
     photoConsent: true,
+    daycareTrack: Boolean(s.daycare?.track),
   };
 }
 
@@ -109,6 +116,28 @@ export async function GET(request: Request) {
         },
         { headers: CORS }
       );
+    case "calendar": {
+      const audience = searchParams.get("audience") ?? undefined;
+      const branchId = searchParams.get("branchId") ?? undefined;
+      const items = calendarEvents.filter(
+        (e) =>
+          (!audience || e.audience === audience || e.audience === "all") &&
+          (!branchId || !e.branchId || e.branchId === branchId)
+      );
+      return NextResponse.json({ items }, { headers: CORS });
+    }
+    case "milestones": {
+      const items = childId
+        ? milestoneRecords.filter((m) => m.studentId === childId)
+        : milestoneRecords;
+      return NextResponse.json({ items }, { headers: CORS });
+    }
+    case "mandatoryForms": {
+      const items = childId
+        ? mandatoryFormSubmissions.filter((f) => f.childId === childId)
+        : mandatoryFormSubmissions;
+      return NextResponse.json({ items }, { headers: CORS });
+    }
     case "children": {
       const active = students.filter((s) => s.status === "active" || s.status === "alumni");
       // Demo parent family: Hamdan + Zainab (s1, s2) — matches parent login demo
@@ -128,6 +157,9 @@ export async function GET(request: Request) {
             "virtual",
             "incidents",
             "children",
+            "calendar",
+            "mandatoryForms",
+            "milestones",
           ],
         },
         { status: 400, headers: CORS }
@@ -309,8 +341,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ item: loan }, { headers: CORS });
   }
 
-  /** Virtual class publish */
+  /** Virtual class publish — live session or topic-wise recorded lesson */
   if (action === "createVirtualClass") {
+    const sessionCategory: VirtualClass["sessionCategory"] =
+      body.sessionCategory === "recorded" ? "recorded" : "live";
     const row: VirtualClass = {
       id: `vc-${Date.now()}`,
       title: String(body.title ?? "Virtual class"),
@@ -323,10 +357,66 @@ export async function POST(request: Request) {
         : new Date(Date.now() + 3600000).toISOString(),
       durationMin: Number(body.durationMin ?? 30),
       childIds: Array.isArray(body.childIds) ? body.childIds : ["s1", "s2"],
-      status: "upcoming",
+      status: sessionCategory === "recorded" ? "ended" : "upcoming",
+      sessionCategory,
+      recordingUrl: body.recordingUrl ? String(body.recordingUrl) : undefined,
+      topic: body.topic ? String(body.topic) : undefined,
     };
     virtualClasses.unshift(row);
     return NextResponse.json({ item: row }, { status: 201, headers: CORS });
+  }
+
+  /** Parent submits a mandatory post-admission form */
+  if (action === "submitMandatoryForm" && body.childId && body.kind) {
+    const kind = body.kind as MandatoryFormKind;
+    const values = (body.values && typeof body.values === "object" ? body.values : {}) as Record<
+      string,
+      string
+    >;
+    const idx = mandatoryFormSubmissions.findIndex(
+      (f) => f.childId === body.childId && f.kind === kind
+    );
+    const submittedAt = new Date().toISOString();
+    let item: MandatoryFormSubmission;
+    if (idx >= 0) {
+      mandatoryFormSubmissions[idx] = {
+        ...mandatoryFormSubmissions[idx],
+        status: "submitted",
+        values,
+        submittedAt,
+      };
+      item = mandatoryFormSubmissions[idx];
+    } else {
+      item = {
+        id: `mf-${body.childId}-${kind}`,
+        childId: String(body.childId),
+        kind,
+        status: "submitted",
+        values,
+        submittedAt,
+      };
+      mandatoryFormSubmissions.push(item);
+    }
+    return NextResponse.json({ item }, { status: 201, headers: CORS });
+  }
+
+  /** Staff create a calendar event (comms hub / annual planner) */
+  if (action === "createCalendarEvent") {
+    if (!body.title || !body.date) {
+      return NextResponse.json({ error: "title and date required" }, { status: 400, headers: CORS });
+    }
+    const event: CalendarEvent = {
+      id: `cal-${Date.now()}`,
+      title: String(body.title),
+      date: String(body.date),
+      type: (body.type as CalendarEvent["type"]) ?? "event",
+      audience: body.audience === "staff" ? "staff" : body.audience === "all" ? "all" : "parent",
+      branchId: body.branchId ? String(body.branchId) : undefined,
+      description: body.description ? String(body.description) : undefined,
+      createdAt: new Date().toISOString(),
+    };
+    calendarEvents.unshift(event);
+    return NextResponse.json({ item: event }, { status: 201, headers: CORS });
   }
 
   return NextResponse.json({ error: "Unsupported action" }, { status: 400, headers: CORS });

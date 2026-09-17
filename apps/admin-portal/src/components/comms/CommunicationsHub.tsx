@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   appNotifications,
+  calendarEvents,
   messageThreads,
   ptmSlots,
   type MessageThread,
@@ -17,8 +18,17 @@ import {
 } from "@/data/extended-ops";
 import { postParentOpsAction } from "@/lib/parent-ops-client";
 import { cn } from "@/lib/utils";
+import { CalendarMonthView } from "@kinder-pilot/ui";
+import type { CalendarEvent, CalendarEventType } from "@kinder-pilot/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-type MainTab = "messages" | "announcements" | "newsletters" | "ptm";
+type MainTab = "messages" | "announcements" | "newsletters" | "ptm" | "calendar";
 type Audience = "parent" | "staff";
 
 function initials(name: string) {
@@ -54,6 +64,11 @@ export function CommunicationsHub() {
   const [draft, setDraft] = useState("");
   const [slots, setSlots] = useState(ptmSlots);
   const [notes, setNotes] = useState(appNotifications);
+  const [events, setEvents] = useState<CalendarEvent[]>(calendarEvents);
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventType, setEventType] = useState<CalendarEventType>("event");
+  const [eventAudience, setEventAudience] = useState<"parent" | "staff" | "all">("all");
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
@@ -198,6 +213,25 @@ export function CommunicationsHub() {
     );
   };
 
+  const createEvent = async () => {
+    if (!eventTitle.trim() || !eventDate) return;
+    const result = await postParentOpsAction<CalendarEvent>({
+      action: "createCalendarEvent",
+      title: eventTitle.trim(),
+      date: eventDate,
+      type: eventType,
+      audience: eventAudience,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setEvents((prev) => [result.item, ...prev]);
+    setEventTitle("");
+    setEventDate("");
+    toast.success("Event added — synced to parent & staff calendars");
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -208,6 +242,7 @@ export function CommunicationsHub() {
               ["announcements", "Announcements"],
               ["newsletters", "Newsletters"],
               ["ptm", "PTM"],
+              ["calendar", "Calendar"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -487,6 +522,65 @@ export function CommunicationsHub() {
             </li>
           ))}
         </ul>
+      )}
+
+      {mainTab === "calendar" && (
+        <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <p className="text-sm font-semibold">New calendar event</p>
+              <Input placeholder="Title" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} />
+              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+              <Select value={eventType} onValueChange={(v) => setEventType(v as CalendarEventType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="event">Event</SelectItem>
+                  <SelectItem value="ptm">PTM</SelectItem>
+                  <SelectItem value="assessment">Assessment</SelectItem>
+                  <SelectItem value="holiday">Holiday</SelectItem>
+                  <SelectItem value="announcement">Announcement</SelectItem>
+                  <SelectItem value="drill">Evacuation / fire drill</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={eventAudience} onValueChange={(v) => setEventAudience(v as typeof eventAudience)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Parents & staff</SelectItem>
+                  <SelectItem value="parent">Parents only</SelectItem>
+                  <SelectItem value="staff">Staff only</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="button" onClick={() => void createEvent()}>
+                Add to calendar
+              </Button>
+            </CardContent>
+          </Card>
+          <div className="space-y-3">
+            <CalendarMonthView events={events} />
+            <ul className="space-y-2">
+              {[...events]
+                .sort((a, b) => a.date.localeCompare(b.date))
+                .slice(0, 8)
+                .map((e) => (
+                  <li key={e.id} className="rounded-2xl border border-[#F1F3F5] bg-surface p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{e.title}</p>
+                      <Badge variant="secondary" className="capitalize">
+                        {e.type}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted">
+                      {e.date} · {e.audience === "all" ? "Parents & staff" : e.audience}
+                    </p>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </div>
       )}
 
       {composeOpen && (

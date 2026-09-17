@@ -170,6 +170,17 @@ export interface Student {
   };
   /** Induction checklist items completed */
   inductionChecklist?: { id: string; label: string; done: boolean }[];
+  /** Daycare enrolment — set when parent selects daycare services at/after admission */
+  daycare?: StudentDaycareInfo;
+}
+
+export interface StudentDaycareInfo {
+  track: boolean;
+  dropOff?: string;
+  pickUp?: string;
+  napNotes?: string;
+  feedingNotes?: string;
+  authorizedPickup?: string;
 }
 
 /** Extra line items attached to a student and billed on invoice generation */
@@ -654,7 +665,43 @@ export interface AdmissionCard {
   /** Final outcome when follow-up completes */
   followUpOutcome?: InquiryFollowUpOutcome;
   followUpNotes?: string;
+  /** Timeline of past follow-up saves, newest last */
+  followUpHistory?: AdmissionFollowUpEntry[];
   welcomeSentAt?: string;
+}
+
+export interface AdmissionFollowUpEntry {
+  status: InquiryFollowUpStatus;
+  outcome?: InquiryFollowUpOutcome;
+  notes?: string;
+  savedAt: string;
+  savedBy: string;
+}
+
+export type PlannerScope = "annual" | "branch_monthly";
+export type PlannerCategory = "evacuation_drill" | "fire_drill" | "admin_task" | "other";
+
+/** Head Office annual planner entry, or a branch's own monthly schedule entry */
+export interface AdminPlannerEntry {
+  id: string;
+  scope: PlannerScope;
+  /** Required when scope is branch_monthly; omitted = all-branch / head office */
+  branchId?: string;
+  title: string;
+  date: string;
+  category: PlannerCategory;
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+/** Standard branch protocol — omitted branchId = applies to all branches */
+export interface BranchProtocol {
+  id: string;
+  branchId?: string;
+  title: string;
+  steps: string[];
+  updatedAt: string;
 }
 
 export type StaffInquiryStage =
@@ -733,6 +780,7 @@ export type ClassroomActivityType =
   | "checkin"
   | "checkout"
   | "potty"
+  | "clothing_change"
   | "learning";
 
 export interface ClassroomActivity {
@@ -742,6 +790,8 @@ export interface ClassroomActivity {
   body: string;
   /** Display time e.g. 12:40 PM */
   time: string;
+  /** End time for entries with a duration (meals, naps) e.g. 1:10 PM */
+  timeOut?: string;
   createdAt: string;
   studentId: string;
   studentName: string;
@@ -753,6 +803,22 @@ export interface ClassroomActivity {
   /** When true, shown on parent portal feed */
   visibleToParents: boolean;
   likes?: number;
+}
+
+export type MilestoneCategory = "motor" | "sensory" | "growth";
+
+/** Infant developmental milestone — teacher-entered, viewable by parents */
+export interface MilestoneRecord {
+  id: string;
+  studentId: string;
+  category: MilestoneCategory;
+  title: string;
+  /** ISO date once achieved; undefined = not yet achieved */
+  achievedDate?: string;
+  targetAgeRange?: string;
+  notes?: string;
+  enteredBy: string;
+  enteredAt: string;
 }
 
 export interface RevenueDataPoint {

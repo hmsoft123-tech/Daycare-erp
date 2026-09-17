@@ -109,9 +109,11 @@ export default async function AdmissionDetailPage({ params }: Props) {
           </CardContent>
         </Card>
         <InquiryFollowUpPanel
+          admissionId={admission.id}
           initialStatus={admission.followUpStatus}
           initialOutcome={admission.followUpOutcome}
           initialNotes={admission.followUpNotes}
+          initialHistory={admission.followUpHistory}
         />
       </div>
     </>

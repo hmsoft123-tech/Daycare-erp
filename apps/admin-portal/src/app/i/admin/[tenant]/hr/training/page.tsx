@@ -8,13 +8,13 @@ import {
 } from "@/data/training-assignments";
 
 export default async function TrainingPage() {
-  const videos = await getTrainingVideos();
+  const videos = await getTrainingVideos({ audience: "staff" });
 
   return (
     <>
       <PageHeader
         title="Training & Induction"
-        subtitle="Dashboard · expandable categories · onboarding · quiz · certificates · parent library"
+        subtitle="Dashboard · expandable categories · onboarding · quiz · certificates"
       />
       <div className="space-y-10">
         <TrainingDashboard

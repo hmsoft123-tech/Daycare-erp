@@ -9,6 +9,7 @@ export type ParentTrainingVideo = {
   youtubeId: string;
   thumbnail?: string;
   featured?: boolean;
+  requiredForOnboarding?: boolean;
 };
 
 export const PARENT_TOPIC_LABELS: Record<ParentTrainingTopic | "all", string> = {
@@ -38,6 +39,7 @@ export const fallbackParentVideos: ParentTrainingVideo[] = [
     youtubeId: "M7lc1UVf-VE",
     thumbnail: "https://img.youtube.com/vi/M7lc1UVf-VE/hqdefault.jpg",
     featured: true,
+    requiredForOnboarding: true,
   },
   {
     id: "par-ori-2",

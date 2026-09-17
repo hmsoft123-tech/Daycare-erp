@@ -9,6 +9,7 @@ type ErpActivity = {
   title: string;
   body: string;
   time: string;
+  createdAt: string;
   studentId: string;
   studentName: string;
   teacherName?: string;
@@ -36,6 +37,7 @@ export async function fetchClassroomFeed(studentIds?: string[]): Promise<FeedIte
       title: a.title,
       body: a.teacherName ? `${a.body}\n— ${a.teacherName}` : a.body,
       time: a.time,
+      date: a.createdAt?.slice(0, 10),
       childId: a.studentId,
       childName: a.studentName.split(" ")[0] ?? a.studentName,
       imageUrl: a.imageUrl,

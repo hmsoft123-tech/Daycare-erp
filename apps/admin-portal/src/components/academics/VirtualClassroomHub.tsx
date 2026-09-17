@@ -19,14 +19,25 @@ import { postParentOpsAction } from "@/lib/parent-ops-client";
 
 export function VirtualClassroomHub() {
   const [rows, setRows] = useState(virtualClasses);
+  const [sessionCategory, setSessionCategory] = useState<VirtualClass["sessionCategory"]>("live");
   const [title, setTitle] = useState("");
   const [provider, setProvider] = useState<VirtualClass["provider"]>("meet");
   const [joinUrl, setJoinUrl] = useState("");
+  const [recordingUrl, setRecordingUrl] = useState("");
+  const [topic, setTopic] = useState("");
   const [className, setClassName] = useState("Infant Room A");
 
   const add = async () => {
-    if (!title.trim() || !joinUrl.trim()) {
-      toast.error("Title and join URL required");
+    if (!title.trim()) {
+      toast.error("Title required");
+      return;
+    }
+    if (sessionCategory === "live" && !joinUrl.trim()) {
+      toast.error("Join URL required for a live session");
+      return;
+    }
+    if (sessionCategory === "recorded" && !recordingUrl.trim()) {
+      toast.error("Recording URL required for a recorded lesson");
       return;
     }
     const result = await postParentOpsAction<VirtualClass>({
@@ -34,7 +45,10 @@ export function VirtualClassroomHub() {
       title: title.trim(),
       className,
       provider,
-      joinUrl: joinUrl.trim(),
+      sessionCategory,
+      joinUrl: sessionCategory === "live" ? joinUrl.trim() : "",
+      recordingUrl: sessionCategory === "recorded" ? recordingUrl.trim() : undefined,
+      topic: sessionCategory === "recorded" ? topic.trim() || undefined : undefined,
       teacherName: "Staff",
       childIds: ["s1", "s2"],
     });
@@ -45,7 +59,13 @@ export function VirtualClassroomHub() {
     setRows((prev) => [result.item, ...prev]);
     setTitle("");
     setJoinUrl("");
-    toast.success("Session published — parent School → Virtual Class");
+    setRecordingUrl("");
+    setTopic("");
+    toast.success(
+      sessionCategory === "live"
+        ? "Live session published — parent School → Virtual Class"
+        : "Recorded lesson published — parent School → Virtual Class"
+    );
   };
 
   return (
@@ -53,6 +73,21 @@ export function VirtualClassroomHub() {
       <Card>
         <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5 lg:col-span-2">
+            <Label>Session type</Label>
+            <Select
+              value={sessionCategory}
+              onValueChange={(v) => setSessionCategory(v as VirtualClass["sessionCategory"])}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="live">Live class</SelectItem>
+                <SelectItem value="recorded">Topic-wise recorded lesson</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5 lg:col-span-3">
             <Label>Title</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
@@ -76,13 +111,30 @@ export function VirtualClassroomHub() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-            <Label>Join URL</Label>
-            <Input value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} placeholder="https://…" />
-          </div>
+          {sessionCategory === "live" ? (
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+              <Label>Join URL</Label>
+              <Input value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} placeholder="https://…" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5 lg:col-span-2">
+                <Label>Recording URL</Label>
+                <Input
+                  value={recordingUrl}
+                  onChange={(e) => setRecordingUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Topic</Label>
+                <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Phonics" />
+              </div>
+            </>
+          )}
           <div className="flex items-end">
-            <Button type="button" onClick={add} className="w-full">
-              Publish session
+            <Button type="button" onClick={() => void add()} className="w-full">
+              Publish
             </Button>
           </div>
         </CardContent>
@@ -98,21 +150,22 @@ export function VirtualClassroomHub() {
                     <p className="text-sm font-semibold">{r.title}</p>
                     <p className="text-xs text-muted">
                       {r.className} · {r.teacherName} · {r.provider.toUpperCase()}
+                      {r.topic ? ` · ${r.topic}` : ""}
                     </p>
                   </div>
                   <Badge
                     variant={r.status === "live" ? "success" : r.status === "ended" ? "secondary" : "info"}
                     className="capitalize"
                   >
-                    {r.status}
+                    {r.sessionCategory === "recorded" ? "Recorded" : r.status}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted">
                   {new Date(r.startsAt).toLocaleString()} · {r.durationMin} min
                 </p>
                 <Button type="button" size="sm" variant="outline" asChild>
-                  <a href={r.joinUrl} target="_blank" rel="noreferrer">
-                    Open link
+                  <a href={r.sessionCategory === "recorded" ? r.recordingUrl : r.joinUrl} target="_blank" rel="noreferrer">
+                    {r.sessionCategory === "recorded" ? "Open recording" : "Open link"}
                   </a>
                 </Button>
               </CardContent>

@@ -7,34 +7,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { youtubeEmbedUrl, youtubeWatchUrl } from "@/data/training-videos";
-import { STAFF_TOPIC_LABELS, PARENT_TOPIC_LABELS, topicLabel } from "@/lib/training";
+import { STAFF_TOPIC_LABELS, topicLabel } from "@/lib/training";
 import { useTrainingProgressStore } from "@/lib/training-progress-store";
 import { useTenantStore } from "@/lib/tenant-store";
-import type {
-  ParentTrainingTopic,
-  StaffTrainingTopic,
-  TrainingAudience,
-  TrainingTopic,
-  TrainingVideo,
-} from "@/types";
+import type { StaffTrainingTopic, TrainingTopic, TrainingVideo } from "@/types";
 import { CheckCircle2, Clock, ExternalLink, Play, Video, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const STAFF_USER = "demo-staff";
+const audience = "staff" as const;
 
 interface VideoHubProps {
   videos: TrainingVideo[];
-  /** Default staff; admin can switch to parent library preview */
-  defaultAudience?: TrainingAudience;
 }
 
-export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
-  const [audience, setAudience] = useState<TrainingAudience>(defaultAudience);
+export function VideoHub({ videos }: VideoHubProps) {
   const [topic, setTopic] = useState<"all" | TrainingTopic>("all");
   const [active, setActive] = useState<TrainingVideo | null>(null);
   const userName = useTenantStore((s) => s.userName) ?? STAFF_USER;
-  const userId = audience === "staff" ? `staff:${userName}` : `preview-parent`;
+  const userId = `staff:${userName}`;
 
   const recordView = useTrainingProgressStore((s) => s.recordView);
   const markComplete = useTrainingProgressStore((s) => s.markComplete);
@@ -52,15 +44,10 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
   );
 
   const topics = useMemo(() => {
-    if (audience === "staff") {
-      return (Object.keys(STAFF_TOPIC_LABELS) as StaffTrainingTopic[]).filter((t) =>
-        scoped.some((v) => v.topic === t)
-      );
-    }
-    return (Object.keys(PARENT_TOPIC_LABELS) as ParentTrainingTopic[]).filter((t) =>
+    return (Object.keys(STAFF_TOPIC_LABELS) as StaffTrainingTopic[]).filter((t) =>
       scoped.some((v) => v.topic === t)
     );
-  }, [audience, scoped]);
+  }, [scoped]);
 
   const filtered = useMemo(
     () => (topic === "all" ? scoped : scoped.filter((v) => v.topic === topic)),
@@ -85,15 +72,13 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
 
   const completeActive = () => {
     if (!active) return;
-    if (audience === "staff" && active.quiz?.length && !getEntry(userId, active.id).quizPassed) {
+    if (active.quiz?.length && !getEntry(userId, active.id).quizPassed) {
       setQuizStep(true);
       setQuizAnswers(active.quiz.map(() => -1));
       return;
     }
     markComplete(userId, active.id);
-    toast.success(
-      audience === "staff" ? "Marked complete — tracked for induction" : "View recorded"
-    );
+    toast.success("Marked complete — tracked for induction");
   };
 
   const submitQuiz = () => {
@@ -122,38 +107,14 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
       <div className="flex flex-col gap-3 rounded-2xl border border-[#F1F3F5] bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-heading">Training & Induction Video Hub</p>
-          <p className="text-xs text-muted">YouTube-linked · {audience === "staff" ? "completion" : "view"} tracking</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={audience === "staff" ? "default" : "outline"}
-            onClick={() => {
-              setAudience("staff");
-              setTopic("all");
-            }}
-          >
-            Staff
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={audience === "parents" ? "default" : "outline"}
-            onClick={() => {
-              setAudience("parents");
-              setTopic("all");
-            }}
-          >
-            Parents (library)
-          </Button>
+          <p className="text-xs text-muted">YouTube-linked · completion tracking</p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-[140px] flex-1">
           <div className="mb-1 flex justify-between text-xs text-muted">
-            <span>{audience === "staff" ? "Your completion" : "Preview views"}</span>
+            <span>Your completion</span>
             <span className="font-semibold text-heading">
               {done}/{scoped.length} · {pct}%
             </span>
@@ -195,9 +156,7 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
       )}
 
       <section>
-        <h3 className="mb-3 font-heading text-lg font-semibold text-heading">
-          {audience === "staff" ? "Staff library" : "Parent library"}
-        </h3>
+        <h3 className="mb-3 font-heading text-lg font-semibold text-heading">Staff library</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rest.map((video, i) => (
             <VideoCard
@@ -308,29 +267,21 @@ export function VideoHub({ videos, defaultAudience = "staff" }: VideoHubProps) {
               )}
 
               <div className="flex flex-wrap items-center gap-2">
-                {audience === "staff" ? (
-                  <>
-                    <Button type="button" onClick={completeActive}>
-                      <CheckCircle2 className="h-4 w-4" />
-                      {active.quiz?.length && !getEntry(userId, active.id).quizPassed
-                        ? "Complete & take quiz"
-                        : "Mark complete"}
+                <Button type="button" onClick={completeActive}>
+                  <CheckCircle2 className="h-4 w-4" />
+                  {active.quiz?.length && !getEntry(userId, active.id).quizPassed
+                    ? "Complete & take quiz"
+                    : "Mark complete"}
+                </Button>
+                {getEntry(userId, active.id).completed &&
+                  !getEntry(userId, active.id).certificateIssued && (
+                    <Button type="button" variant="outline" onClick={issueCert}>
+                      Issue certificate
                     </Button>
-                    {getEntry(userId, active.id).completed &&
-                      !getEntry(userId, active.id).certificateIssued && (
-                        <Button type="button" variant="outline" onClick={issueCert}>
-                          Issue certificate
-                        </Button>
-                      )}
-                    {getEntry(userId, active.id).certificateIssued && (
-                      <Button type="button" variant="outline" onClick={() => setShowCert(true)}>
-                        View certificate
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <Button type="button" onClick={completeActive} variant="outline">
-                    Record view
+                  )}
+                {getEntry(userId, active.id).certificateIssued && (
+                  <Button type="button" variant="outline" onClick={() => setShowCert(true)}>
+                    View certificate
                   </Button>
                 )}
                 <Button type="button" variant="outline" asChild>

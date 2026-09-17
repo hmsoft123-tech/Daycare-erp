@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +15,7 @@ import { StudentTherapyPanel } from "@/components/students/StudentTherapyPanel";
 import { branches } from "@/data/branches";
 import { isBillableStudent } from "@/lib/eligibility";
 import { calculateAge, formatDate, getInitials } from "@/lib/utils";
+import { getMandatoryForms } from "@/lib/mock-service";
 import type {
   Student,
   Parent,
@@ -23,6 +24,12 @@ import type {
   AttendanceRecord,
   TherapySession,
 } from "@/types";
+import type { MandatoryFormSubmission } from "@/data/extended-ops";
+
+const MANDATORY_FORM_LABELS: Record<MandatoryFormSubmission["kind"], string> = {
+  pick_drop_details: "Pick & Drop Details",
+  parent_consent: "Parent Consent Form",
+};
 
 interface StudentProfileProps {
   student: Student;
@@ -46,6 +53,11 @@ export function StudentProfile({
   const prevBranch = student.previousBranchId
     ? branches.find((b) => b.id === student.previousBranchId)
     : undefined;
+
+  const [mandatoryForms, setMandatoryForms] = useState<MandatoryFormSubmission[]>([]);
+  useEffect(() => {
+    void getMandatoryForms(student.id).then(setMandatoryForms);
+  }, [student.id]);
 
   return (
     <div className="space-y-6">
@@ -153,6 +165,29 @@ export function StudentProfile({
                 </div>
               )}
             </dl>
+            {mandatoryForms.length > 0 && (
+              <div className="mt-4 w-full text-left">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  Mandatory forms
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {mandatoryForms.map((f) => (
+                    <li key={f.id} className="flex items-center justify-between text-xs">
+                      <span>{MANDATORY_FORM_LABELS[f.kind]}</span>
+                      <span
+                        className={
+                          f.status === "submitted"
+                            ? "font-semibold text-success"
+                            : "font-semibold text-amber-600"
+                        }
+                      >
+                        {f.status === "submitted" ? "Submitted" : "Pending"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
 

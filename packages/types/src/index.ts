@@ -223,3 +223,19 @@ export const Permission = {
 } as const;
 
 export type PermissionKey = (typeof Permission)[keyof typeof Permission];
+
+export type CalendarEventType = "event" | "ptm" | "assessment" | "holiday" | "announcement" | "drill";
+
+/** Shared calendar entry synced between admin/staff and parent portal calendars */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  /** ISO date, e.g. "2026-09-17" */
+  date: string;
+  type: CalendarEventType;
+  audience: "parent" | "staff" | "all";
+  /** Omitted = head office / all-branch */
+  branchId?: string;
+  description?: string;
+  createdAt: string;
+}

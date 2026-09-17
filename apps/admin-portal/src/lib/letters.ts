@@ -35,6 +35,9 @@ export function prefillStudentLetter(student: Student, kind: LetterKind): Letter
   if (kind === "leaving_certificate" && !base.leaveDate) {
     base.leaveDate = new Date().toISOString().slice(0, 10);
   }
+  if (kind === "inter_branch_transfer_letter") {
+    base.fromBranchName = branch?.name ?? "";
+  }
   return base;
 }
 

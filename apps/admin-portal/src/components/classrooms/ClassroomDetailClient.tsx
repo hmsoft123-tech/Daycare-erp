@@ -19,6 +19,8 @@ import {
   assignStudentToClass,
   updateClassRoom,
 } from "@/lib/mock-service";
+import { RoutineChart } from "@/components/classrooms/RoutineChart";
+import { MilestoneEntryPanel } from "@/components/classrooms/MilestoneEntryPanel";
 import { formatDate } from "@/lib/utils";
 import type {
   ClassRoom,
@@ -47,7 +49,18 @@ const ACTIVITY_TYPES: { value: ClassroomActivityType; label: string }[] = [
   { value: "activity", label: "Activity" },
   { value: "photo", label: "Photo note" },
   { value: "note", label: "Teacher note" },
-  { value: "potty", label: "Potty" },
+  { value: "potty", label: "Potty / diaper change" },
+  { value: "clothing_change", label: "Clothing change" },
+];
+
+const TIMED_ACTIVITY_TYPES: ClassroomActivityType[] = ["meal", "nap"];
+
+const DETAIL_TABS: { id: "roster" | "activity" | "routine" | "milestones" | "monthly"; label: string }[] = [
+  { id: "roster", label: "Roster & assign" },
+  { id: "activity", label: "Daily activity log" },
+  { id: "routine", label: "Daily routine chart" },
+  { id: "milestones", label: "Infant milestones" },
+  { id: "monthly", label: "Monthly activity & lessons" },
 ];
 
 type Props = {
@@ -73,9 +86,15 @@ export function ClassroomDetailClient({
   const [logType, setLogType] = useState<ClassroomActivityType>("note");
   const [logTitle, setLogTitle] = useState("");
   const [logBody, setLogBody] = useState("");
+  const [logTimeOut, setLogTimeOut] = useState("");
   const [visibleToParents, setVisibleToParents] = useState(true);
 
-  const [detailTab, setDetailTab] = useState<"roster" | "activity" | "monthly">("roster");
+  const [detailTab, setDetailTab] = useState<
+    "roster" | "activity" | "routine" | "milestones" | "monthly"
+  >("roster");
+  const isInfantRoom = `${initialRoom.name} ${initialRoom.ageBand ?? ""} ${initialRoom.classGroup ?? ""}`
+    .toLowerCase()
+    .includes("infant");
   const [ratio, setRatio] = useState(initialRoom.staffChildRatio ?? defaultRatio(initialRoom));
   const [cap, setCap] = useState(initialRoom.enrollmentCap ?? initialRoom.capacity ?? 12);
   const [broadcastBody, setBroadcastBody] = useState("");
@@ -192,6 +211,7 @@ export function ClassroomDetailClient({
           teacherId: room.teacherId,
           teacherName: teacherStaff?.name ?? "Teacher",
           visibleToParents,
+          timeOut: TIMED_ACTIVITY_TYPES.includes(logType) && logTimeOut ? logTimeOut : undefined,
         }),
       });
       if (!res.ok) {
@@ -202,6 +222,7 @@ export function ClassroomDetailClient({
       setActivities((prev) => [data.activity, ...prev]);
       setLogTitle("");
       setLogBody("");
+      setLogTimeOut("");
       toast.success(
         visibleToParents
           ? "Activity logged — visible on parent Activity feed"
@@ -296,22 +317,16 @@ export function ClassroomDetailClient({
       </Card>
 
       <div className="flex flex-wrap gap-1.5">
-        {(
-          [
-            ["roster", "Roster & assign"],
-            ["activity", "Daily activity log"],
-            ["monthly", "Monthly activity & lessons"],
-          ] as const
-        ).map(([id, label]) => (
+        {DETAIL_TABS.filter((t) => t.id !== "milestones" || isInfantRoom).map((t) => (
           <button
-            key={id}
+            key={t.id}
             type="button"
-            onClick={() => setDetailTab(id)}
+            onClick={() => setDetailTab(t.id)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              detailTab === id ? "bg-brand-500 text-white" : "bg-bg text-muted"
+              detailTab === t.id ? "bg-brand-500 text-white" : "bg-bg text-muted"
             }`}
           >
-            {label}
+            {t.label}
           </button>
         ))}
       </div>
@@ -368,7 +383,7 @@ export function ClassroomDetailClient({
         </CardContent>
       </Card>
 
-      {detailTab !== "monthly" && (
+      {(detailTab === "roster" || detailTab === "activity") && (
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -452,6 +467,18 @@ export function ClassroomDetailClient({
                 </SelectContent>
               </Select>
             </div>
+            {TIMED_ACTIVITY_TYPES.includes(logType) && (
+              <div>
+                <Label htmlFor="log-time-out">End time (optional)</Label>
+                <Input
+                  id="log-time-out"
+                  className="mt-1"
+                  value={logTimeOut}
+                  onChange={(e) => setLogTimeOut(e.target.value)}
+                  placeholder="e.g. 1:10 PM"
+                />
+              </div>
+            )}
             <div>
               <Label htmlFor="title">Title</Label>
               <Input
@@ -526,6 +553,12 @@ export function ClassroomDetailClient({
         </CardContent>
       </Card>
       ) : null}
+
+      {detailTab === "routine" && <RoutineChart students={roster} activities={activities} />}
+
+      {detailTab === "milestones" && (
+        <MilestoneEntryPanel students={roster} teacherName={teacher?.name ?? "Teacher"} />
+      )}
     </div>
   );
 }

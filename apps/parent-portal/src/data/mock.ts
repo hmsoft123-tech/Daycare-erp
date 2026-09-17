@@ -19,14 +19,27 @@ export type ParentChild = {
   authorizedPickup?: string[];
   photoConsent?: boolean;
   disabilities?: string;
+  daycareTrack?: boolean;
 };
 
 export type FeedItem = {
   id: string;
-  type: "meal" | "nap" | "activity" | "note" | "photo" | "checkin" | "checkout" | "potty" | "learning";
+  type:
+    | "meal"
+    | "nap"
+    | "activity"
+    | "note"
+    | "photo"
+    | "checkin"
+    | "checkout"
+    | "potty"
+    | "clothing_change"
+    | "learning";
   title: string;
   body: string;
   time: string;
+  /** ISO date the entry was logged, e.g. "2026-09-17" — used by the routine chart view */
+  date?: string;
   childId: string;
   childName: string;
   imageUrl?: string;

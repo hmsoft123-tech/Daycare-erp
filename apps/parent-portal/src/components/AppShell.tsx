@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { cn } from "@kinder-pilot/ui";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { OnboardingPrompts } from "@/components/OnboardingPrompts";
+import { OrientationGate } from "@/components/OrientationGate";
 import { useParentAuth } from "@/lib/auth-store";
 
 const primaryTabs = [
@@ -98,6 +100,7 @@ export function AppShell({ children, schoolName }: AppShellProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
+      <OrientationGate />
       <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-surface/95 backdrop-blur-md">
         <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6 lg:px-8">
           <Link
@@ -214,7 +217,10 @@ export function AppShell({ children, schoolName }: AppShellProps) {
       </header>
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-24 sm:px-6 sm:py-6 md:pb-10 lg:px-8 lg:py-8">
-        <div className="animate-fade-up w-full">{children}</div>
+        <div className="animate-fade-up w-full">
+          <OnboardingPrompts />
+          {children}
+        </div>
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-surface/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-md md:hidden">

@@ -3,7 +3,7 @@ import type { Branch } from "@/types";
 export const branches: Branch[] = [
   {
     id: "branch-nn",
-    name: "North Nazimabad Campus",
+    name: "Nazimabad Campus",
     address: "Block B, North Nazimabad",
     city: "Karachi",
     headCount: 212,
@@ -11,16 +11,16 @@ export const branches: Branch[] = [
   },
   {
     id: "branch-clifton",
-    name: "Clifton Campus",
-    address: "Khayaban-e-Shamsheer, Clifton",
+    name: "Johar Campus",
+    address: "Gulistan-e-Johar",
     city: "Karachi",
     headCount: 198,
     status: "healthy",
   },
   {
     id: "branch-dha",
-    name: "DHA Campus",
-    address: "Phase 6, DHA",
+    name: "PECHS Campus",
+    address: "PECHS Block 2",
     city: "Karachi",
     headCount: 245,
     status: "attention",
@@ -31,6 +31,14 @@ export const branches: Branch[] = [
     address: "Block 7, Gulshan-e-Iqbal",
     city: "Karachi",
     headCount: 192,
+    status: "healthy",
+  },
+  {
+    id: "branch-north",
+    name: "North Campus",
+    address: "North Karachi",
+    city: "Karachi",
+    headCount: 150,
     status: "healthy",
   },
 ];

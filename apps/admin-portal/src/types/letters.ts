@@ -11,6 +11,8 @@ export type LetterKind =
   | "leaving_certificate"
   | "clearance_certificate"
   | "character_certificate"
+  | "inter_branch_transfer_letter"
+  | "conduct_warning_notice"
   // Staff
   | "experience_letter"
   | "job_offer_letter"
@@ -43,7 +45,13 @@ export type LetterFieldKey =
   | "newDesignation"
   | "effectiveDate"
   | "reason"
-  | "issueDate";
+  | "issueDate"
+  | "fromBranchName"
+  | "toBranchName"
+  | "transferDate"
+  | "incidentDate"
+  | "warningLevel"
+  | "description";
 
 export interface LetterTemplate {
   kind: LetterKind;
