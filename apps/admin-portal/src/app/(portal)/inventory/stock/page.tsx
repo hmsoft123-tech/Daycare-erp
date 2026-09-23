@@ -8,8 +8,8 @@ export default async function InventoryStockPage() {
   return (
     <>
       <PageHeader
-        title="Stock levels"
-        subtitle="On-hand quantities by branch · low stock highlighted at reorder level"
+        title="Branch stock"
+        subtitle="Categorised like Purchase Requisitions · filter by branch, category, sub-category, supplier and stock status"
       />
       <StockLevelsClient levels={levels} items={items} />
     </>

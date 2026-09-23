@@ -1,5 +1,16 @@
 export type BranchStatus = "healthy" | "attention";
 
+/**
+ * System-wide "Last Updated" stamp — set on every create / edit
+ * (see lib/audit.ts `stamp()` and <LastUpdated />).
+ */
+export interface AuditStamp {
+  /** ISO datetime of the last change */
+  updatedAt: string;
+  /** Display name of the user who made it */
+  updatedBy: string;
+}
+
 export type StaffRole =
   | "admin"
   | "teacher"
@@ -172,6 +183,18 @@ export interface Student {
   inductionChecklist?: { id: string; label: string; done: boolean }[];
   /** Daycare enrolment — set when parent selects daycare services at/after admission */
   daycare?: StudentDaycareInfo;
+  /** Attendance timing / shift shown on All Students and the profile */
+  timing?: StudentTiming;
+  lastUpdated?: AuditStamp;
+}
+
+export type StudentTimingSlot = "morning" | "full_day" | "extended" | "afternoon" | "after_school";
+
+export interface StudentTiming {
+  slot: StudentTimingSlot;
+  /** "08:00" (24h) */
+  from: string;
+  to: string;
 }
 
 export interface StudentDaycareInfo {
@@ -436,6 +459,7 @@ export interface Staff {
   rejoinDate?: string;
   /** Previous campus before last branch transfer */
   previousBranchId?: string;
+  lastUpdated?: AuditStamp;
 }
 
 export type IdCardKind = "student" | "staff";
@@ -542,21 +566,14 @@ export interface PurchaseRequisition {
   dispatchedAt?: string;
   receivedAt?: string;
   hoNotes?: string;
+  lastUpdated?: AuditStamp;
 }
 
-export type InventoryCategory =
-  | "supplies"
-  | "stationery"
-  | "food"
-  | "groceries"
-  | "cleaning"
-  | "toiletries"
-  | "printed"
-  | "books"
-  | "courses"
-  | "therapy"
-  | "playground"
-  | "other";
+/** Stock uses the same categories as Purchase Requisitions (see lib/stock-categories.ts) */
+export type InventoryCategory = RequisitionKind;
+
+/** How an item behaves in stock */
+export type InventoryItemType = "consumable" | "fixed_asset" | "course_material" | "non_stock";
 
 /** Catalog item that can be stocked and requested via PRs */
 export interface InventoryItem {
@@ -564,11 +581,17 @@ export interface InventoryItem {
   sku: string;
   name: string;
   category: InventoryCategory;
+  /** Sub-category within the PR category, e.g. Stationery › Art & Craft */
+  subCategory?: string;
+  itemType: InventoryItemType;
+  /** Preferred / last supplier */
+  supplier?: string;
   unit: string;
   reorderLevel: number;
   unitCost: number;
   active: boolean;
   notes?: string;
+  lastUpdated?: AuditStamp;
 }
 
 /** On-hand quantity per branch */
@@ -577,7 +600,9 @@ export interface StockLevel {
   itemId: string;
   branchId: string;
   qtyOnHand: number;
+  /** ISO datetime (older seeds are date-only) */
   updatedAt: string;
+  updatedBy?: string;
 }
 
 export type MeetingKind = "tour" | "test" | "interview" | "assessment";
@@ -1037,4 +1062,210 @@ export interface ParentSchoolSyllabus {
   unit: string;
   topics: string[];
   weekOf: string;
+}
+
+/* ───────────────────────── Special Programs & Activities ───────────────────────── */
+
+export type ProgramCategory =
+  | "summer_camp"
+  | "winter_camp"
+  | "field_trip"
+  | "workshop"
+  | "special_event"
+  | "other";
+
+export type ProgramStatus = "planned" | "open" | "closed" | "completed" | "cancelled";
+
+/** Camp / trip / workshop / event — open to enrolled and outside children */
+export interface SpecialProgram {
+  id: string;
+  name: string;
+  category: ProgramCategory;
+  /** Hosting campus */
+  branchId: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  /** e.g. "3 – 6 years" */
+  ageGroup?: string;
+  capacity?: number;
+  /** Fee per child (PKR). 0 = free program */
+  fee: number;
+  /** When true, each registration gets a printable payment voucher */
+  voucherRequired: boolean;
+  /** Days after registration the voucher is due */
+  voucherDueDays: number;
+  /** Outside / non-enrolled children may register */
+  openToExternal: boolean;
+  status: ProgramStatus;
+  lastUpdated: AuditStamp;
+}
+
+export type ProgramParticipantType = "enrolled" | "external";
+
+export type ProgramPaymentStatus = "unpaid" | "partial" | "paid" | "waived" | "not_applicable";
+
+export type PaymentMode = "cash" | "bank" | "online" | "cheque";
+
+export interface ProgramRegistration {
+  id: string;
+  programId: string;
+  participantType: ProgramParticipantType;
+  /** Set for existing SDLC students */
+  studentId?: string;
+  studentName: string;
+  /** G.R. number for enrolled students */
+  grNumber?: string;
+  /** Program registration no. — also serves as the ID for outside children */
+  registrationNo: string;
+  parentName: string;
+  parentContact: string;
+  dob: string;
+  gender?: "male" | "female";
+  /** Current school — outside children only */
+  externalSchool?: string;
+  registrationDate: string;
+  /** Amount due (program fee, may be discounted) */
+  amount: number;
+  amountPaid: number;
+  paymentStatus: ProgramPaymentStatus;
+  paymentMode?: PaymentMode;
+  receiptNo?: string;
+  paidAt?: string;
+  voucherNumber?: string;
+  voucherIssuedAt?: string;
+  voucherDueDate?: string;
+  notes?: string;
+  lastUpdated: AuditStamp;
+}
+
+/* ───────────────────────── Course Outline / Syllabus ───────────────────────── */
+
+export type CourseStatus = "draft" | "active" | "archived";
+
+export type CourseMaterialKind = "book" | "copy" | "workbook" | "material" | "stationery";
+
+/** Book / copy / material every student in the class needs */
+export interface CourseMaterialLine {
+  id: string;
+  /** Link to inventory catalogue — enables stock tracking */
+  itemId?: string;
+  name: string;
+  kind: CourseMaterialKind;
+  qtyPerStudent: number;
+  unitPrice: number;
+  /** Charged to the student on the course voucher */
+  chargeToStudent: boolean;
+}
+
+export interface SyllabusUnit {
+  id: string;
+  /** e.g. "Term 1" / "Weeks 1–4" */
+  period: string;
+  subject: string;
+  topics: string[];
+}
+
+export interface CourseOutline {
+  id: string;
+  /** e.g. "2026–2027" */
+  academicSession: string;
+  /** Class group key matching classrooms (infant, playgroup, nursery…) */
+  classGroup: string;
+  /** Display label for class / program */
+  program: string;
+  title: string;
+  /** Overview / learning outcomes */
+  outline: string;
+  syllabus: SyllabusUnit[];
+  materials: CourseMaterialLine[];
+  /** Course / tuition fee charged once per session (PKR) */
+  courseFee: number;
+  effectiveDate: string;
+  status: CourseStatus;
+  lastUpdated: AuditStamp;
+}
+
+/** Voucher raised for a student from a course outline (fee + chargeable materials) */
+export interface CourseVoucher {
+  id: string;
+  voucherNumber: string;
+  courseId: string;
+  studentId: string;
+  branchId: string;
+  lines: { label: string; qty: number; amount: number }[];
+  total: number;
+  issuedAt: string;
+  dueDate: string;
+  status: "issued" | "paid" | "cancelled";
+  /** Materials handed to the student (stock issued) */
+  materialsIssued: boolean;
+  lastUpdated: AuditStamp;
+}
+
+/* ───────────────────────── Health & Safety ───────────────────────── */
+
+export type HealthSubject = "student" | "staff";
+
+export type HealthRecordCategory =
+  // shared
+  | "hygiene_check"
+  | "health_check"
+  | "vaccination"
+  // students
+  | "polio_vaccination"
+  | "medical_info"
+  | "allergy"
+  | "medication"
+  | "health_incident"
+  // staff
+  | "medical_test"
+  | "hepatitis_b"
+  | "hepatitis_c"
+  | "fitness_certificate";
+
+export type HealthFrequency = "monthly" | "bi_annual" | "annual" | "campaign" | "one_time" | "as_needed";
+
+export type HealthOutcome = "clear" | "attention" | "referred" | "pending" | "positive" | "negative" | "completed";
+
+export interface HealthRecord {
+  id: string;
+  subject: HealthSubject;
+  /** Student id or staff id */
+  personId: string;
+  personName: string;
+  branchId: string;
+  category: HealthRecordCategory;
+  title: string;
+  date: string;
+  frequency: HealthFrequency;
+  outcome: HealthOutcome;
+  details?: string;
+  /** Vaccine name / dose, test name, medicine & dosage */
+  specifics?: string;
+  conductedBy?: string;
+  followUpRequired: boolean;
+  followUpDate?: string;
+  followUpDone?: boolean;
+  /** Next due / certificate renewal date */
+  nextDueDate?: string;
+  /** Students only */
+  parentNotified?: boolean;
+  parentNotifiedAt?: string;
+  campaignId?: string;
+  lastUpdated: AuditStamp;
+}
+
+export interface VaccinationCampaign {
+  id: string;
+  name: string;
+  vaccine: string;
+  date: string;
+  audience: HealthSubject | "both";
+  branchIds: string[];
+  conductedBy: string;
+  notes?: string;
+  /** People covered — health records are created per person */
+  coveredCount: number;
+  lastUpdated: AuditStamp;
 }

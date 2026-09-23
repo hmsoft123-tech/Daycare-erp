@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createInventoryItem } from "@/lib/mock-service";
-import type { InventoryCategory, InventoryItem } from "@/types";
+import type { InventoryCategory, InventoryItem, InventoryItemType } from "@/types";
+import { ITEM_TYPE_LABEL, STOCK_CATEGORIES, STOCK_CATEGORY_MAP, subCategoriesFor } from "@/lib/stock-categories";
 import { toast } from "sonner";
 
 type Props = {
@@ -27,7 +28,10 @@ type Props = {
 export function AddInventoryItemModal({ open, onClose, onCreated }: Props) {
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<InventoryCategory>("supplies");
+  const [category, setCategory] = useState<InventoryCategory>("stationery");
+  const [subCategory, setSubCategory] = useState(subCategoriesFor("stationery")[0] ?? "");
+  const [itemType, setItemType] = useState<InventoryItemType>("consumable");
+  const [supplier, setSupplier] = useState("");
   const [unit, setUnit] = useState("piece");
   const [reorderLevel, setReorderLevel] = useState("5");
   const [unitCost, setUnitCost] = useState("0");
@@ -37,7 +41,10 @@ export function AddInventoryItemModal({ open, onClose, onCreated }: Props) {
   const reset = () => {
     setSku("");
     setName("");
-    setCategory("supplies");
+    setCategory("stationery");
+    setSubCategory(subCategoriesFor("stationery")[0] ?? "");
+    setItemType("consumable");
+    setSupplier("");
     setUnit("piece");
     setReorderLevel("5");
     setUnitCost("0");
@@ -61,6 +68,9 @@ export function AddInventoryItemModal({ open, onClose, onCreated }: Props) {
       sku: sku.trim().toUpperCase(),
       name: name.trim(),
       category,
+      subCategory: subCategory || undefined,
+      itemType,
+      supplier: supplier.trim() || undefined,
       unit: unit.trim(),
       reorderLevel: reorder,
       unitCost: cost,
@@ -103,23 +113,55 @@ export function AddInventoryItemModal({ open, onClose, onCreated }: Props) {
           </div>
           <div>
             <Label>Category</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as InventoryCategory)}>
+            <Select
+              value={category}
+              onValueChange={(v) => {
+                const next = v as InventoryCategory;
+                setCategory(next);
+                setSubCategory(subCategoriesFor(next)[0] ?? "");
+                if (!STOCK_CATEGORY_MAP[next]?.stocked) setItemType("non_stock");
+                else if (next === "books") setItemType("course_material");
+                else if (next === "fixed_assets") setItemType("fixed_asset");
+              }}
+            >
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="stationery">Stationery</SelectItem>
-                <SelectItem value="groceries">Groceries</SelectItem>
-                <SelectItem value="toiletries">Toiletries</SelectItem>
-                <SelectItem value="printed">Printed material</SelectItem>
-                <SelectItem value="books">Books / library</SelectItem>
-                <SelectItem value="courses">Courses / training</SelectItem>
-                <SelectItem value="supplies">Supplies</SelectItem>
-                <SelectItem value="food">Food</SelectItem>
-                <SelectItem value="cleaning">Cleaning</SelectItem>
-                <SelectItem value="therapy">Therapy</SelectItem>
-                <SelectItem value="playground">Playground</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                {STOCK_CATEGORIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+        {STOCK_CATEGORY_MAP[category]?.hint && (
+          <p className="-mt-2 text-[11px] text-muted">{STOCK_CATEGORY_MAP[category].hint}</p>
+        )}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <Label>Sub-category</Label>
+            <Select value={subCategory} onValueChange={setSubCategory}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                {subCategoriesFor(category).map((sc) => (
+                  <SelectItem key={sc} value={sc}>{sc}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Item type</Label>
+            <Select value={itemType} onValueChange={(v) => setItemType(v as InventoryItemType)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(ITEM_TYPE_LABEL) as InventoryItemType[]).map((t) => (
+                  <SelectItem key={t} value={t}>{ITEM_TYPE_LABEL[t]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="supplier">Supplier</Label>
+            <Input id="supplier" className="mt-1" value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Optional" />
           </div>
         </div>
         <div>

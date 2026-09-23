@@ -10,6 +10,8 @@ import {
   getMedicalIncidents,
   getStudentAttendance,
   getTherapySessions,
+  getStudentCurrentAttendance,
+  getHealthRecords,
 } from "@/lib/mock-service";
 
 interface Props {
@@ -21,12 +23,15 @@ export default async function StudentDetailPage({ params }: Props) {
   const student = await getStudentById(id);
   if (!student) notFound();
 
-  const [parents, notes, medicalIncidents, attendance, therapySessions] = await Promise.all([
+  const [parents, notes, medicalIncidents, attendance, therapySessions, currentAttendance, healthRecords] =
+    await Promise.all([
     getParentsByIds(student.parentIds),
     getStudentNotes(id),
     getMedicalIncidents(id),
     getStudentAttendance(id),
     getTherapySessions(id),
+    getStudentCurrentAttendance(id),
+    getHealthRecords({ subject: "student", personId: id }),
   ]);
 
   return (
@@ -43,6 +48,8 @@ export default async function StudentDetailPage({ params }: Props) {
         medicalIncidents={medicalIncidents}
         attendance={attendance}
         therapySessions={therapySessions}
+        currentAttendance={currentAttendance}
+        healthRecords={healthRecords}
       />
     </>
   );

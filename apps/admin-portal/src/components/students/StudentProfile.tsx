@@ -25,6 +25,10 @@ import type {
   TherapySession,
 } from "@/types";
 import type { MandatoryFormSubmission } from "@/data/extended-ops";
+import { StudentTodayStrip } from "@/components/students/StudentTodayStrip";
+import { HealthRecordList } from "@/components/health/HealthRecordList";
+import { TIMING_SLOT_LABEL, timingRange, type CurrentAttendance } from "@/lib/student-timing";
+import type { HealthRecord } from "@/types";
 
 const MANDATORY_FORM_LABELS: Record<MandatoryFormSubmission["kind"], string> = {
   pick_drop_details: "Pick & Drop Details",
@@ -38,6 +42,8 @@ interface StudentProfileProps {
   medicalIncidents: MedicalIncident[];
   attendance: AttendanceRecord[];
   therapySessions?: TherapySession[];
+  currentAttendance?: CurrentAttendance;
+  healthRecords?: HealthRecord[];
 }
 
 export function StudentProfile({
@@ -47,6 +53,8 @@ export function StudentProfile({
   medicalIncidents,
   attendance,
   therapySessions = [],
+  currentAttendance,
+  healthRecords = [],
 }: StudentProfileProps) {
   const [student, setStudent] = useState(initial);
   const branch = branches.find((b) => b.id === student.branchId);
@@ -62,6 +70,8 @@ export function StudentProfile({
   return (
     <div className="space-y-6">
       <AllergyBanner allergies={student.allergies} />
+
+      <StudentTodayStrip student={student} attendance={currentAttendance} />
 
       <div className="flex flex-col gap-6 md:flex-row">
         <Card className="md:w-80">
@@ -141,6 +151,14 @@ export function StudentProfile({
               <div className="flex justify-between">
                 <dt className="text-gray-500">Blood Group</dt>
                 <dd>{student.bloodGroup}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-gray-500">Timing</dt>
+                <dd className="text-right">
+                  {student.timing
+                    ? `${TIMING_SLOT_LABEL[student.timing.slot]} · ${timingRange(student.timing)}`
+                    : "—"}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Enrolled</dt>
@@ -343,7 +361,21 @@ export function StudentProfile({
               />
             </TabsContent>
 
-            <TabsContent value="medical" className="mt-4">
+            <TabsContent value="medical" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Health &amp; Safety records</CardTitle>
+                  <a href="/health" className="text-xs font-semibold text-brand-600">
+                    Open Health &amp; Safety →
+                  </a>
+                </CardHeader>
+                <CardContent>
+                  <HealthRecordList
+                    records={healthRecords}
+                    emptyText="No hygiene checks, vaccinations or medical records yet."
+                  />
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader><CardTitle>Medical Incidents</CardTitle></CardHeader>
                 <CardContent>

@@ -3,21 +3,11 @@
  */
 
 import type { PRStatus, RequisitionKind } from "@/types";
+import { STOCK_CATEGORIES } from "@/lib/stock-categories";
 
-export const REQUISITION_KINDS: { value: RequisitionKind; label: string }[] = [
-  { value: "stationery", label: "Stationery" },
-  { value: "groceries", label: "Grocery / Pantry" },
-  { value: "toiletries", label: "Toiletries & Hygiene" },
-  { value: "montessori", label: "Montessori / Learning Materials" },
-  { value: "printed", label: "Printed material" },
-  { value: "books", label: "Course Books / Library" },
-  { value: "courses", label: "Courses / training" },
-  { value: "fixed_assets", label: "Fixed Assets" },
-  { value: "maintenance", label: "Maintenance & Repair" },
-  { value: "it", label: "IT / Technology" },
-  { value: "inventory", label: "General inventory" },
-  { value: "other", label: "Other operational" },
-];
+/** PR categories — same tree as Branch Stock (lib/stock-categories.ts) */
+export const REQUISITION_KINDS: { value: RequisitionKind; label: string; hint?: string }[] =
+  STOCK_CATEGORIES.map(({ value, label, hint }) => ({ value, label, hint }));
 
 export const PR_STATUS_LABEL: Record<PRStatus, string> = {
   pending: "PR created",

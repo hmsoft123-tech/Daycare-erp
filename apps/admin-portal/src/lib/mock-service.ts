@@ -16,6 +16,10 @@ import { staff } from "@/data/staff";
 import { trainingVideos } from "@/data/training-videos";
 import { staffInquiries } from "@/data/staff-inquiries";
 import { purchaseRequisitions, inventoryItems, stockLevels } from "@/data/inventory";
+import { specialPrograms, programRegistrations } from "@/data/special-programs";
+import { courseOutlines, courseVouchers } from "@/data/course-outlines";
+import { healthRecords, vaccinationCampaigns } from "@/data/health-safety";
+import type { CurrentAttendance } from "@/lib/student-timing";
 import { serviceOfferings } from "@/data/services";
 import { todayAttendance, generateAttendanceHistory } from "@/data/attendance";
 import {
@@ -38,11 +42,13 @@ import {
   billingMonthLabel,
   challanDueDate,
   challanValidityDate,
+  addDaysIso,
   todayIso,
   isChallanExpired,
   isPastDue,
 } from "@/lib/fee-challan";
 import { requisitionTotal } from "@/lib/procurement";
+import { stamp } from "@/lib/audit";
 import { generateGrNumber } from "@/lib/gr-number";
 import { generateStudentCardNumber } from "@/lib/id-card";
 import type { CalendarEvent } from "@kinder-pilot/types";
@@ -92,6 +98,14 @@ import type {
   ParentSchoolProgress,
   ParentSchoolSyllabus,
   SchoolResource,
+  SpecialProgram,
+  ProgramRegistration,
+  PaymentMode,
+  CourseOutline,
+  CourseVoucher,
+  HealthRecord,
+  HealthSubject,
+  VaccinationCampaign,
 } from "@/types";
 
 // TODO: Replace with API call to /api/branches
@@ -140,7 +154,7 @@ export async function updateStudentRecord(
   ) {
     return undefined;
   }
-  students[idx] = { ...students[idx], ...patch, id };
+  students[idx] = { ...students[idx], ...patch, id, lastUpdated: stamp() };
   return students[idx];
 }
 
@@ -626,7 +640,7 @@ export async function updateStaffRecord(
 ): Promise<Staff | undefined> {
   const idx = staff.findIndex((s) => s.id === id);
   if (idx < 0) return undefined;
-  staff[idx] = { ...staff[idx], ...patch, id };
+  staff[idx] = { ...staff[idx], ...patch, id, lastUpdated: stamp() };
   return staff[idx];
 }
 
@@ -691,7 +705,7 @@ export async function getInventoryItemById(id: string): Promise<InventoryItem | 
 export async function createInventoryItem(
   input: Omit<InventoryItem, "id">
 ): Promise<InventoryItem> {
-  const item: InventoryItem = { ...input, id: `inv-${Date.now()}` };
+  const item: InventoryItem = { ...input, id: `inv-${Date.now()}`, lastUpdated: stamp() };
   inventoryItems.unshift(item);
   return item;
 }
@@ -702,7 +716,7 @@ export async function updateInventoryItem(
 ): Promise<InventoryItem | undefined> {
   const idx = inventoryItems.findIndex((i) => i.id === id);
   if (idx < 0) return undefined;
-  inventoryItems[idx] = { ...inventoryItems[idx], ...patch, id };
+  inventoryItems[idx] = { ...inventoryItems[idx], ...patch, id, lastUpdated: stamp() };
   return inventoryItems[idx];
 }
 
@@ -720,10 +734,11 @@ export async function adjustStock(input: {
   const existing = stockLevels.find(
     (s) => s.itemId === input.itemId && s.branchId === input.branchId
   );
-  const today = new Date().toISOString().slice(0, 10);
+  const { updatedAt, updatedBy } = stamp();
   if (existing) {
     existing.qtyOnHand = Math.max(0, existing.qtyOnHand + input.delta);
-    existing.updatedAt = today;
+    existing.updatedAt = updatedAt;
+    existing.updatedBy = updatedBy;
     return existing;
   }
   const created: StockLevel = {
@@ -731,7 +746,8 @@ export async function adjustStock(input: {
     itemId: input.itemId,
     branchId: input.branchId,
     qtyOnHand: Math.max(0, input.delta),
-    updatedAt: today,
+    updatedAt,
+    updatedBy,
   };
   stockLevels.unshift(created);
   return created;
@@ -758,6 +774,7 @@ export async function createPurchaseRequisition(
     forMonth: input.forMonth,
     deliveryDate: input.deliveryDate,
     hoNotes: input.hoNotes,
+    lastUpdated: stamp(),
   };
   purchaseRequisitions.unshift(pr);
   return pr;
@@ -791,6 +808,7 @@ export async function advancePurchaseRequisition(
     }
     pr.status = "rejected";
     if (opts?.hoNotes) pr.hoNotes = opts.hoNotes;
+    pr.lastUpdated = stamp();
     return { ok: true, pr };
   }
 
@@ -840,16 +858,17 @@ export async function advancePurchaseRequisition(
   if (nextStatus === "dispatched") pr.dispatchedAt = today;
   if (nextStatus === "received") {
     pr.receivedAt = today;
-    // Stock only catalog-linked lines that are physical inventory (skip courses)
+    // Stock only catalog-linked physical items (skip non-stock staff training seats)
     for (const line of pr.items) {
       if (!line.itemId) continue;
       const catalog = inventoryItems.find((i) => i.id === line.itemId);
-      if (catalog?.category === "courses") continue;
+      if (!catalog || catalog.itemType === "non_stock") continue;
       await adjustStock({ itemId: line.itemId, branchId: pr.branchId, delta: line.qty });
     }
   }
 
   pr.status = nextStatus;
+  pr.lastUpdated = stamp();
   return { ok: true, pr };
 }
 
@@ -862,7 +881,8 @@ export async function updatePurchaseRequisitionStatus(
   return result.ok ? result.pr : undefined;
 }
 
-const SCHOOL_ATTENDANCE_TODAY = "2026-08-11";
+/** "Today" for the demo school calendar (roll call, All Students current status) */
+export const SCHOOL_ATTENDANCE_TODAY = "2026-08-11";
 
 // TODO: Replace with API call to /api/attendance
 export async function getTodayAttendance(
@@ -1434,4 +1454,357 @@ export async function getDashboardKPIs(branchId?: string) {
     pendingAdmissions: branchId ? pendingAdmissions.length : 23,
     attendanceRate: 94,
   };
+}
+
+/* ───────────────────────── Current attendance (All Students / profile) ───────────────────────── */
+
+/** Each student's status for the school day, with their latest earlier mark as context. */
+export async function getCurrentAttendance(
+  date = SCHOOL_ATTENDANCE_TODAY
+): Promise<Record<string, CurrentAttendance>> {
+  const result: Record<string, CurrentAttendance> = {};
+  for (const s of students) {
+    const marks = parentSchoolAttendance
+      .filter((a) => a.childId === s.id && a.date <= date)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    const today = marks.find((a) => a.date === date);
+    const earlier = marks.find((a) => a.date < date);
+    const last = earlier ? { date: earlier.date, status: earlier.status } : undefined;
+    result[s.id] = today
+      ? {
+          status: today.status,
+          date,
+          checkIn: today.checkIn,
+          checkOut: today.checkOut,
+          note: today.note,
+          last,
+        }
+      : { status: "not_marked", date, last };
+  }
+  return result;
+}
+
+export async function getStudentCurrentAttendance(studentId: string): Promise<CurrentAttendance | undefined> {
+  return (await getCurrentAttendance())[studentId];
+}
+
+/* ───────────────────────── Special Programs & Activities ───────────────────────── */
+
+export async function getSpecialPrograms(): Promise<SpecialProgram[]> {
+  return specialPrograms;
+}
+
+export async function getProgramRegistrations(programId?: string): Promise<ProgramRegistration[]> {
+  return programId ? programRegistrations.filter((r) => r.programId === programId) : programRegistrations;
+}
+
+export async function saveSpecialProgram(
+  input: Omit<SpecialProgram, "id" | "lastUpdated"> & { id?: string }
+): Promise<SpecialProgram> {
+  const existing = input.id ? specialPrograms.find((p) => p.id === input.id) : undefined;
+  if (existing) {
+    Object.assign(existing, input, { lastUpdated: stamp() });
+    return existing;
+  }
+  const program: SpecialProgram = { ...input, id: `prg-${Date.now()}`, lastUpdated: stamp() };
+  specialPrograms.unshift(program);
+  return program;
+}
+
+const PROGRAM_REG_PREFIX: Record<SpecialProgram["category"], string> = {
+  summer_camp: "SC",
+  winter_camp: "WC",
+  field_trip: "FT",
+  workshop: "WS",
+  special_event: "SE",
+  other: "SP",
+};
+
+function nextProgramVoucherNumber(): string {
+  const max = programRegistrations.reduce(
+    (m, r) => Math.max(m, Number(r.voucherNumber?.match(/(\d+)$/)?.[1] ?? 0)),
+    0
+  );
+  return `PV-${new Date().getFullYear()}-${String(max + 1).padStart(4, "0")}`;
+}
+
+/** Register an enrolled or outside child. Fee programs that use vouchers get one issued immediately. */
+export async function registerForProgram(
+  input: Omit<
+    ProgramRegistration,
+    | "id"
+    | "registrationNo"
+    | "amountPaid"
+    | "paymentStatus"
+    | "voucherNumber"
+    | "voucherIssuedAt"
+    | "voucherDueDate"
+    | "lastUpdated"
+  >
+): Promise<{ ok: true; registration: ProgramRegistration } | { ok: false; error: string }> {
+  const program = specialPrograms.find((p) => p.id === input.programId);
+  if (!program) return { ok: false, error: "Program not found." };
+  if (program.status !== "open" && program.status !== "planned") {
+    return { ok: false, error: `Registration is closed for ${program.name}.` };
+  }
+  if (input.participantType === "external" && !program.openToExternal) {
+    return { ok: false, error: "This program is for enrolled SDLC students only." };
+  }
+  const existing = programRegistrations.filter((r) => r.programId === program.id);
+  if (program.capacity && existing.length >= program.capacity) {
+    return { ok: false, error: `Program is full (${program.capacity} seats).` };
+  }
+  if (input.studentId && existing.some((r) => r.studentId === input.studentId)) {
+    return { ok: false, error: `${input.studentName} is already registered.` };
+  }
+
+  const yy = program.startDate.slice(2, 4);
+  const registration: ProgramRegistration = {
+    ...input,
+    id: `preg-${Date.now()}`,
+    registrationNo: `${PROGRAM_REG_PREFIX[program.category]}${yy}-${String(existing.length + 1).padStart(3, "0")}`,
+    amountPaid: 0,
+    paymentStatus: input.amount > 0 ? "unpaid" : "not_applicable",
+    lastUpdated: stamp(),
+  };
+  if (input.amount > 0 && program.voucherRequired) {
+    registration.voucherNumber = nextProgramVoucherNumber();
+    registration.voucherIssuedAt = input.registrationDate;
+    registration.voucherDueDate = addDaysIso(input.registrationDate, program.voucherDueDays);
+  }
+  programRegistrations.unshift(registration);
+  return { ok: true, registration };
+}
+
+/** Generate (or re-issue) a voucher for a registration that has a fee. */
+export async function issueProgramVoucher(registrationId: string): Promise<ProgramRegistration | undefined> {
+  const reg = programRegistrations.find((r) => r.id === registrationId);
+  if (!reg || reg.amount <= 0) return undefined;
+  const program = specialPrograms.find((p) => p.id === reg.programId);
+  const today = todayIso();
+  reg.voucherNumber = reg.voucherNumber ?? nextProgramVoucherNumber();
+  reg.voucherIssuedAt = today;
+  reg.voucherDueDate = addDaysIso(today, program?.voucherDueDays || 7);
+  reg.lastUpdated = stamp();
+  return reg;
+}
+
+/** Record a payment against a registration — works with or without a voucher. */
+export async function recordProgramPayment(
+  registrationId: string,
+  input: { amount: number; mode: PaymentMode; receiptNo?: string; paidAt?: string; waive?: boolean }
+): Promise<{ ok: true; registration: ProgramRegistration } | { ok: false; error: string }> {
+  const reg = programRegistrations.find((r) => r.id === registrationId);
+  if (!reg) return { ok: false, error: "Registration not found." };
+  if (input.waive) {
+    reg.paymentStatus = "waived";
+    reg.lastUpdated = stamp();
+    return { ok: true, registration: reg };
+  }
+  if (!(input.amount > 0)) return { ok: false, error: "Enter an amount greater than zero." };
+  const balance = reg.amount - reg.amountPaid;
+  if (input.amount > balance) {
+    return { ok: false, error: `Amount exceeds balance of Rs. ${balance.toLocaleString()}.` };
+  }
+  reg.amountPaid += input.amount;
+  reg.paymentStatus = reg.amountPaid >= reg.amount ? "paid" : "partial";
+  reg.paymentMode = input.mode;
+  reg.paidAt = input.paidAt ?? todayIso();
+  reg.receiptNo = input.receiptNo?.trim() || `RCPT-${reg.registrationNo}`;
+  reg.lastUpdated = stamp();
+  return { ok: true, registration: reg };
+}
+
+/* ───────────────────────── Course Outline / Syllabus ───────────────────────── */
+
+export async function getCourseOutlines(): Promise<CourseOutline[]> {
+  return courseOutlines;
+}
+
+export async function saveCourseOutline(
+  input: Omit<CourseOutline, "id" | "lastUpdated"> & { id?: string }
+): Promise<CourseOutline> {
+  const existing = input.id ? courseOutlines.find((c) => c.id === input.id) : undefined;
+  if (existing) {
+    Object.assign(existing, input, { lastUpdated: stamp() });
+    return existing;
+  }
+  const course: CourseOutline = { ...input, id: `crs-${Date.now()}`, lastUpdated: stamp() };
+  courseOutlines.unshift(course);
+  return course;
+}
+
+export async function getCourseVouchers(courseId?: string): Promise<CourseVoucher[]> {
+  return courseId ? courseVouchers.filter((v) => v.courseId === courseId) : courseVouchers;
+}
+
+/** Voucher lines for one student: course fee + chargeable materials. */
+export function courseVoucherLines(course: CourseOutline): CourseVoucher["lines"] {
+  return [
+    ...(course.courseFee > 0 ? [{ label: `Course fee — ${course.title}`, qty: 1, amount: course.courseFee }] : []),
+    ...course.materials
+      .filter((m) => m.chargeToStudent && m.qtyPerStudent > 0)
+      .map((m) => ({ label: m.name, qty: m.qtyPerStudent, amount: m.qtyPerStudent * m.unitPrice })),
+  ];
+}
+
+/** Raise course vouchers for students who do not already have one for this course. */
+export async function createCourseVouchers(input: {
+  courseId: string;
+  studentIds: string[];
+  dueDays?: number;
+}): Promise<{ created: CourseVoucher[]; skipped: number }> {
+  const course = courseOutlines.find((c) => c.id === input.courseId);
+  if (!course) return { created: [], skipped: input.studentIds.length };
+  const lines = courseVoucherLines(course);
+  const total = lines.reduce((sum, l) => sum + l.amount, 0);
+  const issuedAt = todayIso();
+  const created: CourseVoucher[] = [];
+  let skipped = 0;
+  let seq = courseVouchers.reduce(
+    (m, v) => Math.max(m, Number(v.voucherNumber.match(/(\d+)$/)?.[1] ?? 0)),
+    0
+  );
+  for (const studentId of input.studentIds) {
+    const student = students.find((s) => s.id === studentId);
+    const has = courseVouchers.some(
+      (v) => v.courseId === course.id && v.studentId === studentId && v.status !== "cancelled"
+    );
+    if (!student || has) {
+      skipped++;
+      continue;
+    }
+    seq++;
+    const voucher: CourseVoucher = {
+      id: `cv-${Date.now()}-${studentId}`,
+      voucherNumber: `CV-${new Date().getFullYear()}-${String(seq).padStart(4, "0")}`,
+      courseId: course.id,
+      studentId,
+      branchId: student.branchId,
+      lines,
+      total,
+      issuedAt,
+      dueDate: addDaysIso(issuedAt, input.dueDays ?? 10),
+      status: "issued",
+      materialsIssued: false,
+      lastUpdated: stamp(),
+    };
+    courseVouchers.unshift(voucher);
+    created.push(voucher);
+  }
+  return { created, skipped };
+}
+
+export async function markCourseVoucherPaid(id: string): Promise<CourseVoucher | undefined> {
+  const v = courseVouchers.find((x) => x.id === id);
+  if (!v) return undefined;
+  v.status = "paid";
+  v.lastUpdated = stamp();
+  return v;
+}
+
+/** Hand the course's books / copies to the student — deducts branch stock for catalogue-linked items. */
+export async function issueCourseMaterials(
+  voucherId: string
+): Promise<{ ok: true; voucher: CourseVoucher; levels: StockLevel[] } | { ok: false; error: string }> {
+  const v = courseVouchers.find((x) => x.id === voucherId);
+  if (!v) return { ok: false, error: "Voucher not found." };
+  if (v.materialsIssued) return { ok: false, error: "Materials already issued." };
+  const course = courseOutlines.find((c) => c.id === v.courseId);
+  if (!course) return { ok: false, error: "Course not found." };
+  const short = course.materials.filter((m) => {
+    if (!m.itemId) return false;
+    const lvl = stockLevels.find((l) => l.itemId === m.itemId && l.branchId === v.branchId);
+    return (lvl?.qtyOnHand ?? 0) < m.qtyPerStudent;
+  });
+  if (short.length) {
+    return { ok: false, error: `Not enough branch stock: ${short.map((m) => m.name).join(", ")}.` };
+  }
+  const levels: StockLevel[] = [];
+  for (const m of course.materials) {
+    if (!m.itemId) continue;
+    levels.push(await adjustStock({ itemId: m.itemId, branchId: v.branchId, delta: -m.qtyPerStudent }));
+  }
+  v.materialsIssued = true;
+  v.lastUpdated = stamp();
+  return { ok: true, voucher: v, levels };
+}
+
+/* ───────────────────────── Health & Safety ───────────────────────── */
+
+export async function getHealthRecords(opts?: {
+  subject?: HealthSubject;
+  personId?: string;
+}): Promise<HealthRecord[]> {
+  return healthRecords
+    .filter(
+      (r) => (!opts?.subject || r.subject === opts.subject) && (!opts?.personId || r.personId === opts.personId)
+    )
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export async function saveHealthRecord(
+  input: Omit<HealthRecord, "id" | "lastUpdated"> & { id?: string }
+): Promise<HealthRecord> {
+  const existing = input.id ? healthRecords.find((r) => r.id === input.id) : undefined;
+  if (existing) {
+    Object.assign(existing, input, { lastUpdated: stamp() });
+    return existing;
+  }
+  const record: HealthRecord = { ...input, id: `hr-${Date.now()}-${healthRecords.length}`, lastUpdated: stamp() };
+  healthRecords.unshift(record);
+  return record;
+}
+
+export async function updateHealthRecord(
+  id: string,
+  patch: Partial<Omit<HealthRecord, "id">>
+): Promise<HealthRecord | undefined> {
+  const r = healthRecords.find((x) => x.id === id);
+  if (!r) return undefined;
+  Object.assign(r, patch, { lastUpdated: stamp() });
+  return r;
+}
+
+export async function getVaccinationCampaigns(): Promise<VaccinationCampaign[]> {
+  return vaccinationCampaigns;
+}
+
+/** Log a campaign and create one vaccination record per person covered. */
+export async function recordVaccinationCampaign(
+  input: Omit<VaccinationCampaign, "id" | "coveredCount" | "lastUpdated"> & {
+    people: { subject: HealthSubject; personId: string; personName: string; branchId: string }[];
+    polio: boolean;
+  }
+): Promise<{ campaign: VaccinationCampaign; records: HealthRecord[] }> {
+  const { people, polio, ...rest } = input;
+  const campaign: VaccinationCampaign = {
+    ...rest,
+    id: `vc-${Date.now()}`,
+    coveredCount: people.length,
+    lastUpdated: stamp(),
+  };
+  vaccinationCampaigns.unshift(campaign);
+  const records: HealthRecord[] = [];
+  for (const p of people) {
+    records.push(
+      await saveHealthRecord({
+        subject: p.subject,
+        personId: p.personId,
+        personName: p.personName,
+        branchId: p.branchId,
+        category: polio && p.subject === "student" ? "polio_vaccination" : "vaccination",
+        title: campaign.name,
+        date: campaign.date,
+        frequency: "campaign",
+        outcome: "completed",
+        specifics: campaign.vaccine,
+        conductedBy: campaign.conductedBy,
+        followUpRequired: false,
+        parentNotified: p.subject === "student" ? false : undefined,
+        campaignId: campaign.id,
+      })
+    );
+  }
+  return { campaign, records };
 }

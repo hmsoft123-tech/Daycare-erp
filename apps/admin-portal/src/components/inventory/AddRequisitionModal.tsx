@@ -152,7 +152,8 @@ export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props
             New purchase requisition
           </h2>
           <p className="mt-1 text-sm text-muted">
-            SDLC catalogue — stationery, groceries, books, courses, or any inventory. HO will price &amp; bill.
+            Branch purchases only — stationery, grocery, toiletries, Montessori, assets, maintenance, course
+            material, printing. HO will price &amp; bill.
           </p>
         </div>
         <button type="button" onClick={onClose} className="rounded-full p-2 text-muted hover:bg-bg" aria-label="Close">
@@ -188,6 +189,11 @@ export function AddRequisitionModal({ open, catalog, onClose, onCreated }: Props
                 ))}
               </SelectContent>
             </Select>
+            {REQUISITION_KINDS.find((k) => k.value === kind)?.hint && (
+              <p className="mt-1 text-[11px] text-muted">
+                {REQUISITION_KINDS.find((k) => k.value === kind)!.hint}
+              </p>
+            )}
           </div>
           <div>
             <Label>For month</Label>

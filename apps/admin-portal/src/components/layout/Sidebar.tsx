@@ -36,6 +36,9 @@ import {
   GitBranch,
   MonitorPlay,
   Wrench,
+  Tent,
+  BookMarked,
+  ShieldPlus,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useUIStore } from "@/lib/store";
@@ -74,6 +77,21 @@ const navGroups = [
     ],
   },
   {
+    label: "Programs & Activities",
+    items: [{ href: "/special-programs", label: "Camps, Trips & Events", icon: Tent }],
+  },
+  {
+    label: "Courses & Syllabus",
+    items: [
+      { href: "/courses", label: "Course Outline", icon: BookMarked },
+      { href: "/inventory/items", label: "Course Inventory", icon: Boxes },
+    ],
+  },
+  {
+    label: "Health & Safety",
+    items: [{ href: "/health", label: "Health & Safety", icon: ShieldPlus }],
+  },
+  {
     label: "Family",
     items: [
       { href: "/parents", label: "Parent Management", icon: UsersRound },
@@ -108,8 +126,7 @@ const navGroups = [
     label: "Operations",
     items: [
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
-      { href: "/inventory/items", label: "Course Inventory", icon: Boxes },
-      { href: "/inventory/stock", label: "Stock", icon: Warehouse },
+      { href: "/inventory/stock", label: "Branch Stock", icon: Warehouse },
       { href: "/inventory", label: "Procurement (PR)", icon: Package },
     ],
   },

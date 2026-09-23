@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,10 @@ import { isPayableStaff } from "@/lib/eligibility";
 import { ensureSalary, netMonthlyPay } from "@/lib/salary-determination";
 import { branches } from "@/data/branches";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
-import type { Staff } from "@/types";
+import { getHealthRecords } from "@/lib/mock-service";
+import { LastUpdated } from "@/components/common/LastUpdated";
+import { HealthRecordList } from "@/components/health/HealthRecordList";
+import type { HealthRecord, Staff } from "@/types";
 
 const roleLabels = {
   admin: "Administrator",
@@ -37,6 +40,10 @@ export function StaffDetailClient({ member: initial }: { member: Staff }) {
     : undefined;
   const salary = ensureSalary(member);
   const net = netMonthlyPay(salary);
+  const [health, setHealth] = useState<HealthRecord[]>([]);
+  useEffect(() => {
+    void getHealthRecords({ subject: "staff", personId: member.id }).then(setHealth);
+  }, [member.id]);
 
   return (
     <div className="space-y-6">
@@ -81,6 +88,7 @@ export function StaffDetailClient({ member: initial }: { member: Staff }) {
               />
             </div>
             <StaffLifecycleActions member={member} onUpdated={setMember} />
+            <LastUpdated stamp={member.lastUpdated} />
             <p><span className="text-gray-500">Employee ID:</span> {member.employeeId}</p>
             <p><span className="text-gray-500">Branch:</span> {branch?.name}</p>
             {prevBranch && (
@@ -122,6 +130,7 @@ export function StaffDetailClient({ member: initial }: { member: Staff }) {
           <TabsTrigger value="salary">Salary determination</TabsTrigger>
           <TabsTrigger value="application">Application form</TabsTrigger>
           <TabsTrigger value="file">Employee file</TabsTrigger>
+          <TabsTrigger value="health">Health &amp; safety</TabsTrigger>
         </TabsList>
         <TabsContent value="salary" className="mt-4">
           <StaffSalaryPanel member={member} />
@@ -131,6 +140,21 @@ export function StaffDetailClient({ member: initial }: { member: Staff }) {
         </TabsContent>
         <TabsContent value="file" className="mt-4">
           <EmployeeFilePanel member={member} />
+        </TabsContent>
+        <TabsContent value="health" className="mt-4">
+          <Card>
+            <CardContent className="space-y-3 p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-heading">
+                  Hygiene checks · health checks · vaccinations · Hepatitis B/C · fitness certificates
+                </p>
+                <Link href="/health" className="text-xs font-semibold text-brand-600">
+                  Open Health &amp; Safety →
+                </Link>
+              </div>
+              <HealthRecordList records={health} emptyText="No health & safety records for this staff member yet." />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

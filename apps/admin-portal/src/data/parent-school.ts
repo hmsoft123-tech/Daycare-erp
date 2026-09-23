@@ -9,6 +9,12 @@ import type {
 
 /** Mutable store — source of truth for parent portal School modules */
 export const parentSchoolAttendance: ParentSchoolAttendance[] = [
+  // School day "today" (SCHOOL_ATTENDANCE_TODAY) — drives current status on All Students
+  { id: "at-t1", childId: "s1", childName: "Hamdan", date: "2026-08-11", status: "present", classId: "c1", checkIn: "08:09 AM" },
+  { id: "at-t2", childId: "s2", childName: "Zainab", date: "2026-08-11", status: "late", classId: "c2", checkIn: "08:52 AM", note: "Traffic" },
+  { id: "at-t3", childId: "s3", childName: "Ayaan", date: "2026-08-11", status: "absent", classId: "c3", note: "Parent called — fever" },
+  { id: "at-t4", childId: "s4", childName: "Sara", date: "2026-08-11", status: "leave", classId: "c4", note: "Approved leave" },
+  { id: "at-t5", childId: "s5", childName: "Omar", date: "2026-08-11", status: "present", classId: "c1", checkIn: "08:14 AM", checkOut: "05:02 PM" },
   { id: "at1", childId: "s1", childName: "Hamdan", date: "2026-08-10", status: "present", classId: "c1", checkIn: "08:12 AM", checkOut: "01:05 PM" },
   { id: "at2", childId: "s1", childName: "Hamdan", date: "2026-08-09", status: "present", classId: "c1", checkIn: "08:20 AM", checkOut: "01:00 PM" },
   { id: "at3", childId: "s1", childName: "Hamdan", date: "2026-08-08", status: "late", classId: "c1", checkIn: "09:05 AM", checkOut: "01:10 PM", note: "Traffic delay" },

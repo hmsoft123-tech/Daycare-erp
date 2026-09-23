@@ -73,9 +73,7 @@ export function CourseInventoryOps({ items }: Props) {
 
   const courseItems = useMemo(
     () =>
-      items.filter((i) =>
-        ["books", "courses", "stationery", "printed"].includes(i.category)
-      ),
+      items.filter((i) => i.itemType === "course_material"),
     [items]
   );
 

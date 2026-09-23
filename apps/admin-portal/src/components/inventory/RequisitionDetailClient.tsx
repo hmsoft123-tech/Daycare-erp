@@ -22,6 +22,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { PRLineItem, PurchaseRequisition } from "@/types";
 import { toast } from "sonner";
+import { LastUpdated } from "@/components/common/LastUpdated";
 
 type Props = {
   initial: PurchaseRequisition;
@@ -59,7 +60,7 @@ export function RequisitionDetailClient({ initial, branchName }: Props) {
       toast.error(result.error);
       return;
     }
-    setPr(result.pr);
+    setPr({ ...result.pr });
     setLines(result.pr.items);
     toast.success(PR_STATUS_LABEL[result.pr.status]);
   };
@@ -72,6 +73,8 @@ export function RequisitionDetailClient({ initial, branchName }: Props) {
       >
         <Badge variant={PR_STATUS_BADGE[pr.status]}>{PR_STATUS_LABEL[pr.status]}</Badge>
       </PageHeader>
+
+      <LastUpdated stamp={pr.lastUpdated} className="-mt-5 mb-4" />
 
       <div className="mb-4 rounded-2xl border border-brand-100 bg-brand-50/40 px-4 py-3 text-sm text-heading">
         <span className="font-semibold">HO procurement: </span>

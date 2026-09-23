@@ -1,4 +1,5 @@
 import type { Parent, Student } from "@/types";
+import { seedStamp } from "@/lib/audit";
 
 export const parents: Parent[] = [
   { id: "p1", name: "Ahmed Khan", relation: "father", phone: "+92 300 1234567", email: "ahmed.khan@email.com", cnic: "42101-1234567-1" },
@@ -39,6 +40,8 @@ export const students: Student[] = [
     gender: "male",
     idCardNumber: "STU-2024-0001",
     grNumber: "NN-45341",
+    timing: { slot: "full_day", from: "08:00", to: "17:00" },
+    lastUpdated: seedStamp("2026-09-11 09:15", "Hina Tariq"),
     extras: [
       {
         id: "ex-s1-sat",
@@ -75,6 +78,8 @@ export const students: Student[] = [
     feePlan: "Half Day Monthly",
     gender: "female",
     grNumber: "CL-45342",
+    timing: { slot: "morning", from: "08:00", to: "12:30" },
+    lastUpdated: seedStamp("2026-09-12 10:25", "Nadia Farooq"),
   },
   {
     id: "s3",
@@ -93,6 +98,8 @@ export const students: Student[] = [
     feePlan: "Full Day Monthly",
     gender: "male",
     grNumber: "DH-45343",
+    timing: { slot: "morning", from: "08:00", to: "12:30" },
+    lastUpdated: seedStamp("2026-09-13 11:35", "Farah Iqbal"),
   },
   {
     id: "s4",
@@ -111,6 +118,8 @@ export const students: Student[] = [
     feePlan: "After School",
     gender: "female",
     grNumber: "GU-45344",
+    timing: { slot: "extended", from: "08:00", to: "15:00" },
+    lastUpdated: seedStamp("2026-09-14 12:45", "Amna Sheikh"),
   },
   {
     id: "s5",
@@ -129,6 +138,8 @@ export const students: Student[] = [
     feePlan: "Full Day Monthly",
     gender: "male",
     grNumber: "NN-45345",
+    timing: { slot: "full_day", from: "08:00", to: "17:00" },
+    lastUpdated: seedStamp("2026-09-15 13:55", "Admin"),
   },
   {
     id: "s6",
@@ -147,6 +158,8 @@ export const students: Student[] = [
     feePlan: "Full Day Monthly",
     gender: "female",
     grNumber: "CL-45346",
+    timing: { slot: "afternoon", from: "12:30", to: "17:00" },
+    lastUpdated: seedStamp("2026-09-16 14:05", "Nadia Farooq"),
   },
   {
     id: "s7",
@@ -166,6 +179,8 @@ export const students: Student[] = [
     feePlan: "Full Day Monthly",
     gender: "male",
     grNumber: "DH-45347",
+    timing: { slot: "morning", from: "08:00", to: "12:30" },
+    lastUpdated: seedStamp("2026-09-17 15:20", "Admin"),
   },
   {
     id: "s8",
@@ -184,6 +199,8 @@ export const students: Student[] = [
     feePlan: "Half Day Monthly",
     gender: "female",
     grNumber: "GU-45348",
+    timing: { slot: "after_school", from: "13:30", to: "17:30" },
+    lastUpdated: seedStamp("2026-09-18 16:40", "Amna Sheikh"),
   },
 ];
 

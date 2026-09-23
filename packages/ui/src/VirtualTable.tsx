@@ -6,7 +6,7 @@ import { cn } from "./cn";
 
 export type VirtualColumn<T> = {
   id: string;
-  header: string;
+  header: React.ReactNode;
   width?: number;
   cell: (row: T) => React.ReactNode;
 };
@@ -19,6 +19,8 @@ type VirtualTableProps<T> = {
   getRowId: (row: T) => string;
   className?: string;
   emptyMessage?: string;
+  /** Scroll horizontally when columns need more room than the viewport (px) */
+  minWidth?: number;
 };
 
 /**
@@ -33,6 +35,7 @@ export function VirtualTable<T>({
   getRowId,
   className,
   emptyMessage = "No records found",
+  minWidth,
 }: VirtualTableProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +56,8 @@ export function VirtualTable<T>({
 
   return (
     <div className={cn("overflow-hidden rounded-2xl bg-white shadow-[var(--shadow-card)]", className)}>
+      <div className={minWidth ? "overflow-x-auto" : undefined}>
+      <div style={minWidth ? { minWidth } : undefined}>
       <div className="grid border-b border-[#F1F3F5] bg-[#F9FAFB] text-xs font-semibold uppercase tracking-wider text-[var(--muted,#637381)]"
         style={{ gridTemplateColumns: columns.map((c) => (c.width ? `${c.width}px` : "1fr")).join(" ") }}
       >
@@ -86,6 +91,8 @@ export function VirtualTable<T>({
             );
           })}
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );
