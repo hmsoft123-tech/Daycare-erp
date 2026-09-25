@@ -24,8 +24,16 @@ function isPublic(pathname: string): boolean {
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (isStaticOrApi(pathname) || pathname.startsWith("/i/parents/")) {
+  if (isStaticOrApi(pathname)) {
     return NextResponse.next();
+  }
+
+  // Internal rewrite targets — reaching them directly would bypass the auth gate
+  // and host → tenant resolution below.
+  if (pathname.startsWith("/i/parents/")) {
+    return process.env.NODE_ENV === "production"
+      ? new NextResponse(null, { status: 404 })
+      : NextResponse.next();
   }
 
   const host = request.headers.get("host") ?? "";

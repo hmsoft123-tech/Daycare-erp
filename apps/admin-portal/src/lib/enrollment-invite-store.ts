@@ -4,6 +4,8 @@
  * GET  /api/enrollment-invites/:token  → validate + prefill
  */
 
+import { secureRandomToken } from "@kinder-pilot/api-client/security";
+
 export type EnrollmentInviteStatus = "pending" | "completed" | "expired" | "revoked";
 
 export type EnrollmentInvitePrefill = {
@@ -59,11 +61,9 @@ const invites: EnrollmentInvite[] = [
   },
 ];
 
+/** Unguessable 192-bit token — never fall back to Math.random / timestamps. */
 function randomToken() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID().replace(/-/g, "");
-  }
-  return `enr${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  return secureRandomToken();
 }
 
 export function createEnrollmentInvite(input: {

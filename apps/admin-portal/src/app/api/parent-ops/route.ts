@@ -22,12 +22,8 @@ import { branches } from "@/data/branches";
 import { staff } from "@/data/staff";
 import { milestoneRecords } from "@/data/milestones";
 import type { CalendarEvent } from "@kinder-pilot/types";
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+import { safeExternalUrl } from "@kinder-pilot/api-client/security";
+import { corsHeaders, preflight, readJsonObject } from "@/lib/api-guard";
 
 function mapStudentToParentChild(s: (typeof students)[number]) {
   const branch = branches.find((b) => b.id === s.branchId);
@@ -71,6 +67,7 @@ function mapStudentToParentChild(s: (typeof students)[number]) {
 }
 
 export async function GET(request: Request) {
+  const CORS = corsHeaders(request);
   const { searchParams } = new URL(request.url);
   const resource = searchParams.get("resource");
   const childId = searchParams.get("childId") ?? undefined;
@@ -168,8 +165,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const action = body?.action as string | undefined;
+  const CORS = corsHeaders(request);
+  const body = await readJsonObject(request);
+  if (!body) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS });
+  }
+  const action = body.action as string | undefined;
 
   /** Parent books PTM */
   if (action === "bookPtm" && body.slotId) {
@@ -345,13 +346,22 @@ export async function POST(request: Request) {
   if (action === "createVirtualClass") {
     const sessionCategory: VirtualClass["sessionCategory"] =
       body.sessionCategory === "recorded" ? "recorded" : "live";
+    // Only http(s) links reach parents — blocks javascript:/data: payloads.
+    const joinUrl = safeExternalUrl(body.joinUrl);
+    const recordingUrl = safeExternalUrl(body.recordingUrl);
+    if ((body.joinUrl && !joinUrl) || (body.recordingUrl && !recordingUrl)) {
+      return NextResponse.json(
+        { error: "Links must be valid http(s) URLs" },
+        { status: 400, headers: CORS }
+      );
+    }
     const row: VirtualClass = {
       id: `vc-${Date.now()}`,
       title: String(body.title ?? "Virtual class"),
       className: String(body.className ?? "Class"),
       teacherName: String(body.teacherName ?? "Staff"),
       provider: (body.provider as VirtualClass["provider"]) ?? "meet",
-      joinUrl: String(body.joinUrl ?? "#"),
+      joinUrl: joinUrl ?? "#",
       startsAt: body.startsAt
         ? String(body.startsAt)
         : new Date(Date.now() + 3600000).toISOString(),
@@ -359,7 +369,7 @@ export async function POST(request: Request) {
       childIds: Array.isArray(body.childIds) ? body.childIds : ["s1", "s2"],
       status: sessionCategory === "recorded" ? "ended" : "upcoming",
       sessionCategory,
-      recordingUrl: body.recordingUrl ? String(body.recordingUrl) : undefined,
+      recordingUrl,
       topic: body.topic ? String(body.topic) : undefined,
     };
     virtualClasses.unshift(row);
@@ -422,6 +432,6 @@ export async function POST(request: Request) {
   return NextResponse.json({ error: "Unsupported action" }, { status: 400, headers: CORS });
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS });
+export async function OPTIONS(request: Request) {
+  return preflight(request);
 }

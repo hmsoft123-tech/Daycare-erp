@@ -8,13 +8,8 @@ import {
   getSchoolResource,
   saveDailyAttendance,
 } from "@/lib/mock-service";
+import { corsHeaders, preflight, readJsonObject } from "@/lib/api-guard";
 import type { SchoolResource } from "@/types";
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
 
 const RESOURCES: SchoolResource[] = [
   "attendance",
@@ -31,6 +26,7 @@ function isResource(v: string | null | undefined): v is SchoolResource {
 
 /** Parent portal reads School modules here */
 export async function GET(request: Request) {
+  const CORS = corsHeaders(request);
   const { searchParams } = new URL(request.url);
   const resource = searchParams.get("resource");
   const studentId = searchParams.get("studentId") ?? undefined;
@@ -47,8 +43,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const resource = body?.resource as string | undefined;
+  const CORS = corsHeaders(request);
+  const body = await readJsonObject(request);
+  if (!body) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS });
+  }
+  const resource = body.resource as string | undefined;
   const action = body?.action as string | undefined;
 
   if (action === "saveAttendance") {
@@ -101,6 +101,6 @@ export async function POST(request: Request) {
   return NextResponse.json({ item }, { status: 201, headers: CORS });
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS });
+export async function OPTIONS(request: Request) {
+  return preflight(request);
 }

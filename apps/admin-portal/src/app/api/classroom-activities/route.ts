@@ -3,6 +3,7 @@ import {
   createClassroomActivity,
   getClassroomActivities,
 } from "@/lib/mock-service";
+import { corsHeaders, preflight, readJsonObject } from "@/lib/api-guard";
 
 /** Parent portal + integrations read teacher logs here */
 export async function GET(request: Request) {
@@ -19,31 +20,21 @@ export async function GET(request: Request) {
     parentsOnly,
   });
 
-  return NextResponse.json({ activities }, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+  return NextResponse.json({ activities }, { headers: corsHeaders(request) });
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const activity = await createClassroomActivity(body);
+  const body = await readJsonObject(request);
+  if (!body) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: corsHeaders(request) });
+  }
+  const activity = await createClassroomActivity(body as Parameters<typeof createClassroomActivity>[0]);
   return NextResponse.json({ activity }, {
     status: 201,
-    headers: { "Access-Control-Allow-Origin": "*" },
+    headers: corsHeaders(request),
   });
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+export async function OPTIONS(request: Request) {
+  return preflight(request);
 }

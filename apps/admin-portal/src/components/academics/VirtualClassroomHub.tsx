@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { virtualClasses, type VirtualClass } from "@/data/extended-ops";
 import { postParentOpsAction } from "@/lib/parent-ops-client";
+import { safeExternalUrl } from "@kinder-pilot/api-client/security";
 
 export function VirtualClassroomHub() {
   const [rows, setRows] = useState(virtualClasses);
@@ -38,6 +39,11 @@ export function VirtualClassroomHub() {
     }
     if (sessionCategory === "recorded" && !recordingUrl.trim()) {
       toast.error("Recording URL required for a recorded lesson");
+      return;
+    }
+    const link = sessionCategory === "live" ? joinUrl : recordingUrl;
+    if (!/^https?:\/\//i.test(link.trim()) || !safeExternalUrl(link)) {
+      toast.error("Enter a full link starting with https://");
       return;
     }
     const result = await postParentOpsAction<VirtualClass>({

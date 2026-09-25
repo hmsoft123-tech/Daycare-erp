@@ -1,4 +1,5 @@
 import type { Tenant, TenantBranding } from "@kinder-pilot/types";
+import { isSafeHexColor } from "./security";
 
 /** Seed tenants — replace with Redis / config service in production */
 export const TENANTS: Record<string, Tenant> = {
@@ -98,9 +99,23 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
   return TENANTS[slug] ?? null;
 }
 
+const FALLBACK_PRIMARY = "#FF6A3D";
+const FALLBACK_SECONDARY = "#4C8BF5";
+
+/**
+ * Output is injected into a raw <style> tag, so every value must be a strict hex
+ * color — otherwise tenant branding from the API could break out with `</style><script>`.
+ */
 export function brandingToCssVariables(branding: TenantBranding): string {
-  const p = branding.palette ?? buildBrandPalette(branding.primaryColor);
-  const lines = Object.entries(p).map(([k, v]) => `--brand-${k}: ${v};`);
-  lines.push(`--brand-secondary: ${branding.secondaryColor};`);
+  const primary = isSafeHexColor(branding.primaryColor) ? branding.primaryColor : FALLBACK_PRIMARY;
+  const secondary = isSafeHexColor(branding.secondaryColor)
+    ? branding.secondaryColor
+    : FALLBACK_SECONDARY;
+  const generated = buildBrandPalette(primary);
+  const lines = Object.entries(generated).map(([k, fallback]) => {
+    const v = branding.palette?.[k as keyof typeof generated];
+    return `--brand-${k}: ${isSafeHexColor(v) ? v : fallback};`;
+  });
+  lines.push(`--brand-secondary: ${secondary};`);
   return lines.join(" ");
 }

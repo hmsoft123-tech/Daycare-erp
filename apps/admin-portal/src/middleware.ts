@@ -80,6 +80,11 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/i/admin/") || pathname.startsWith("/i/parents/")) {
+    // Internal rewrite targets — reaching them directly would bypass host → tenant
+    // resolution (e.g. /i/admin/other-school/... from any domain).
+    if (process.env.NODE_ENV === "production") {
+      return new NextResponse(null, { status: 404 });
+    }
     return NextResponse.next();
   }
 

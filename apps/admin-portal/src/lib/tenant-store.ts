@@ -102,15 +102,15 @@ export const useTenantStore = create<TenantSessionState>()(
     }),
     {
       name: "kp-tenant-session",
+      // UI preferences only. Identity, role and permissions must come from the API
+      // on every load (GET /me) — localStorage is user-editable, so anything
+      // persisted here could be tampered with to unlock screens.
       partialize: (s) => ({
         tenantSlug: s.tenantSlug,
         currentBranchId: s.currentBranchId,
         contextId: s.contextId,
         contextType: s.contextType,
         sidebarCollapsed: s.sidebarCollapsed,
-        permissions: s.permissions,
-        userType: s.userType,
-        userName: s.userName,
       }),
     }
   )

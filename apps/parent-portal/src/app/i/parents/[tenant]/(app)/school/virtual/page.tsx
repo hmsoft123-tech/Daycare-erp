@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SchoolPageHeader } from "@/components/school/SchoolPageHeader";
 import { fetchParentOps } from "@/lib/parent-ops-api";
 import { cn } from "@kinder-pilot/ui";
+import { safeExternalUrl } from "@kinder-pilot/api-client/security";
 
 type Session = {
   id: string;
@@ -75,9 +76,9 @@ export default function ParentVirtualPage() {
               </div>
               {r.status !== "ended" && (
                 <a
-                  href={r.joinUrl}
+                  href={safeExternalUrl(r.joinUrl) ?? "#"}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="mt-3 inline-flex rounded-xl bg-brand-500 px-3 py-2 text-xs font-bold text-white"
                 >
                   Join session
@@ -112,9 +113,9 @@ export default function ParentVirtualPage() {
                       {r.className} · {r.teacherName}
                     </p>
                     <a
-                      href={r.recordingUrl}
+                      href={safeExternalUrl(r.recordingUrl) ?? "#"}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="mt-3 inline-flex rounded-xl bg-brand-500 px-3 py-2 text-xs font-bold text-white"
                     >
                       Watch recording
