@@ -68,13 +68,14 @@ type Props = {
     employeeFile: EmployeeFileEntry[];
     signature: string;
     jobApplication: JobApplicationForm;
-  }) => void;
+  }) => void | Promise<void>;
+  /** Throw to keep the wizard open (e.g. the API rejected the hire) */
   onAdminComplete?: (payload: {
     values: Prefill & { name: string; email: string; phone: string };
     employeeFile: EmployeeFileEntry[];
     signature: string;
     jobApplication: JobApplicationForm;
-  }) => void;
+  }) => void | Promise<void>;
 };
 
 const STEPS = [
@@ -320,8 +321,21 @@ export function StaffApplicationWizard({
     setStep((v) => Math.min(7, v + 1));
   };
 
-  const submit = () => {
-    if (!validateStep(7)) return;
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!validateStep(7) || submitting) return;
+    setSubmitting(true);
+    try {
+      await finish();
+    } catch (e) {
+      toast.error((e as Error).message || "Could not submit the application.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const finish = async () => {
     const jobApplication = buildApplication();
 
     const withDocs = mergeEmployeeFile(file, {
@@ -352,6 +366,12 @@ export function StaffApplicationWizard({
     });
 
     if (isPublic && inviteToken) {
+      await onPublicComplete?.({
+        name: fullName.trim(),
+        employeeFile: withDocs,
+        signature,
+        jobApplication,
+      });
       completeHireInvite(inviteToken, {
         employeeFile: withDocs,
         hrPoliciesSignature: signature,
@@ -367,12 +387,6 @@ export function StaffApplicationWizard({
         },
       });
       toast.success("Application submitted to HR");
-      onPublicComplete?.({
-        name: fullName.trim(),
-        employeeFile: withDocs,
-        signature,
-        jobApplication,
-      });
       return;
     }
 
@@ -380,7 +394,7 @@ export function StaffApplicationWizard({
       toast.error("Admin hire handler is not configured");
       return;
     }
-    onAdminComplete({
+    await onAdminComplete({
       values: {
         name: fullName.trim(),
         email: email.trim(),
@@ -868,8 +882,8 @@ export function StaffApplicationWizard({
             <ChevronRight className="h-4 w-4" />
           </Button>
         ) : (
-          <Button type="button" onClick={submit}>
-            {isPublic ? "Submit application" : "Save & hire"}
+          <Button type="button" onClick={() => void submit()} disabled={submitting}>
+            {submitting ? "Submitting…" : isPublic ? "Submit application" : "Save & hire"}
           </Button>
         )}
       </div>

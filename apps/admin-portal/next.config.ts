@@ -54,6 +54,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Dev tenant subdomains (http://schoola.localhost:3000) load /_next assets and HMR.
+  allowedDevOrigins: ["*.localhost"],
   transpilePackages: [
     "@kinder-pilot/ui",
     "@kinder-pilot/api-client",

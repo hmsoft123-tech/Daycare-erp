@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, X } from "lucide-react";
+import { Loader2, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,22 +15,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { branches } from "@/data/branches";
-import type { StaffInquiryCard, StaffInquiryTag, StaffRole } from "@/types";
+import type { StaffInquiryTag, StaffRole } from "@/types";
 import { toast } from "sonner";
+import { publicApi } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/admissions-api";
+import { employmentApplicationBody, roleLabel } from "@/lib/staff-inquiries-api";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSave: (card: StaffInquiryCard) => void;
+  /** Called after the candidate is stored, so the board can reload */
+  onSaved: () => void;
 };
 
-export function AddStaffInquiryModal({ open, onClose, onSave }: Props) {
+/**
+ * Manual add goes through the same employment-application form as the public
+ * link — the API has no staff-side create endpoint.
+ */
+export function AddStaffInquiryModal({ open, onClose, onSaved }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<StaffRole>("teacher");
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
   const [experienceYears, setExperienceYears] = useState("0");
+  const [qualification, setQualification] = useState("");
+  const [saving, setSaving] = useState(false);
   const [tag, setTag] = useState<StaffInquiryTag>("online");
   const [description, setDescription] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,6 +52,7 @@ export function AddStaffInquiryModal({ open, onClose, onSave }: Props) {
     setRole("teacher");
     setBranchId(branches[0]?.id ?? "");
     setExperienceYears("0");
+    setQualification("");
     setTag("online");
     setDescription("");
     setErrors({});
@@ -52,7 +63,7 @@ export function AddStaffInquiryModal({ open, onClose, onSave }: Props) {
     onClose();
   };
 
-  const submit = () => {
+  const submit = async () => {
     const next: Record<string, string> = {};
     if (name.trim().length < 2) next.name = "Name required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = "Valid email required";
@@ -60,23 +71,29 @@ export function AddStaffInquiryModal({ open, onClose, onSave }: Props) {
     setErrors(next);
     if (Object.keys(next).length) return;
 
-    const now = new Date();
-    const card: StaffInquiryCard = {
-      id: `si-${Date.now()}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      role,
-      branchId,
-      stage: "new_inquiry",
-      daysInStage: 0,
-      tag,
-      description: description.trim() || `New staff inquiry for ${role} role.`,
-      experienceYears: Number(experienceYears) || 0,
-      inquiryTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
-      createdAt: now.toISOString().slice(0, 10),
-    };
-    onSave(card);
+    setSaving(true);
+    try {
+      await publicApi.post(
+        "/forms/employment-application",
+        employmentApplicationBody({
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+          position: roleLabel(role),
+          branchId,
+          experienceYears: Number(experienceYears) || 0,
+          qualification,
+          tag,
+          notes: description,
+        })
+      );
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Could not add the candidate."));
+      return;
+    } finally {
+      setSaving(false);
+    }
+    onSaved();
     toast.success("Staff inquiry added to pipeline");
     reset();
     onClose();
@@ -162,6 +179,16 @@ export function AddStaffInquiryModal({ open, onClose, onSave }: Props) {
           </div>
         </div>
         <div>
+          <Label htmlFor="staffQualification">Highest qualification</Label>
+          <Input
+            id="staffQualification"
+            className="mt-1"
+            placeholder="e.g. B.Ed, Montessori diploma"
+            value={qualification}
+            onChange={(e) => setQualification(e.target.value)}
+          />
+        </div>
+        <div>
           <Label htmlFor="staffDesc">Description / notes</Label>
           <Textarea id="staffDesc" className="mt-1" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
@@ -169,8 +196,8 @@ export function AddStaffInquiryModal({ open, onClose, onSave }: Props) {
 
       <div className="flex shrink-0 justify-end gap-3 border-t border-[#F1F3F5] bg-bg/40 px-6 py-4">
         <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-        <Button type="button" onClick={submit}>
-          <UserPlus className="h-4 w-4" />
+        <Button type="button" onClick={() => void submit()} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
           Add to pipeline
         </Button>
       </div>

@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveTenantSlugFromHost } from "@kinder-pilot/api-client/tenant";
+import { ACCESS_COOKIE, SESSION_COOKIE, unsealSession } from "@kinder-pilot/api-client/session";
+import { can, routeCapability } from "@/lib/rbac";
+
+const LOGIN_PATH = "/login";
 
 const STATIC_EXT =
   /\.(ico|png|jpg|jpeg|svg|gif|webp|css|js|map|txt|woff|woff2|ttf|eot)$/i;
@@ -67,12 +71,13 @@ function isMarketingPath(pathname: string): boolean {
 
 /**
  * Edge middleware — custom domain / wildcard subdomain → invisible rewrite
- * into `/i/admin/[tenant]/...` (browser URL unchanged).
+ * into `/i/admin/[tenant]/...` (browser URL unchanged). ERP paths require a
+ * signed session cookie; otherwise the user is sent to /login?next=….
  *
  * Note: Next.js App Router treats `_folder` as private (no routes), so the
  * blueprint's `_admin/[tenant]` maps to routable `i/admin/[tenant]`.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isStaticOrApi(pathname)) {
@@ -98,11 +103,36 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-tenant-slug", tenant);
 
+  const session = await unsealSession(request.cookies.get(SESSION_COOKIE)?.value);
+
+  if (pathname === LOGIN_PATH) {
+    if (session) return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   if (isAdminPath(pathname)) {
+    // Every ERP screen requires a valid, unexpired, signed session.
+    if (!session || !request.cookies.get(ACCESS_COOKIE)?.value) {
+      const login = new URL(LOGIN_PATH, request.url);
+      login.search = "";
+      login.searchParams.set("next", pathname + request.nextUrl.search);
+      const res = NextResponse.redirect(login);
+      res.cookies.delete(SESSION_COOKIE);
+      res.cookies.delete(ACCESS_COOKIE);
+      return res;
+    }
     const url = request.nextUrl.clone();
     const stripped = pathname.startsWith("/admin")
       ? pathname.replace(/^\/admin/, "") || "/dashboard"
       : pathname;
+    // Role gate (lib/rbac.ts): the URL stays, the page is swapped for "access denied".
+    const capability = routeCapability(stripped);
+    if (!can(session, capability)) {
+      url.pathname = `/i/admin/${tenant}/access-denied`;
+      url.search = "";
+      requestHeaders.set("x-denied-capability", capability);
+      return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    }
     url.pathname = `/i/admin/${tenant}${stripped}`;
     return NextResponse.rewrite(url, {
       request: { headers: requestHeaders },

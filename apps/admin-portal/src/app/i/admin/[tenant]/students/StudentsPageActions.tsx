@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { HasPermission } from "@/components/security/HasPermission";
-import { Permission } from "@kinder-pilot/types";
+import { Can } from "@/components/security/Can";
 
 export function StudentsPageActions() {
   return (
-    <HasPermission name={Permission.StudentsWrite}>
+    <Can capability="admissions.update">
       <Button asChild>
         <Link href="/admissions/new">New Admission</Link>
       </Button>
-    </HasPermission>
+    </Can>
   );
 }

@@ -13,13 +13,31 @@ import { generateStaffCardNumber } from "@/lib/id-card";
 import { issueStaffIdCard } from "@/lib/id-card-store";
 import type { PortalIdCard, Staff } from "@/types";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { publicApi } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/admissions-api";
+import {
+  employmentApplicationBody,
+  roleLabel,
+  summarizeJobApplication,
+} from "@/lib/staff-inquiries-api";
+import { useStaffHiringStore } from "@/lib/staff-hiring-store";
+import { queryKeys } from "@/lib/query-client";
+import { useTenantStore } from "@/lib/tenant-store";
+
+type FormSubmission = { inquiryId?: number };
 
 /**
  * Admin-only hiring wizard — same idea as Enrollment Wizard for students.
- * Completes initial hire + employee file in the panel (no public apply link required).
+ * The candidate is filed through the employment-application API (so they show
+ * in Staff Inquiries, marked Hired); staff profile and ID card stay local until
+ * the API has an HR module.
  */
 export function AdminHiringWizardClient() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const tenantId = useTenantStore((s) => s.tenantId) ?? "";
+  const saveHiring = useStaffHiringStore((s) => s.save);
   const [issuedCard, setIssuedCard] = useState<PortalIdCard | null>(null);
   const [cardOpen, setCardOpen] = useState(false);
   const [hiredId, setHiredId] = useState<string | null>(null);
@@ -79,6 +97,45 @@ export function AdminHiringWizardClient() {
         mode="admin"
         onAdminComplete={async ({ values, employeeFile, signature, jobApplication }) => {
           const joinDate = values.joiningDate || new Date().toISOString().slice(0, 10);
+          const role = values.role ?? "teacher";
+          const baseSalary = values.offeredSalary ?? ROLE_BASE_SALARY[role];
+
+          let submission: FormSubmission;
+          try {
+            submission = await publicApi.post<FormSubmission>(
+              "/forms/employment-application",
+              employmentApplicationBody({
+                name: values.name,
+                email: values.email,
+                phone: values.phone,
+                position: jobApplication.designation || roleLabel(role),
+                branchId: values.branchId,
+                ...summarizeJobApplication(jobApplication),
+                tag: "walk_in",
+                notes: "Hired in admin Hiring Wizard",
+              })
+            );
+          } catch (e) {
+            throw new Error(apiErrorMessage(e, "Could not save the hire to the server."));
+          }
+          if (submission.inquiryId) {
+            // The API has no hire step — keep the outcome on the Staff Inquiries board.
+            saveHiring(
+              tenantId,
+              { id: String(submission.inquiryId), apiStage: "NEW_INQUIRY" },
+              {
+                stage: "hired",
+                daysInStage: 0,
+                role,
+                offeredSalary: baseSalary,
+                joiningDate: joinDate,
+                employmentType: values.employmentType,
+                probationMonths: values.probationMonths,
+                employeeFile,
+              }
+            );
+          }
+          void queryClient.invalidateQueries({ queryKey: queryKeys.admissions(tenantId, null) });
           const id = `st-hire-${Date.now()}`;
           const employeeId = `KP-${String(100 + staff.length).padStart(3, "0")}`;
           const cardNumber = generateStaffCardNumber(employeeId);
@@ -90,8 +147,6 @@ export function AdminHiringWizardClient() {
             },
           });
 
-          const role = values.role ?? "teacher";
-          const baseSalary = values.offeredSalary ?? ROLE_BASE_SALARY[role];
           const member: Staff = {
             id,
             name: values.name,

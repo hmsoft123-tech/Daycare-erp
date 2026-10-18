@@ -1,4 +1,5 @@
-import { validateEnrollmentInvite } from "@/lib/enrollment-invite-store";
+import { getEnrollmentInvite, validateEnrollmentInvite } from "@/lib/enrollment-invite-store";
+import { PublicEnrollmentGate } from "@/components/admissions/PublicEnrollmentGate";
 import { PublicEnrollmentClient } from "@/components/admissions/PublicEnrollmentClient";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -15,6 +16,9 @@ interface Props {
 
 export default async function PublicEnrollPage({ params }: Props) {
   const { token } = await params;
+  // Not a local demo token: it was issued by the backend, which validates it.
+  if (!getEnrollmentInvite(token)) return <PublicEnrollmentGate token={token} />;
+
   const result = validateEnrollmentInvite(token);
 
   if (!result.ok) {

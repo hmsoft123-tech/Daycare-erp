@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import type { TenantBranding } from "@kinder-pilot/types";
+import type { PublicSessionUser } from "@kinder-pilot/api-client/server";
 import { createAppQueryClient } from "@/lib/query-client";
 import { useTenantStore } from "@/lib/tenant-store";
 
@@ -34,18 +35,30 @@ export function AppProviders({
   tenantSlug,
   tenantId,
   branding,
+  user,
 }: {
   children: ReactNode;
   tenantSlug: string;
   tenantId: string;
   branding: TenantBranding;
+  /** Verified server-side from the signed session cookie */
+  user: PublicSessionUser;
 }) {
   const [client] = useState(() => createAppQueryClient());
   const setTenantContext = useTenantStore((s) => s.setTenantContext);
+  const setUserSession = useTenantStore((s) => s.setUserSession);
 
   useEffect(() => {
     setTenantContext({ tenantId, tenantSlug, branding });
   }, [tenantId, tenantSlug, branding, setTenantContext]);
+
+  useEffect(() => {
+    setUserSession({
+      userName: user.fullName || user.username,
+      roles: user.roles,
+      permissions: user.permissions,
+    });
+  }, [user, setUserSession]);
 
   return (
     <QueryClientProvider client={client}>

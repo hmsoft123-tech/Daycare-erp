@@ -74,7 +74,23 @@ function KanbanColumn({
   );
 }
 
-export function StaffInquiryBoard({ inquiries }: { inquiries: StaffInquiryCard[] }) {
+type BoardProps = {
+  inquiries: StaffInquiryCard[];
+  /** API mode: persist the interview (the board reloads afterwards) */
+  onScheduleInterview?: (card: StaffInquiryCard, values: ScheduleInterviewValues) => Promise<void>;
+  /** API mode: persist a move into the talent pool */
+  onTalentPool?: (card: StaffInquiryCard) => Promise<void>;
+  /** Offer / hire details to keep — the API has no step for them yet */
+  onOfferSaved?: (card: StaffInquiryCard, patch: Partial<StaffInquiryCard>) => void;
+};
+
+export function StaffInquiryBoard({
+  inquiries,
+  onScheduleInterview,
+  onTalentPool,
+  onOfferSaved,
+}: BoardProps) {
+  const apiMode = !!onTalentPool;
   const branchId = useBranchFilter();
   const filtered = useMemo(
     () => (branchId ? inquiries.filter((a) => a.branchId === branchId) : inquiries),
@@ -111,13 +127,23 @@ export function StaffInquiryBoard({ inquiries }: { inquiries: StaffInquiryCard[]
     const card = items.find((i) => i.id === active.id);
     if (!card || card.stage === overStage) return;
 
-    if (card.stage === "new_inquiry" && overStage === "interview_scheduled") {
+    if (overStage === "interview_scheduled" && (apiMode || card.stage === "new_inquiry")) {
       setPending({ kind: "interview", cardId: card.id, to: overStage });
       return;
     }
 
     if (overStage === "offer_pending" || overStage === "hired") {
       setPending({ kind: "offer", cardId: card.id, to: overStage });
+      return;
+    }
+
+    if (apiMode) {
+      if (overStage === "waitlist") {
+        applyMove(card.id, overStage);
+        void onTalentPool(card);
+      } else {
+        toast.error("The API has no step that moves a candidate back to this stage");
+      }
       return;
     }
 
@@ -192,8 +218,13 @@ export function StaffInquiryBoard({ inquiries }: { inquiries: StaffInquiryCard[]
         onCancel={() => setPending(null)}
         onConfirm={(values: ScheduleInterviewValues) => {
           if (!pending || pending.kind !== "interview") return;
+          const card = items.find((i) => i.id === pending.cardId);
           applyMove(pending.cardId, pending.to, values);
           setPending(null);
+          if (onScheduleInterview && card) {
+            void onScheduleInterview(card, values);
+            return;
+          }
           toast.success("Interview scheduled");
         }}
       />
@@ -208,7 +239,7 @@ export function StaffInquiryBoard({ inquiries }: { inquiries: StaffInquiryCard[]
           if (!pending || pending.kind !== "offer") return;
           const hired = pending.to === "hired";
           const card = items.find((i) => i.id === pending.cardId);
-          applyMove(pending.cardId, pending.to, {
+          const patch: Partial<StaffInquiryCard> = {
             role: values.role,
             offeredSalary: values.offeredSalary,
             joiningDate: values.joiningDate,
@@ -217,7 +248,9 @@ export function StaffInquiryBoard({ inquiries }: { inquiries: StaffInquiryCard[]
             probationMonths: values.probationMonths,
             employeeFile: values.employeeFile,
             hireInviteToken: values.hireInviteToken,
-          });
+          };
+          applyMove(pending.cardId, pending.to, patch);
+          if (card) onOfferSaved?.(card, { ...patch, stage: pending.to, daysInStage: 0 });
           setPending(null);
 
           if (values.sendInviteOnly && !hired) {

@@ -15,7 +15,7 @@ interface TopNavProps {
 
 export function TopNav({ breadcrumbs = [] }: TopNavProps) {
   const { setMobileSidebarOpen, userName } = useUIStore();
-  const displayName = userName?.trim() || "Admin User";
+  const displayName = userName?.trim() || "User";
 
   return (
     <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 bg-bg/80 px-4 backdrop-blur-md lg:px-8">

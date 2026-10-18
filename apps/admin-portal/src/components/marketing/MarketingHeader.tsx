@@ -38,7 +38,7 @@ export function MarketingHeader() {
           ))}
         </nav>
         <Button asChild>
-          <Link href="/portal">Staff Portal</Link>
+          <Link href="/login">Staff Portal</Link>
         </Button>
       </div>
     </header>

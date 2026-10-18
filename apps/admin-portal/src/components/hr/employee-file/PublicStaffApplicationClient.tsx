@@ -3,6 +3,13 @@
 import { useRouter } from "next/navigation";
 import { StaffApplicationWizard } from "@/components/hr/employee-file/StaffApplicationWizard";
 import type { HireInvite } from "@/lib/hire-invite-store";
+import { publicApi } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/admissions-api";
+import {
+  employmentApplicationBody,
+  roleLabel,
+  summarizeJobApplication,
+} from "@/lib/staff-inquiries-api";
 
 type Props = {
   invite: HireInvite;
@@ -36,7 +43,29 @@ export function PublicStaffApplicationClient({
         inviteToken={invite.token}
         schoolName={schoolName}
         prefill={invite.prefill}
-        onPublicComplete={({ name }) => {
+        onPublicComplete={async ({ name, jobApplication }) => {
+          // An invite from an offer belongs to a candidate already in Staff Inquiries —
+          // the API has no update call, so only file applicants who are not there yet.
+          if (!invite.inquiryId) {
+            const role = invite.prefill.role ?? "teacher";
+            try {
+              await publicApi.post(
+                "/forms/employment-application",
+                employmentApplicationBody({
+                  name,
+                  email: jobApplication.email || invite.email,
+                  phone: jobApplication.mobilePhone || invite.prefill.phone || "",
+                  position: jobApplication.designation || roleLabel(role),
+                  branchId: jobApplication.branchId || invite.prefill.branchId,
+                  ...summarizeJobApplication(jobApplication),
+                  tag: "online",
+                  notes: "Submitted via secure apply link",
+                })
+              );
+            } catch (e) {
+              throw new Error(apiErrorMessage(e, "Could not submit your application. Please try again."));
+            }
+          }
           router.push(
             `/apply/${invite.token}/thanks?name=${encodeURIComponent(name.split(" ")[0] || "there")}`
           );

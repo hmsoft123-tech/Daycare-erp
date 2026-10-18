@@ -1,8 +1,12 @@
-import { validateHireInvite } from "@/lib/hire-invite-store";
+import { headers } from "next/headers";
+import { devFallbackTenant, resolveTenant } from "@kinder-pilot/api-client/server";
+import { resolveHireInvite } from "@/lib/hire-invite-server";
 import { PublicStaffApplicationClient } from "@/components/hr/employee-file/PublicStaffApplicationClient";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Secure Staff Application | Kinder Pilot",
@@ -15,7 +19,8 @@ interface Props {
 
 export default async function PublicApplyPage({ params }: Props) {
   const { token } = await params;
-  const result = validateHireInvite(token);
+  const host = (await headers()).get("host");
+  const result = await resolveHireInvite(token, host);
 
   if (!result.ok) {
     return (
@@ -35,5 +40,11 @@ export default async function PublicApplyPage({ params }: Props) {
     );
   }
 
-  return <PublicStaffApplicationClient invite={result.invite} />;
+  const tenant = (await resolveTenant(host)) ?? devFallbackTenant(host);
+  return (
+    <PublicStaffApplicationClient
+      invite={result.invite}
+      schoolName={tenant?.companyName || undefined}
+    />
+  );
 }

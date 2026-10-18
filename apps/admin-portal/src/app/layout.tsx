@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { ColorModeProvider } from "@/components/providers/ColorModeProvider";
 import { COLOR_MODE_BOOT_SCRIPT } from "@/lib/color-mode";
+import { DevFormFiller } from "@/components/dev/DevFormFiller";
 import "./globals.css";
 
 const inter = Inter({
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${inter.variable} ${plusJakarta.variable} font-body antialiased`}>
         <ColorModeProvider>{children}</ColorModeProvider>
+        {process.env.NODE_ENV !== "production" && <DevFormFiller />}
       </body>
     </html>
   );

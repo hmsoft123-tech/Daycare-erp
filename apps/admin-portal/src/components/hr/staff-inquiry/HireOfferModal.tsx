@@ -23,10 +23,8 @@ import {
   missingRequiredHire,
   slotsForAdminHire,
 } from "@/lib/employee-file";
-import {
-  buildHireInviteUrl,
-  createHireInvite,
-} from "@/lib/hire-invite-store";
+import { buildHireInviteUrl } from "@/lib/hire-invite-store";
+import { authPost } from "@/lib/auth-client";
 import type {
   EmployeeFileEntry,
   EmployeeFileSlotKey,
@@ -74,6 +72,7 @@ export function HireOfferModal({
   const [mode, setMode] = useState<"file" | "invite">("invite");
   const [file, setFile] = useState<EmployeeFileEntry[]>(emptyEmployeeFile());
   const [inviteUrl, setInviteUrl] = useState("");
+  const [minting, setMinting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const hireSlots = useMemo(() => slotsForAdminHire(), []);
@@ -111,7 +110,8 @@ export function HireOfferModal({
     );
   };
 
-  const mintInvite = () => {
+  /** Server-signed link, so it opens in the candidate's browser too. */
+  const mintInvite = async (): Promise<string | undefined> => {
     if (!card) return;
     const salary = Number(offeredSalary);
     if (Number.isNaN(salary) || salary < 0) {
@@ -122,7 +122,8 @@ export function HireOfferModal({
       setErrors({ joiningDate: "Joining date required" });
       return;
     }
-    const invite = createHireInvite({
+    setMinting(true);
+    const res = await authPost<{ token: string }>("/api/hr/hire-invites", {
       email: card.email,
       candidateName: card.name,
       inquiryId: card.id,
@@ -138,14 +139,18 @@ export function HireOfferModal({
         probationMonths: Number(probationMonths) || 3,
       },
     });
-    const url = buildHireInviteUrl(invite.token);
-    setInviteUrl(url);
+    setMinting(false);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setInviteUrl(buildHireInviteUrl(res.data.token));
     toast.success("Secure apply link created");
-    return invite.token;
+    return res.data.token;
   };
 
   const copyInvite = async () => {
-    const token = inviteUrl ? undefined : mintInvite();
+    const token = inviteUrl ? undefined : await mintInvite();
     const url = inviteUrl || (token ? buildHireInviteUrl(token) : "");
     if (!url) return;
     try {
@@ -156,7 +161,7 @@ export function HireOfferModal({
     }
   };
 
-  const submit = () => {
+  const submit = async () => {
     const salary = Number(offeredSalary);
     const months = Number(probationMonths);
     const next: Record<string, string> = {};
@@ -179,7 +184,7 @@ export function HireOfferModal({
 
     if (mode === "invite") {
       const existingToken = inviteUrl.split("/apply/")[1]?.split("?")[0];
-      const mintedToken = existingToken || mintInvite() || "";
+      const mintedToken = existingToken || (await mintInvite()) || "";
       if (!mintedToken) return;
       onConfirm({
         role,
@@ -316,7 +321,7 @@ export function HireOfferModal({
               hiring. HR annexes stay on the admin employee file.
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={copyInvite}>
+              <Button type="button" size="sm" variant="outline" onClick={() => void copyInvite()} disabled={minting}>
                 <Copy className="h-3.5 w-3.5" />
                 {inviteUrl ? "Copy link again" : "Create & copy apply link"}
               </Button>
@@ -355,7 +360,7 @@ export function HireOfferModal({
 
       <div className="flex shrink-0 justify-end gap-3 border-t border-[#F1F3F5] bg-bg/40 px-6 py-4">
         <Button type="button" variant="outline" onClick={resetAndClose}>Cancel</Button>
-        <Button type="button" onClick={submit}>
+        <Button type="button" onClick={() => void submit()} disabled={minting}>
           {mode === "invite"
             ? targetIsHired
               ? "Save invite & move to Hired"

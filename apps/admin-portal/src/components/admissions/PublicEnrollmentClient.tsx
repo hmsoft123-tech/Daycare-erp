@@ -7,9 +7,11 @@ import type { EnrollmentInvite } from "@/lib/enrollment-invite-store";
 type Props = {
   invite: EnrollmentInvite;
   schoolName?: string;
+  /** Token came from the backend (not the local demo store) */
+  backend?: boolean;
 };
 
-export function PublicEnrollmentClient({ invite, schoolName = "Kinder Pilot" }: Props) {
+export function PublicEnrollmentClient({ invite, schoolName = "Kinder Pilot", backend }: Props) {
   const router = useRouter();
 
   return (
@@ -37,9 +39,11 @@ export function PublicEnrollmentClient({ invite, schoolName = "Kinder Pilot" }: 
       <EnrollmentWizard
         mode="public"
         inviteToken={invite.token}
+        backend={backend}
         schoolName={schoolName}
         prefill={{
           childFullName: invite.prefill.childFullName ?? "",
+          dob: invite.prefill.dob ?? "",
           fatherName: invite.prefill.fatherName ?? "",
           fatherEmail: invite.prefill.fatherEmail ?? "",
           fatherPhone: invite.prefill.fatherPhone ?? "",

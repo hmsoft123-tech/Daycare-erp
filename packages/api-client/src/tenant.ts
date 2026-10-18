@@ -29,16 +29,44 @@ const CUSTOM_DOMAIN_MAP: Record<string, string> = {
   "portal.drsofiasdaycare.com": "drsofiasdaycare",
 };
 
+const RESERVED_SUBDOMAINS = new Set(["www", "app", "api", "api-dev", "admin", "mail"]);
+
+/**
+ * The tenant subdomain the host explicitly names, or null — no defaults.
+ * `{slug}.<root domain>` (schoola.kinderpilot.com) everywhere, plus
+ * `{slug}.localhost` in development (browsers resolve *.localhost to 127.0.0.1,
+ * so http://schoola.localhost:3000 works with no hosts-file change).
+ */
+export function tenantSubdomainFromHostname(host: string): string | null {
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+
+  const rootDomains = (process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAINS ?? "kinderpilot.com")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  if (process.env.NODE_ENV !== "production") rootDomains.push("localhost");
+
+  for (const root of rootDomains) {
+    if (!hostname.endsWith(`.${root}`)) continue;
+    const sub = hostname.slice(0, -(root.length + 1));
+    if (/^[a-z0-9-]+$/.test(sub) && !RESERVED_SUBDOMAINS.has(sub)) return sub;
+  }
+  return null;
+}
+
+/** Tenant slug for a mapped custom domain (portal.drsofiasdaycare.com → drsofiasdaycare). */
+export function customDomainSlug(host: string): string | null {
+  return CUSTOM_DOMAIN_MAP[host.split(":")[0]?.toLowerCase() ?? ""] ?? null;
+}
+
 export function resolveTenantSlugFromHost(host: string): string | null {
   const hostname = host.split(":")[0]?.toLowerCase() ?? "";
 
-  if (CUSTOM_DOMAIN_MAP[hostname]) return CUSTOM_DOMAIN_MAP[hostname];
+  const mapped = customDomainSlug(hostname);
+  if (mapped) return mapped;
 
-  // wildcard: {slug}.kinderpilot.com
-  const platformMatch = hostname.match(/^([a-z0-9-]+)\.kinderpilot\.com$/i);
-  if (platformMatch?.[1] && platformMatch[1] !== "www" && platformMatch[1] !== "app") {
-    return platformMatch[1];
-  }
+  const sub = tenantSubdomainFromHostname(hostname);
+  if (sub) return sub;
 
   // local / preview fallbacks
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local")) {

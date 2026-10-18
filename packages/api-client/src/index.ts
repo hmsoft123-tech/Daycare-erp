@@ -1,24 +1,19 @@
-import { readCookie } from "./security";
-
 export type ApiClientConfig = {
+  /** Same-origin BFF prefix, e.g. "/api/bff" (authenticated) or "/api/public". */
   baseUrl?: string;
   /**
    * Bearer token getter — only for server-to-server calls. In the browser, auth
-   * rides on the HttpOnly session cookie (`credentials: "include"`); never keep
-   * tokens in localStorage, where any XSS can read them.
+   * rides on the HttpOnly session cookie set by the BFF; never keep tokens in
+   * localStorage, where any XSS can read them.
    */
   getAccessToken?: () => string | null | undefined;
   getTenantId?: () => string | null | undefined;
   getBranchId?: () => string | null | undefined;
-  /** Called on 401 / 419 so the app can clear state and redirect to login. */
+  /** Called on 401 so the app can clear state and redirect to login. */
   onUnauthorized?: () => void;
-  /** Abort requests that take longer than this (default 20s). */
+  /** Abort requests that take longer than this (default 30s). */
   timeoutMs?: number;
 };
-
-const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-/** Laravel Sanctum sets this readable cookie; echo it back as a header to pass CSRF checks. */
-const XSRF_COOKIE = "XSRF-TOKEN";
 
 export class ApiError extends Error {
   constructor(
@@ -32,13 +27,13 @@ export class ApiError extends Error {
 }
 
 /**
- * Shared Fetch wrapper — cookie session + CSRF + multi-tenant headers on every request.
- * `X-Tenant-ID` / `X-Branch-ID` are hints only: the API must derive tenant and branch
- * access from the authenticated user, never trust these headers alone.
+ * Shared Fetch wrapper for the same-origin BFF. Sends `X-Requested-With`, which the
+ * BFF requires on writes as its CSRF check. `X-Tenant-ID` / `X-Branch-ID` are hints
+ * only: the API must derive tenant and branch access from the authenticated user.
  */
 export function createApiClient(config: ApiClientConfig = {}) {
-  const baseUrl = (config.baseUrl ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
-  const timeoutMs = config.timeoutMs ?? 20_000;
+  const baseUrl = (config.baseUrl ?? "/api/bff").replace(/\/$/, "");
+  const timeoutMs = config.timeoutMs ?? 30_000;
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     // Only relative API paths — an absolute URL would send cookies/headers to another host.
@@ -49,7 +44,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
     const headers = new Headers(init.headers);
     const method = (init.method ?? "GET").toUpperCase();
 
-    if (!headers.has("Content-Type") && init.body) {
+    // FormData sets its own multipart boundary — only default JSON for string bodies.
+    if (!headers.has("Content-Type") && typeof init.body === "string") {
       headers.set("Content-Type", "application/json");
     }
     headers.set("Accept", "application/json");
@@ -63,11 +59,6 @@ export function createApiClient(config: ApiClientConfig = {}) {
     if (tenantId) headers.set("X-Tenant-ID", tenantId);
     if (branchId) headers.set("X-Branch-ID", branchId);
 
-    if (MUTATING.has(method)) {
-      const xsrf = readCookie(XSRF_COOKIE);
-      if (xsrf) headers.set("X-XSRF-TOKEN", xsrf);
-    }
-
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     if (init.signal) init.signal.addEventListener("abort", () => controller.abort(), { once: true });
@@ -75,7 +66,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
     let res: Response;
     try {
       res = await fetch(`${baseUrl}${path}`, {
-        credentials: "include",
+        credentials: "same-origin",
         ...init,
         method,
         headers,
@@ -85,7 +76,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
       clearTimeout(timer);
     }
 
-    if (res.status === 401 || res.status === 419) {
+    if (res.status === 401) {
       config.onUnauthorized?.();
     }
 
@@ -99,8 +90,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
       throw new ApiError(`API ${res.status}: ${path}`, res.status, body);
     }
 
-    if (res.status === 204) return undefined as T;
-    return (await res.json()) as T;
+    const text = res.status === 204 ? "" : await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
   }
 
   return {
@@ -112,6 +103,9 @@ export function createApiClient(config: ApiClientConfig = {}) {
     patch: <T>(path: string, body?: unknown, init?: RequestInit) =>
       request<T>(path, { ...init, method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
     delete: <T>(path: string, init?: RequestInit) => request<T>(path, { ...init, method: "DELETE" }),
+    /** multipart/form-data upload (enrollment documents etc.) */
+    upload: <T>(path: string, form: FormData, init?: RequestInit) =>
+      request<T>(path, { ...init, method: "POST", body: form }),
   };
 }
 

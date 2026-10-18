@@ -224,6 +224,28 @@ export const Permission = {
 
 export type PermissionKey = (typeof Permission)[keyof typeof Permission];
 
+/** Backend RBAC role levels (highest → lowest), as issued in the login JWT. */
+export const Role = {
+  SuperAdmin: "SUPER_ADMIN",
+  PlatformAdmin: "PLATFORM_ADMIN",
+  CompanyAdmin: "COMPANY_ADMIN",
+  BranchAdmin: "BRANCH_ADMIN",
+  Admin: "ADMIN",
+  Staff: "STAFF",
+  Accountant: "ACCOUNTANT",
+  FinanceAdmin: "FINANCE_ADMIN",
+  InventoryManager: "INVENTORY_MANAGER",
+  Teacher: "TEACHER",
+  Parent: "PARENT",
+  ReadonlyAuditor: "READONLY_AUDITOR",
+  TempSubstituteTeacher: "TEMP_SUBSTITUTE_TEACHER",
+} as const;
+
+export type RoleKey = (typeof Role)[keyof typeof Role];
+
+/** Scope a role assignment applies to. */
+export type RoleScope = "COMPANY" | "BRANCH" | "CLASSROOM" | "STAFF" | "PARENT";
+
 export type CalendarEventType = "event" | "ptm" | "assessment" | "holiday" | "announcement" | "drill";
 
 /** Shared calendar entry synced between admin/staff and parent portal calendars */

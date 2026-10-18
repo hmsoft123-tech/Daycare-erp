@@ -39,7 +39,7 @@ import type { AdmissionCard, AdmissionStage, PortalIdCard, Student } from "@/typ
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const STAGES: { id: AdmissionStage; label: string; color: string }[] = [
+export const STAGES: { id: AdmissionStage; label: string; color: string }[] = [
   { id: "new_inquiry", label: "New Inquiry", color: "border-blue-400" },
   { id: "waitlist", label: "Waitlist", color: "border-amber-400" },
   { id: "meeting_test_scheduled", label: "Tour Scheduled", color: "border-purple-400" },
@@ -56,7 +56,7 @@ type PendingMove =
   | { kind: "schedule"; cardId: string; to: AdmissionStage }
   | { kind: "fees"; cardId: string; to: AdmissionStage };
 
-function KanbanColumn({ stage, cards }: { stage: (typeof STAGES)[number]; cards: AdmissionCard[] }) {
+export function KanbanColumn({ stage, cards }: { stage: (typeof STAGES)[number]; cards: AdmissionCard[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (

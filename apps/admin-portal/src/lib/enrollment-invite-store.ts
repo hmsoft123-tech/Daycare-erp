@@ -10,6 +10,7 @@ export type EnrollmentInviteStatus = "pending" | "completed" | "expired" | "revo
 
 export type EnrollmentInvitePrefill = {
   childFullName?: string;
+  dob?: string;
   fatherName?: string;
   fatherEmail?: string;
   fatherPhone?: string;

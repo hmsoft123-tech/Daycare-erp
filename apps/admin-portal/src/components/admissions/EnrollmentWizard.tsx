@@ -19,15 +19,12 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { SignaturePad } from "@/components/admissions/SignaturePad";
-import { IdCardPreviewModal } from "@/components/id-cards/IdCardPreviewModal";
 import { EnrollmentInviteLinkModal } from "@/components/admissions/EnrollmentInviteLinkModal";
 import { branches } from "@/data/branches";
 import { classes, students } from "@/data/students";
-import { issueStudentIdCard } from "@/lib/id-card-store";
 import { generateStudentCardNumber } from "@/lib/id-card";
 import {
   completeEnrollmentInvite,
-  createEnrollmentInvite,
   type EnrollmentInvite,
 } from "@/lib/enrollment-invite-store";
 import { useTenantStore } from "@/lib/tenant-store";
@@ -42,12 +39,22 @@ import {
   planLabel,
   planMonthlyTotal,
 } from "@/lib/services-catalog";
-import { createMandatoryFormEntries, requestEnrollmentFeeLock } from "@/lib/mock-service";
+import { requestEnrollmentFeeLock } from "@/lib/mock-service";
+import { publicApi, useApiClient } from "@/lib/api";
+import { apiErrorMessage, type ApiFeeLock, type ApiInquiry } from "@/lib/admissions-api";
+import {
+  COMPANY_ID,
+  dataUrlToFile,
+  uploadEnrollmentDocuments,
+  wizardDataBody,
+  type ApiDocumentType,
+  type ApiEnrollmentSubmission,
+} from "@/lib/enrollment-api";
 import { generateGrNumber } from "@/lib/gr-number";
 import { recommendClassGroupFromDob } from "@/lib/age-brackets";
 import { toast } from "sonner";
 import { Check, ChevronLeft, ChevronRight, FileUp, Upload } from "lucide-react";
-import type { PortalIdCard, ServiceTier, Student } from "@/types";
+import type { ServiceTier, Student } from "@/types";
 
 const ALLERGY_OPTIONS = [
   "Peanuts",
@@ -160,7 +167,7 @@ function FileSlot({
   label: string;
   hint: string;
   value?: string;
-  onFile: (name: string) => void;
+  onFile: (file: File) => void;
   error?: string;
 }) {
   return (
@@ -181,7 +188,7 @@ function FileSlot({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) onFile(f.name);
+                if (f) onFile(f);
               }}
             />
           </label>
@@ -193,10 +200,18 @@ function FileSlot({
   );
 }
 
+function messageOf(e: unknown): string {
+  return e instanceof Error && e.name !== "ApiError"
+    ? e.message
+    : "Could not complete the enrollment.";
+}
+
 type EnrollmentWizardProps = {
   /** admin = staff CRM wizard; public = tokenized parent invite page */
   mode?: "admin" | "public";
   inviteToken?: string;
+  /** public mode: the token was issued by the backend, so submit through the API */
+  backend?: boolean;
   prefill?: Partial<EnrollmentFormData>;
   schoolName?: string;
   onPublicComplete?: (payload: { childName: string }) => void;
@@ -205,14 +220,17 @@ type EnrollmentWizardProps = {
 export function EnrollmentWizard({
   mode = "admin",
   inviteToken,
+  backend = false,
   prefill,
   schoolName = "Kinder Pilot",
   onPublicComplete,
 }: EnrollmentWizardProps) {
   const isPublic = mode === "public";
   const [step, setStep] = useState(1);
-  const [issuedCard, setIssuedCard] = useState<PortalIdCard | null>(null);
   const [inviteModal, setInviteModal] = useState<EnrollmentInvite | null>(null);
+  const [files, setFiles] = useState<Partial<Record<ApiDocumentType, File>>>({});
+  const [progress, setProgress] = useState<string | null>(null);
+  const api = useApiClient();
 
   const form = useForm<EnrollmentFormData>({
     resolver: zodResolver(enrollmentSchema),
@@ -339,7 +357,12 @@ export function EnrollmentWizard({
   };
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
-  const toggleAllergy = (item: string) => {
+  const pickFile = (field: keyof EnrollmentFormData, type: ApiDocumentType) => (file: File) => {
+    setFiles((prev) => ({ ...prev, [type]: file }));
+    setValue(field, file.name, { shouldValidate: true });
+  };
+
+  const toggleAllergy =(item: string) => {
     const current = values.allergies ?? [];
     setValue(
       "allergies",
@@ -357,33 +380,112 @@ export function EnrollmentWizard({
     setValue("addOns", next, { shouldValidate: true });
   };
 
-  const onSubmit = form.handleSubmit(async (data) => {
-    // Admin: send secure public enroll link (backend will email this later)
-    if (!isPublic && data.completionMode === "invite_to_pay") {
-      const invite = createEnrollmentInvite({
-        email: data.fatherEmail || data.motherEmail,
-        parentName: data.fatherName || data.motherName,
-        tenantSlug,
-        prefill: {
-          childFullName: data.childFullName,
-          fatherName: data.fatherName,
-          fatherEmail: data.fatherEmail,
-          fatherPhone: data.fatherPhone,
-          motherName: data.motherName,
-          motherEmail: data.motherEmail,
-          motherPhone: data.motherPhone,
-          branchId: data.branchId,
-          classGroup: data.classGroup,
-          careTier: data.careTier,
-          servicePlanId: planId(data.classGroup, data.careTier),
-          mainProgram: planId(data.classGroup, data.careTier),
-        },
+  /** Documents picked in the wizard plus the signature, uploaded against the enrollment token. */
+  const uploadDocuments = (token: string, data: EnrollmentFormData) => {
+    setProgress("Uploading documents…");
+    return uploadEnrollmentDocuments(publicApi, token, {
+      ...files,
+      DIGITAL_SIGNATURE: dataUrlToFile(data.signatureDataUrl, "signature.png"),
+    });
+  };
+
+  /** Parent opened a backend-issued link: upload documents, then submit the wizard. */
+  const submitPublic = async (data: EnrollmentFormData, token: string) => {
+    const documents = await uploadDocuments(token, data);
+    setProgress("Submitting enrollment…");
+    await publicApi.post<ApiEnrollmentSubmission>(
+      `/enrollment/${encodeURIComponent(token)}/submit`,
+      wizardDataBody(data, planLabel(data.classGroup, data.careTier), documents)
+    );
+    toast.success("Enrollment submitted — the school will confirm your fee payment");
+    onPublicComplete?.({ childName: data.childFullName });
+  };
+
+  /**
+   * Staff enrollment: inquiry → fee lock (issues challan + enrollment token) →
+   * either hand the token link to the parent, or upload documents and submit now.
+   */
+  const submitAdmin = async (data: EnrollmentFormData) => {
+    const program = planLabel(data.classGroup, data.careTier);
+
+    setProgress("Creating inquiry…");
+    const inquiry = await api.post<ApiInquiry>("/admissions/inquiries", {
+      childName: data.childFullName,
+      childDob: data.dob,
+      gender: data.gender.toUpperCase(),
+      gradeOrProgram: program,
+      parentName: data.fatherName,
+      parentPhone: data.fatherPhone,
+      parentEmail: data.fatherEmail,
+      source: "Walk-in",
+      notes: `Enrollment wizard · joining ${data.joiningDate} · ${data.residentialAddress}`,
+      companyId: COMPANY_ID,
+      branchId: data.branchId,
+    });
+
+    try {
+      setProgress("Locking fees…");
+      const lock = await api.post<ApiFeeLock>(`/admissions/inquiries/${inquiry.id}/lock-fees`, {
+        monthlyTuition: feeSummary.monthly,
+        admissionFee: feeSummary.admission,
+        discountType: "NO_DISCOUNT",
+        discountValue: 0,
+        feeNotes: program,
       });
-      setInviteModal(invite);
-      toast.success("Secure enrollment invite created — copy the link to share (email in production)");
+      if (!lock.enrollmentToken) throw new Error("The fee lock did not return an enrollment token.");
+
+      if (data.completionMode === "invite_to_pay") {
+        setInviteModal({
+          token: lock.enrollmentToken,
+          tenantSlug,
+          email: data.fatherEmail,
+          parentName: data.fatherName,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          expiresAt: lock.tokenExpiresAt ?? new Date(Date.now() + 7 * 86_400_000).toISOString(),
+          admissionId: String(inquiry.id),
+          prefill: {},
+          securityHint: lock.emailSent
+            ? `Emailed to ${data.fatherEmail} · challan ${lock.challanNumber ?? "pending"}`
+            : `Challan ${lock.challanNumber ?? "pending"} · share this link with the parent`,
+        });
+        toast.success("Fees locked — enrollment link ready for the parent");
+        return;
+      }
+
+      const documents = await uploadDocuments(lock.enrollmentToken, data);
+      setProgress("Submitting enrollment…");
+      await api.post<ApiEnrollmentSubmission>("/admissions/enrollment/manual-submit", {
+        inquiryId: inquiry.id,
+        wizardData: wizardDataBody(data, program, documents),
+        staffNotes: `Entered by staff via enrollment wizard · joining ${data.joiningDate}`,
+      });
+      toast.success(
+        `Enrollment submitted — challan ${lock.challanNumber ?? ""} issued, awaiting payment`
+      );
+      setStep(1);
+      setFiles({});
+      form.reset();
+    } catch (e) {
+      // The inquiry already exists on the board; say so instead of implying nothing was saved.
+      throw new Error(`Inquiry #${inquiry.id} was created, but: ${apiErrorMessage(e, messageOf(e))}`);
+    }
+  };
+
+  const onSubmit = form.handleSubmit(async (data) => {
+    if (!isPublic || (backend && inviteToken)) {
+      try {
+        if (isPublic) await submitPublic(data, inviteToken!);
+        else await submitAdmin(data);
+      } catch (e) {
+        toast.error(apiErrorMessage(e, messageOf(e)));
+      } finally {
+        setProgress(null);
+      }
       return;
     }
 
+    // Local demo invite (mock token): keep the offline flow below.
     const parts = data.childFullName.trim().split(/\s+/);
     const firstName = parts[0];
     const lastName = parts.slice(1).join(" ") || parts[0];
@@ -445,14 +547,6 @@ export function EnrollmentWizard({
       onPublicComplete?.({ childName: data.childFullName });
       return;
     }
-
-    students.unshift(student);
-    await createMandatoryFormEntries(student.id);
-    const card = await issueStudentIdCard(student.id);
-    toast.success(`Enrollment saved — ID card ${cardNumber} generated`);
-    setIssuedCard(card);
-    setStep(1);
-    form.reset();
   });
 
   return (
@@ -610,7 +704,7 @@ export function EnrollmentWizard({
                         label="Child's passport photo"
                         hint="Digital passport-size photo upload"
                         value={values.passportPhotoName}
-                        onFile={(name) => setValue("passportPhotoName", name, { shouldValidate: true })}
+                        onFile={pickFile("passportPhotoName", "CHILD_PASSPORT_PHOTO")}
                         error={errors.passportPhotoName?.message}
                       />
                     </>
@@ -1043,7 +1137,7 @@ export function EnrollmentWizard({
                           />
                           <p className="font-semibold text-heading">Invite parent to complete</p>
                           <p className="mt-1 text-xs text-muted">
-                            Creates a secure /enroll/[token] link (emailed by backend in production)
+                            Locks the fees and emails the parent a secure /enroll/[token] link
                           </p>
                         </label>
                         <label
@@ -1060,8 +1154,10 @@ export function EnrollmentWizard({
                             checked={values.completionMode === "mark_enrolled"}
                             onChange={() => setValue("completionMode", "mark_enrolled")}
                           />
-                          <p className="font-semibold text-heading">Mark enrolled now</p>
-                          <p className="mt-1 text-xs text-muted">Save to portal + generate student ID card</p>
+                          <p className="font-semibold text-heading">Submit enrollment now</p>
+                          <p className="mt-1 text-xs text-muted">
+                            Uploads documents and issues the fee challan (enrolled once paid)
+                          </p>
                         </label>
                       </div>
                       )}
@@ -1084,42 +1180,42 @@ export function EnrollmentWizard({
                           label={DOC_SLOTS[0].label}
                           hint={DOC_SLOTS[0].hint}
                           value={values.docPassportPhotos}
-                          onFile={(n) => setValue("docPassportPhotos", n, { shouldValidate: true })}
+                          onFile={pickFile("docPassportPhotos", "PASSPORT_PHOTOS")}
                           error={errors.docPassportPhotos?.message}
                         />
                         <FileSlot
                           label={DOC_SLOTS[1].label}
                           hint={DOC_SLOTS[1].hint}
                           value={values.docFatherCnic}
-                          onFile={(n) => setValue("docFatherCnic", n, { shouldValidate: true })}
+                          onFile={pickFile("docFatherCnic", "FATHER_CNIC")}
                           error={errors.docFatherCnic?.message}
                         />
                         <FileSlot
                           label={DOC_SLOTS[2].label}
                           hint={DOC_SLOTS[2].hint}
                           value={values.docMotherCnic}
-                          onFile={(n) => setValue("docMotherCnic", n, { shouldValidate: true })}
+                          onFile={pickFile("docMotherCnic", "MOTHER_CNIC")}
                           error={errors.docMotherCnic?.message}
                         />
                         <FileSlot
                           label={DOC_SLOTS[3].label}
                           hint={DOC_SLOTS[3].hint}
                           value={values.docFamilyPhoto}
-                          onFile={(n) => setValue("docFamilyPhoto", n, { shouldValidate: true })}
+                          onFile={pickFile("docFamilyPhoto", "FAMILY_PHOTO")}
                           error={errors.docFamilyPhoto?.message}
                         />
                         <FileSlot
                           label={DOC_SLOTS[4].label}
                           hint={DOC_SLOTS[4].hint}
                           value={values.docBirthCertificate}
-                          onFile={(n) => setValue("docBirthCertificate", n, { shouldValidate: true })}
+                          onFile={pickFile("docBirthCertificate", "B_FORM_BIRTH_CERTIFICATE")}
                           error={errors.docBirthCertificate?.message}
                         />
                         <FileSlot
                           label={DOC_SLOTS[5].label}
                           hint={DOC_SLOTS[5].hint}
                           value={values.docUtilityBill}
-                          onFile={(n) => setValue("docUtilityBill", n, { shouldValidate: true })}
+                          onFile={pickFile("docUtilityBill", "ELECTRICITY_BILL")}
                           error={errors.docUtilityBill?.message}
                         />
                       </div>
@@ -1180,12 +1276,14 @@ export function EnrollmentWizard({
                     Next <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
-                  <Button type="submit">
-                    {isPublic
+                  <Button type="submit" disabled={!!progress}>
+                    {progress
+                      ? progress
+                      : isPublic
                       ? "Submit enrollment"
                       : values.completionMode === "invite_to_pay"
                         ? "Create secure invite link"
-                        : "Complete Enrollment & Issue ID Card"}
+                        : "Submit enrollment & issue challan"}
                   </Button>
                 )}
               </div>
@@ -1193,14 +1291,6 @@ export function EnrollmentWizard({
           </CardContent>
         </Card>
       </div>
-
-      <IdCardPreviewModal
-        open={!!issuedCard}
-        card={issuedCard}
-        onClose={() => setIssuedCard(null)}
-        title="Student ID Card generated"
-        subtitle="Enrollment saved to the portal with documents & signature on file."
-      />
 
       <EnrollmentInviteLinkModal
         open={!!inviteModal}

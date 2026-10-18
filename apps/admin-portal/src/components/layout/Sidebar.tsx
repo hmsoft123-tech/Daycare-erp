@@ -42,6 +42,9 @@ import {
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useUIStore } from "@/lib/store";
+import { logout } from "@/lib/auth-client";
+import { roleLabel as describeRoles, routeCapability } from "@/lib/rbac";
+import { useAccess } from "@/components/security/Can";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -149,8 +152,19 @@ const navGroups = [
 
 export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
   const pathname = usePathname();
-  const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen, toggleSidebar } = useUIStore();
+  const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen, toggleSidebar, userName, roles } =
+    useUIStore();
   const displayName = schoolName ?? "Kinder Pilot";
+  const userLabel = userName?.trim() || "Signed in";
+  const roleLabel = describeRoles(roles);
+  const access = useAccess();
+  // Same rules as the middleware route guard — a link shows only if its page would open.
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => access(routeCapability(item.href))),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const content = (
     <div className="flex h-full flex-col border-r border-border bg-surface text-heading">
@@ -191,7 +205,7 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         <TooltipProvider delayDuration={0}>
-          {navGroups.filter((group) => group.items.length > 0).map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.label} className="mb-5">
               {!sidebarCollapsed && (
                 <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
@@ -258,15 +272,20 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
       <div className={cn("m-3 rounded-2xl bg-bg p-3", sidebarCollapsed && "flex justify-center p-2")}>
         <div className={cn("flex items-center gap-3", sidebarCollapsed && "flex-col")}>
           <Avatar className="h-9 w-9 ring-2 ring-white">
-            <AvatarFallback className="bg-brand-500 text-xs text-white">{getInitials("Admin User")}</AvatarFallback>
+            <AvatarFallback className="bg-brand-500 text-xs text-white">{getInitials(userLabel)}</AvatarFallback>
           </Avatar>
           {!sidebarCollapsed && (
             <>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-heading">Admin User</p>
-                <p className="text-xs text-muted">Administrator</p>
+                <p className="truncate text-sm font-semibold text-heading">{userLabel}</p>
+                <p className="truncate text-xs text-muted">{roleLabel}</p>
               </div>
-              <button className="rounded-full p-1.5 text-muted hover:bg-white" aria-label="Logout">
+              <button
+                className="rounded-full p-1.5 text-muted hover:bg-white"
+                aria-label="Log out"
+                title="Log out"
+                onClick={() => void logout()}
+              >
                 <LogOut className="h-4 w-4" />
               </button>
             </>

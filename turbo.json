@@ -2,18 +2,60 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**"
+      ],
+      "env": [
+        "API_BASE_URL",
+        "ALLOW_INSECURE_API_HTTP",
+        "SESSION_SECRET",
+        "TENANT_SUBDOMAIN",
+        "ALLOWED_ORIGINS",
+        "LOG_BACKEND_CALLS",
+        "DEV_ROLES",
+        "DEV_PERMISSIONS",
+        "NEXT_PUBLIC_API_BASE_URL",
+        "NEXT_PUBLIC_COMPANY_ID",
+        "NEXT_PUBLIC_DEFAULT_TENANT",
+        "NEXT_PUBLIC_DEV_AUTH_BYPASS",
+        "NEXT_PUBLIC_RBAC_ENFORCE",
+        "NEXT_PUBLIC_TENANT_ROOT_DOMAINS"
+      ]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "API_BASE_URL",
+        "ALLOW_INSECURE_API_HTTP",
+        "SESSION_SECRET",
+        "TENANT_SUBDOMAIN",
+        "ALLOWED_ORIGINS",
+        "LOG_BACKEND_CALLS",
+        "DEV_ROLES",
+        "DEV_PERMISSIONS",
+        "NEXT_PUBLIC_API_BASE_URL",
+        "NEXT_PUBLIC_COMPANY_ID",
+        "NEXT_PUBLIC_DEFAULT_TENANT",
+        "NEXT_PUBLIC_DEV_AUTH_BYPASS",
+        "NEXT_PUBLIC_RBAC_ENFORCE",
+        "NEXT_PUBLIC_TENANT_ROOT_DOMAINS"
+      ]
     },
     "lint": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     }
   }
 }

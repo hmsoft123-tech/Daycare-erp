@@ -19,7 +19,7 @@ export function MarketingFooter() {
             <li><Link href="/about" className="hover:text-white">About Us</Link></li>
             <li><Link href="/programs" className="hover:text-white">Programs</Link></li>
             <li><Link href="/contact" className="hover:text-white">Contact</Link></li>
-            <li><Link href="/portal" className="hover:text-white">Staff Portal</Link></li>
+            <li><Link href="/login" className="hover:text-white">Staff Portal</Link></li>
           </ul>
         </div>
         <div>

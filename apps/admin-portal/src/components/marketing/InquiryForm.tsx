@@ -21,6 +21,10 @@ import { branches } from "@/data/branches";
 import { toast } from "sonner";
 import type { InquiryType } from "@/types";
 import { cn } from "@/lib/utils";
+import { publicApi } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/admissions-api";
+import { COMPANY_ID } from "@/lib/enrollment-api";
+import { employmentApplicationBody } from "@/lib/staff-inquiries-api";
 
 const inquirySchema = z
   .object({
@@ -39,6 +43,7 @@ const inquirySchema = z
     positionInterest: z.enum(["Teacher", "Therapist", "Admin", "Support"]).optional(),
     experienceYears: z.number().optional(),
     resumeNote: z.string().optional(),
+    qualification: z.string().optional(),
     message: z.string().optional(),
     preferContact: z.enum(["phone", "email", "whatsapp"]),
   })
@@ -76,7 +81,7 @@ const inquirySchema = z
 
 type InquiryFormData = z.infer<typeof inquirySchema>;
 
-const PROGRAMS = ["Daycare", "Preschool", "Kindergarten", "After School", "Therapy Services"];
+const PROGRAMS =["Daycare", "Preschool", "Kindergarten", "After School", "Therapy Services"];
 
 const INQUIRY_TYPES: { value: InquiryType; label: string; description: string }[] = [
   { value: "admission", label: "Admission", description: "Enroll my child" },
@@ -121,7 +126,7 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
       ? typeFromUrl
       : "admission";
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<InquiryFormData>({
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<InquiryFormData>({
     resolver: zodResolver(inquirySchema),
     defaultValues: {
       inquiryType: initialType,
@@ -147,7 +152,51 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
   const showChildFields = inquiryType === "admission" || inquiryType === "tour";
   const showEmploymentFields = inquiryType === "employment";
 
-  const onSubmit = handleSubmit((data) => {
+  const onSubmit = handleSubmit(async (data) => {
+    const parentName = `${data.guardianFirstName} ${data.guardianLastName}`.trim();
+    try {
+      if (data.inquiryType === "employment") {
+        await publicApi.post(
+          "/forms/employment-application",
+          employmentApplicationBody({
+            name: parentName,
+            email: data.email,
+            phone: data.phone,
+            position: data.positionInterest ?? "",
+            branchId: data.branchId,
+            experienceYears: data.experienceYears,
+            qualification: data.qualification,
+            tag: "online",
+            notes: [data.resumeNote, data.message].filter(Boolean).join(" · "),
+          })
+        );
+      } else {
+        // The API requires a message; build one from the form's extra answers when left blank.
+        const details = [
+          `${INQUIRY_TYPES.find((t) => t.value === data.inquiryType)?.label ?? "General"} inquiry`,
+          data.preferredStartDate && `preferred start ${data.preferredStartDate}`,
+          data.schedulePreference && `schedule ${data.schedulePreference.replace(/_/g, " ")}`,
+          `contact by ${data.preferContact}`,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        await publicApi.post("/forms/general-inquiry", {
+          companyId: COMPANY_ID,
+          branchId: data.branchId || undefined,
+          parentName,
+          email: data.email,
+          phone: data.phone,
+          childName: data.childName || undefined,
+          childDob: data.childDob || undefined,
+          gradeOrProgram: data.program || undefined,
+          message: data.message ? `${data.message}\n(${details})` : details,
+        });
+      }
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Could not send your inquiry. Please try again."));
+      return;
+    }
+
     toast.success(`Thank you, ${data.guardianFirstName}! We received your ${data.inquiryType} inquiry.`);
 
     if (variant === "standalone" && typeof window !== "undefined") {
@@ -312,6 +361,23 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
               {errors.experienceYears && <p className="mt-1 text-xs text-red-600">{errors.experienceYears.message}</p>}
             </div>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="qualification">Highest Qualification (optional)</Label>
+              <Input id="qualification" placeholder="e.g. B.Ed, Montessori diploma" {...register("qualification")} />
+            </div>
+            <div>
+              <Label>Preferred Branch (optional)</Label>
+              <Select value={watch("branchId")} onValueChange={(v) => setValue("branchId", v)}>
+                <SelectTrigger><SelectValue placeholder="Any branch" /></SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div>
             <Label htmlFor="resumeNote">Resume / Cover Note (optional)</Label>
             <Textarea id="resumeNote" rows={3} placeholder="Brief summary or link to portfolio..." {...register("resumeNote")} />
@@ -339,8 +405,8 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
         <Textarea id="message" rows={3} placeholder={`Tell ${schoolName} anything else we should know...`} {...register("message")} />
       </div>
 
-      <Button type="submit" className="w-full" size="lg">
-        Submit Inquiry
+      <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+        {isSubmitting ? "Sending…" : "Submit Inquiry"}
       </Button>
     </>
   );
