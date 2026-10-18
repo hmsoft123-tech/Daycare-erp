@@ -54,6 +54,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Lets a local production build run beside `next dev` without sharing .next
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Dev tenant subdomains (http://schoola.localhost:3000) load /_next assets and HMR.
   allowedDevOrigins: ["*.localhost"],
   transpilePackages: [
