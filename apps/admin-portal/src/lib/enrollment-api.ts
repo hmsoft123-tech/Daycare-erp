@@ -7,7 +7,10 @@ import type { ApiClient } from "@kinder-pilot/api-client";
  * create inquiry → lock fees (issues challan + token) → upload documents → manual-submit.
  */
 
-/** Company the enrollment is filed under (the API has no lookup for it yet). */
+/**
+ * Fallback company id when no tenant is resolved — normally the company is the
+ * tenant resolved from the subdomain (`useTenantStore().tenantId`).
+ */
 export const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID ?? "1";
 
 export type ApiDocumentType =

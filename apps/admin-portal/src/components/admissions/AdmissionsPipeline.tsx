@@ -18,48 +18,44 @@ import { KanbanCard } from "./KanbanCard";
 import { KanbanColumn, STAGES } from "./KanbanBoard";
 import { ScheduleMeetingModal, type ScheduleMeetingValues } from "./ScheduleMeetingModal";
 import { EnrollmentFeeModal, type EnrollmentFeeValues } from "./EnrollmentFeeModal";
-import { EnrollmentInviteLinkModal } from "./EnrollmentInviteLinkModal";
-import type { EnrollmentInvite } from "@/lib/enrollment-invite-store";
+import { MarkPaidModal } from "./MarkPaidModal";
+import { StageNoticeModal, type StageNotice } from "./StageNoticeModal";
 import { Button } from "@/components/ui/button";
 import { useApiClient } from "@/lib/api";
 import {
   apiErrorMessage,
+  feeApprovalBlocker,
   feesBody,
   kanbanToCards,
   scheduleTourBody,
-  type ApiFeeLock,
   type ApiKanbanBoard,
   type ApiStudentConversion,
+  type PaymentConfirmation,
 } from "@/lib/admissions-api";
 import { queryKeys } from "@/lib/query-client";
-import { useUIStore } from "@/lib/store";
 import { useTenantStore } from "@/lib/tenant-store";
 import type { AdmissionStage } from "@/types";
 import { cn } from "@/lib/utils";
 import { useAccess } from "@/components/security/Can";
 import type { Capability } from "@/lib/rbac";
 
-type PendingMove = { kind: "schedule" | "fees"; cardId: string };
+type PendingMove = { kind: "schedule" | "fees" | "paid"; cardId: string };
 
 /**
  * Admissions Kanban backed by the KinderPilot API: the board is
  * `GET /admissions/kanban` and each drag calls the endpoint for that transition.
+ * Fees are proposed here (3a); branch (3b) and company (3c) approval happen in
+ * their own queues, and the company lock is what moves a card to Enrolled Unpaid.
  */
 export function AdmissionsPipeline() {
   const api = useApiClient();
   const queryClient = useQueryClient();
   const tenantId = useTenantStore((s) => s.tenantId) ?? "";
-  const isHeadOffice = useUIStore((s) => s.contextType) === "head_office";
   const access = useAccess();
-  const canPropose = access("fees.propose");
-  const canLock = access("fees.lock");
-  // Head Office context locks; a role that can only lock (Accountant) locks from anywhere.
-  const locksFees = canLock && (isHeadOffice || !canPropose);
   const readOnly = !(
     access("admissions.update") ||
     access("admissions.waitlist") ||
-    canPropose ||
-    canLock ||
+    access("fees.propose") ||
     access("payments.confirm")
   );
 
@@ -80,7 +76,7 @@ export function AdmissionsPipeline() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [saving, setSaving] = useState(false);
-  const [invite, setInvite] = useState<EnrollmentInvite | null>(null);
+  const [notice, setNotice] = useState<StageNotice | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -89,8 +85,10 @@ export function AdmissionsPipeline() {
     setSaving(true);
     try {
       toast.success(success(await call()));
+      return true;
     } catch (e) {
       toast.error(apiErrorMessage(e, "Could not update the inquiry."));
+      return false;
     } finally {
       setSaving(false);
       void queryClient.invalidateQueries({ queryKey });
@@ -118,12 +116,15 @@ export function AdmissionsPipeline() {
         setPending({ kind: "schedule", cardId: card.id });
         return;
       case "pending_ho_fee":
-      case "enrol_unpaid":
-        if (!canPropose && !canLock) {
-          toast.error("Your role cannot propose or lock fees");
-          return;
-        }
+        if (!allowed("fees.propose", "propose fees")) return;
         setPending({ kind: "fees", cardId: card.id });
+        return;
+      case "enrol_unpaid":
+        // Only the company (Head Office) fee lock moves a card here.
+        setNotice({
+          title: "Approve the fees first",
+          message: `${card.studentName} moves to Enrolled Unpaid automatically once the fees are approved by the branch and then by the company. ${feeApprovalBlocker(card.apiStage)}`,
+        });
         return;
       case "waitlist":
         if (!allowed("admissions.waitlist", "move inquiries to the waitlist")) return;
@@ -137,19 +138,15 @@ export function AdmissionsPipeline() {
         );
         return;
       case "paid":
-        if (!allowed("payments.confirm", "confirm payments")) return;
-        if (!card.invoiceNumber) {
-          toast.error("No fee challan yet — Head Office must lock the fees first");
+        if (card.stage !== "enrol_unpaid") {
+          setNotice({
+            title: "Fees not approved yet",
+            message: `${card.studentName} can be enrolled only after the fees are approved by the branch and the company and the challan is paid. ${feeApprovalBlocker(card.apiStage)}`,
+          });
           return;
         }
-        void run(
-          () =>
-            api.post<ApiStudentConversion>(
-              `/admissions/challans/${encodeURIComponent(card.invoiceNumber!)}/confirm-payment`,
-              { paymentMethod: "CASH" }
-            ),
-          (r) => `Payment confirmed — student ${r.studentCode ?? r.studentId} is active`
-        );
+        if (!allowed("payments.confirm", "mark fees as paid")) return;
+        setPending({ kind: "paid", cardId: card.id });
         return;
       default:
         toast.error("The API has no step that moves an inquiry back to this stage");
@@ -168,39 +165,30 @@ export function AdmissionsPipeline() {
     );
   };
 
-  // Branch proposes the fee package; Head Office locks it, which issues the challan.
+  // Stage 3a: propose the fee package; the branch and company approval queues take it from there.
   const onFeeConfirm = (values: EnrollmentFeeValues) => {
     if (!pending) return;
     const id = pending.cardId;
-    const card = pendingCard;
     setPending(null);
     void run(
-      () =>
-        api.post<ApiFeeLock>(
-          `/admissions/inquiries/${id}/${locksFees ? "lock-fees" : "propose-fees"}`,
-          feesBody(values)
-        ),
-      (r) => {
-        // The lock is the only response that carries the parent's enrollment token.
-        if (r.enrollmentToken) {
-          setInvite({
-            token: r.enrollmentToken,
-            tenantSlug: "",
-            email: card?.email ?? "",
-            parentName: card?.parentName ?? "",
-            status: "pending",
-            createdAt: new Date().toISOString(),
-            expiresAt: r.tokenExpiresAt ?? new Date().toISOString(),
-            admissionId: id,
-            prefill: {},
-            securityHint: `Challan ${r.challanNumber ?? "pending"}${r.emailSent ? " · link emailed to the parent" : ""}`,
-          });
-        }
-        return locksFees
-          ? `Fees locked${r.challanNumber ? ` — challan ${r.challanNumber}` : ""}`
-          : "Fee package sent for approval";
-      }
+      () => api.post(`/admissions/inquiries/${id}/propose-fees`, feesBody(values)),
+      () => "Fees proposed — waiting for branch approval"
     );
+  };
+
+  // Enrolled Unpaid → Enrolled once the fee is confirmed as received.
+  const onMarkPaid = async (payment: PaymentConfirmation) => {
+    if (!pendingCard) return;
+    const identifier = pendingCard.invoiceNumber ?? pendingCard.id;
+    const ok = await run(
+      () =>
+        api.post<ApiStudentConversion>(
+          `/admissions/enrollments/${encodeURIComponent(identifier)}/mark-paid`,
+          payment
+        ),
+      (r) => r.message || `Payment confirmed — student ${r.studentCode ?? r.studentId} is enrolled`
+    );
+    if (ok) setPending(null);
   };
 
   const activeCard = activeId ? items.find((i) => i.id === activeId) : null;
@@ -281,12 +269,22 @@ export function AdmissionsPipeline() {
       <EnrollmentFeeModal
         open={pending?.kind === "fees"}
         card={pending?.kind === "fees" ? pendingCard : null}
-        targetStageLabel={locksFees ? "HO Fee Lock" : "Propose fees for approval"}
+        targetStageLabel="Proposed Fee"
         onCancel={() => setPending(null)}
         onConfirm={onFeeConfirm}
       />
 
-      <EnrollmentInviteLinkModal open={!!invite} invite={invite} onClose={() => setInvite(null)} />
+      <MarkPaidModal
+        open={pending?.kind === "paid" && !!pendingCard}
+        studentName={pendingCard?.studentName ?? ""}
+        challanNumber={pendingCard?.invoiceNumber}
+        amountDue={pendingCard?.netAmount}
+        saving={saving}
+        onCancel={() => setPending(null)}
+        onConfirm={(payment) => void onMarkPaid(payment)}
+      />
+
+      <StageNoticeModal notice={notice} onClose={() => setNotice(null)} />
     </>
   );
 }

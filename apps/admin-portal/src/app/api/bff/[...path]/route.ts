@@ -9,6 +9,7 @@ const handler = createBffProxy({
     /^admissions(\/|$)/, // inquiries, kanban, enrollment, fee lock, waitlist, transfers, challans
     /^fees(\/|$)/, // structures, discounts, calculate
     /^hierarchy(\/|$)/, // company, branches, classrooms (assignment pickers)
+    /^branches\/[^/]+\/staff$/, // branch staff user accounts
     /^students(\/|$)/,
     /^security\/rbac(\/|$)/, // role approvals, break-glass log
   ],

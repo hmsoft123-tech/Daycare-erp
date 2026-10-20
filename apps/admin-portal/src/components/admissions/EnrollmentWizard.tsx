@@ -19,14 +19,10 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { SignaturePad } from "@/components/admissions/SignaturePad";
-import { EnrollmentInviteLinkModal } from "@/components/admissions/EnrollmentInviteLinkModal";
 import { branches } from "@/data/branches";
 import { classes, students } from "@/data/students";
 import { generateStudentCardNumber } from "@/lib/id-card";
-import {
-  completeEnrollmentInvite,
-  type EnrollmentInvite,
-} from "@/lib/enrollment-invite-store";
+import { completeEnrollmentInvite } from "@/lib/enrollment-invite-store";
 import { useTenantStore } from "@/lib/tenant-store";
 import { SDLC_TERMS_AND_CONDITIONS } from "@/data/sdlc-terms";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -41,7 +37,13 @@ import {
 } from "@/lib/services-catalog";
 import { requestEnrollmentFeeLock } from "@/lib/mock-service";
 import { publicApi, useApiClient } from "@/lib/api";
-import { apiErrorMessage, type ApiFeeLock, type ApiInquiry } from "@/lib/admissions-api";
+import {
+  PAYMENT_METHODS,
+  apiErrorMessage,
+  type ApiFullManualEnrollment,
+  type ApiPaymentMethod,
+  type ApiPaymentUrl,
+} from "@/lib/admissions-api";
 import {
   COMPANY_ID,
   dataUrlToFile,
@@ -227,7 +229,6 @@ export function EnrollmentWizard({
 }: EnrollmentWizardProps) {
   const isPublic = mode === "public";
   const [step, setStep] = useState(1);
-  const [inviteModal, setInviteModal] = useState<EnrollmentInvite | null>(null);
   const [files, setFiles] = useState<Partial<Record<ApiDocumentType, File>>>({});
   const [progress, setProgress] = useState<string | null>(null);
   const api = useApiClient();
@@ -287,7 +288,10 @@ export function EnrollmentWizard({
     mode: "onChange",
   });
 
-  const tenantSlug = useTenantStore((s) => s.tenantSlug) ?? "kinder-pilot";
+  // The tenant resolved from the subdomain is the company the enrollment is filed under.
+  const companyId = useTenantStore((s) => s.tenantId) || COMPANY_ID;
+  const [paymentMethod, setPaymentMethod] = useState<ApiPaymentMethod>("CASH");
+  const [paymentReference, setPaymentReference] = useState("");
 
   const { register, watch, setValue, trigger, formState: { errors } } = form;
   const values = watch();
@@ -402,74 +406,66 @@ export function EnrollmentWizard({
   };
 
   /**
-   * Staff enrollment: inquiry → fee lock (issues challan + enrollment token) →
-   * either hand the token link to the parent, or upload documents and submit now.
+   * Staff (walk-in) enrollment in one call: `POST /admissions/enrollment/full-manual`
+   * creates the inquiry, submits the wizard, locks the fees / issues the challan and,
+   * when the fee was received at the desk, converts the child to an active student.
+   * The company is the tenant resolved from this subdomain.
    */
   const submitAdmin = async (data: EnrollmentFormData) => {
     const program = planLabel(data.classGroup, data.careTier);
+    const paid = data.completionMode === "mark_enrolled";
+    if (paid && paymentMethod !== "CASH" && !paymentReference.trim()) {
+      throw new Error("Enter the transaction / cheque reference for the payment.");
+    }
 
-    setProgress("Creating inquiry…");
-    const inquiry = await api.post<ApiInquiry>("/admissions/inquiries", {
-      childName: data.childFullName,
-      childDob: data.dob,
-      gender: data.gender.toUpperCase(),
-      gradeOrProgram: program,
-      parentName: data.fatherName,
-      parentPhone: data.fatherPhone,
-      parentEmail: data.fatherEmail,
-      source: "Walk-in",
-      notes: `Enrollment wizard · joining ${data.joiningDate} · ${data.residentialAddress}`,
-      companyId: COMPANY_ID,
-      branchId: data.branchId,
-    });
-
-    try {
-      setProgress("Locking fees…");
-      const lock = await api.post<ApiFeeLock>(`/admissions/inquiries/${inquiry.id}/lock-fees`, {
+    setProgress("Submitting enrollment…");
+    const result = await api.post<ApiFullManualEnrollment>("/admissions/enrollment/full-manual", {
+      companyId,
+      branchId: data.branchId || undefined,
+      wizardData: wizardDataBody(data, program, {}),
+      feeDetails: {
         monthlyTuition: feeSummary.monthly,
         admissionFee: feeSummary.admission,
         discountType: "NO_DISCOUNT",
         discountValue: 0,
         feeNotes: program,
-      });
-      if (!lock.enrollmentToken) throw new Error("The fee lock did not return an enrollment token.");
+      },
+      confirmPayment: paid,
+      paymentDetails: paid
+        ? {
+            paymentMethod,
+            transactionReference: paymentReference.trim() || undefined,
+            amountPaid: feeSummary.firstPayment,
+            paymentNotes: "Received at enrollment (staff wizard)",
+          }
+        : undefined,
+      staffNotes: `Entered by staff via enrollment wizard · joining ${data.joiningDate} · ${data.residentialAddress}`,
+    });
 
-      if (data.completionMode === "invite_to_pay") {
-        setInviteModal({
-          token: lock.enrollmentToken,
-          tenantSlug,
-          email: data.fatherEmail,
-          parentName: data.fatherName,
-          status: "pending",
-          createdAt: new Date().toISOString(),
-          expiresAt: lock.tokenExpiresAt ?? new Date(Date.now() + 7 * 86_400_000).toISOString(),
-          admissionId: String(inquiry.id),
-          prefill: {},
-          securityHint: lock.emailSent
-            ? `Emailed to ${data.fatherEmail} · challan ${lock.challanNumber ?? "pending"}`
-            : `Challan ${lock.challanNumber ?? "pending"} · share this link with the parent`,
-        });
-        toast.success("Fees locked — enrollment link ready for the parent");
-        return;
-      }
-
-      const documents = await uploadDocuments(lock.enrollmentToken, data);
-      setProgress("Submitting enrollment…");
-      await api.post<ApiEnrollmentSubmission>("/admissions/enrollment/manual-submit", {
-        inquiryId: inquiry.id,
-        wizardData: wizardDataBody(data, program, documents),
-        staffNotes: `Entered by staff via enrollment wizard · joining ${data.joiningDate}`,
-      });
-      toast.success(
-        `Enrollment submitted — challan ${lock.challanNumber ?? ""} issued, awaiting payment`
+    // Documents can only be uploaded against an enrollment token, which full-manual does not return.
+    try {
+      setProgress("Uploading documents…");
+      const link = await api.post<ApiPaymentUrl>(
+        `/admissions/inquiries/${result.inquiryId}/generate-payment-url?resendEmail=${!paid}`
       );
-      setStep(1);
-      setFiles({});
-      form.reset();
+      if (!link.enrollmentToken) throw new Error("no enrollment token was returned");
+      await uploadDocuments(link.enrollmentToken, data);
     } catch (e) {
-      // The inquiry already exists on the board; say so instead of implying nothing was saved.
-      throw new Error(`Inquiry #${inquiry.id} was created, but: ${apiErrorMessage(e, messageOf(e))}`);
+      toast.warning(
+        `Enrollment saved, but the documents could not be attached: ${apiErrorMessage(e, messageOf(e))}`
+      );
     }
+
+    toast.success(
+      paid
+        ? result.message ||
+            `Enrolled — student ${result.studentCode ?? result.studentId ?? ""} is active`
+        : `Challan ${result.challanNumber ?? ""} issued — the payment link was emailed to the parent`
+    );
+    setStep(1);
+    setFiles({});
+    setPaymentReference("");
+    form.reset();
   };
 
   const onSubmit = form.handleSubmit(async (data) => {
@@ -1135,9 +1131,9 @@ export function EnrollmentWizard({
                             checked={values.completionMode === "invite_to_pay"}
                             onChange={() => setValue("completionMode", "invite_to_pay")}
                           />
-                          <p className="font-semibold text-heading">Invite parent to complete</p>
+                          <p className="font-semibold text-heading">Fee not paid yet</p>
                           <p className="mt-1 text-xs text-muted">
-                            Locks the fees and emails the parent a secure /enroll/[token] link
+                            Issues the challan (Enrolled Unpaid) and emails the parent the payment link
                           </p>
                         </label>
                         <label
@@ -1154,12 +1150,48 @@ export function EnrollmentWizard({
                             checked={values.completionMode === "mark_enrolled"}
                             onChange={() => setValue("completionMode", "mark_enrolled")}
                           />
-                          <p className="font-semibold text-heading">Submit enrollment now</p>
+                          <p className="font-semibold text-heading">Fee received — enroll now</p>
                           <p className="mt-1 text-xs text-muted">
-                            Uploads documents and issues the fee challan (enrolled once paid)
+                            Records the payment and activates the student immediately
                           </p>
                         </label>
                       </div>
+                      )}
+                      {!isPublic && values.completionMode === "mark_enrolled" && (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <Label>Payment method</Label>
+                            <Select
+                              value={paymentMethod}
+                              onValueChange={(v) => setPaymentMethod(v as ApiPaymentMethod)}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PAYMENT_METHODS.map((m) => (
+                                  <SelectItem key={m.value} value={m.value}>
+                                    {m.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="paymentReference">
+                              Transaction reference{paymentMethod === "CASH" ? " (optional)" : ""}
+                            </Label>
+                            <Input
+                              id="paymentReference"
+                              className="mt-1"
+                              value={paymentReference}
+                              onChange={(e) => setPaymentReference(e.target.value)}
+                            />
+                          </div>
+                          <p className="text-xs text-muted sm:col-span-2">
+                            Amount received: {formatCurrency(feeSummary.firstPayment)} (first payment total)
+                          </p>
+                        </div>
                       )}
                       {isPublic && (
                         <p className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 text-xs text-muted">
@@ -1282,8 +1314,8 @@ export function EnrollmentWizard({
                       : isPublic
                       ? "Submit enrollment"
                       : values.completionMode === "invite_to_pay"
-                        ? "Create secure invite link"
-                        : "Submit enrollment & issue challan"}
+                        ? "Submit & issue challan"
+                        : "Submit & enroll student"}
                   </Button>
                 )}
               </div>
@@ -1291,16 +1323,6 @@ export function EnrollmentWizard({
           </CardContent>
         </Card>
       </div>
-
-      <EnrollmentInviteLinkModal
-        open={!!inviteModal}
-        invite={inviteModal}
-        onClose={() => {
-          setInviteModal(null);
-          setStep(1);
-          form.reset();
-        }}
-      />
     </div>
   );
 }

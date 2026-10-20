@@ -27,6 +27,7 @@ import {
   Palette,
   Briefcase,
   ChevronLeft,
+  BadgeCheck,
   Lock,
   X,
   MessageSquare,
@@ -63,6 +64,8 @@ const navGroups = [
     items: [
       { href: "/admissions", label: "Inquiries & Leads", icon: ClipboardList },
       { href: "/admissions/new", label: "Enrollment Wizard", icon: UserPlus },
+      { href: "/admissions/branch-fee-approvals", label: "Branch Fee Approval", icon: BadgeCheck },
+      { href: "/admissions/company-fee-approvals", label: "Company Fee Approval", icon: Lock },
     ],
   },
   {
@@ -220,7 +223,12 @@ export function Sidebar({ schoolName }: { schoolName?: string } = {}) {
                     item.href !== "/dashboard" &&
                     item.href !== "/inventory" &&
                     item.href !== "/hr" &&
-                    pathname.startsWith(item.href + "/");
+                    pathname.startsWith(item.href + "/") &&
+                    !group.items.some(
+                      (other) =>
+                        other.href.length > item.href.length &&
+                        (pathname === other.href || pathname.startsWith(other.href + "/"))
+                    );
                   const inventoryDetail =
                     item.href === "/inventory" &&
                     /^\/inventory\/[^/]+$/.test(pathname) &&

@@ -642,6 +642,10 @@ export interface FeeLockRequest {
 
 export interface AdmissionCard {
   id: string;
+  /** Backend pipeline stage (e.g. PENDING_BRANCH_FEE_APPROVAL) when loaded from the API */
+  apiStage?: string;
+  /** Challan total after discount, once fees are locked */
+  netAmount?: number;
   studentName: string;
   age: number;
   parentName: string;

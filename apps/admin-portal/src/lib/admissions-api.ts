@@ -46,6 +46,60 @@ export type ApiInquiry = {
   updatedAt?: string | null;
 };
 
+export type ApiInquiryMeeting = {
+  id: number;
+  meetingType?: string | null;
+  scheduledDate?: string | null;
+  scheduledTime?: string | null;
+  locationOrClassroom?: string | null;
+  status?: string | null;
+  notes?: string | null;
+};
+
+/** `UpdateInquiryMeetingRequest` — body of `PUT /admissions/inquiries/{id}/meetings/{meetingId}`. */
+export type MeetingUpdate = {
+  meetingType: ApiMeetingType;
+  scheduledDate: string;
+  scheduledTime: string;
+  locationOrClassroom?: string;
+  status: string;
+  notes?: string;
+};
+
+export const MEETING_STATUSES = [
+  { value: "SCHEDULED", label: "Scheduled" },
+  { value: "RESCHEDULED", label: "Rescheduled" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "CANCELLED", label: "Cancelled" },
+  { value: "NO_SHOW", label: "No show" },
+] as const;
+
+/** `InquiryResponse` from `GET /admissions/inquiries/{id}` — carries meetings, fees and challan. */
+export type ApiInquiryDetail = ApiInquiry & {
+  priorityBadge?: string | null;
+  meetingType?: string | null;
+  meetingDate?: string | null;
+  meetingTime?: string | null;
+  meetingLocation?: string | null;
+  meetingStatus?: string | null;
+  meetingNotes?: string | null;
+  meetings?: ApiInquiryMeeting[] | null;
+  feeLockId?: number | null;
+  monthlyTuition?: number | null;
+  admissionFee?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
+  netAmount?: number | null;
+  feeNotes?: string | null;
+  feeApprovalStatus?: string | null;
+  challanNumber?: string | null;
+  challanDueDate?: string | null;
+  challanStatus?: string | null;
+  enrollmentToken?: string | null;
+  paymentUrl?: string | null;
+  enrollmentWizardUrl?: string | null;
+};
+
 export type ApiKanbanCard = ApiInquiry & {
   priorityBadge?: string | null;
   daysInCurrentStage?: number | null;
@@ -87,7 +141,87 @@ export type ApiFeeLock = {
 export type ApiStudentConversion = {
   studentId: number;
   studentCode?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  status?: string | null;
+  inquiryId?: number | null;
+  challanNumber?: string | null;
+  paidAt?: string | null;
   message?: string | null;
+};
+
+/** `FeeApprovalTicketDto` — rows of the branch and Head Office fee approval queues. */
+export type ApiFeeApprovalTicket = {
+  inquiryId: number;
+  feeLockId?: number | null;
+  childName?: string | null;
+  parentName?: string | null;
+  parentPhone?: string | null;
+  parentEmail?: string | null;
+  branchId?: string | null;
+  companyId?: string | null;
+  gradeOrProgram?: string | null;
+  monthlyTuition?: number | null;
+  admissionFee?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
+  netAmount?: number | null;
+  feeNotes?: string | null;
+  approvalStatus?: string | null;
+  pipelineStage?: string | null;
+  proposedBy?: string | null;
+  proposedAt?: string | null;
+  branchApprovedBy?: string | null;
+  branchApprovedAt?: string | null;
+  hoApprovedBy?: string | null;
+  hoApprovedAt?: string | null;
+};
+
+/** `GeneratePaymentUrlResponse` */
+export type ApiPaymentUrl = {
+  inquiryId: number;
+  challanNumber?: string | null;
+  amountDue?: number | null;
+  dueDate?: string | null;
+  paymentStatus?: string | null;
+  enrollmentToken?: string | null;
+  paymentUrl?: string | null;
+  enrollmentWizardUrl?: string | null;
+  expiresAt?: string | null;
+  emailSent?: boolean;
+  message?: string | null;
+};
+
+/** `FullManualEnrollmentResponse` */
+export type ApiFullManualEnrollment = {
+  inquiryId: number;
+  submissionId?: number | null;
+  feeLockId?: number | null;
+  challanNumber?: string | null;
+  netAmount?: number | null;
+  challanStatus?: string | null;
+  stage?: string | null;
+  studentId?: number | null;
+  studentCode?: string | null;
+  studentStatus?: string | null;
+  message?: string | null;
+};
+
+export type ApiPaymentMethod = "CASH" | "BANK_TRANSFER" | "CHEQUE" | "ONLINE_GATEWAY";
+
+export const PAYMENT_METHODS: { value: ApiPaymentMethod; label: string }[] = [
+  { value: "CASH", label: "Cash" },
+  { value: "BANK_TRANSFER", label: "Bank transfer" },
+  { value: "CHEQUE", label: "Cheque" },
+  { value: "ONLINE_GATEWAY", label: "Online gateway" },
+];
+
+/** `PaymentConfirmationRequest` — body of `mark-paid` and the full-manual `paymentDetails`. */
+export type PaymentConfirmation = {
+  paymentMethod: ApiPaymentMethod;
+  transactionReference?: string;
+  amountPaid?: number;
+  paymentNotes?: string;
 };
 
 /** Backend stage → Kanban column. REJECTED / CLOSED have no column. */
@@ -198,12 +332,14 @@ export function toAdmissionCard(card: ApiKanbanCard): AdmissionCard | null {
     parentPhone: card.parentPhone ?? undefined,
     monthlyTuition: card.monthlyTuition ?? undefined,
     admissionFee: card.admissionFee ?? undefined,
+    netAmount: card.netAmount ?? undefined,
     invoiceNumber: card.challanNumber ?? undefined,
     meetingKind: card.meetingType ? MEETING_FROM_API[card.meetingType] : undefined,
     meetingDate: card.meetingDate ?? undefined,
     meetingLocation: card.meetingLocation ?? undefined,
     inquirySource: sourceFromApi(card.source),
     childDob: card.childDob ?? undefined,
+    apiStage: card.stage,
   };
 }
 
@@ -245,6 +381,28 @@ export function scheduleTourBody(values: {
   };
 }
 
+/**
+ * Why an inquiry cannot wait on payment yet: fees are proposed (3a), approved by
+ * the branch admin (3b), then approved and locked by the company / Head Office (3c).
+ */
+export function feeApprovalBlocker(stage: string | undefined): string {
+  switch (stage) {
+    case "PENDING_BRANCH_FEE_APPROVAL":
+      return "The proposed fees are waiting for branch approval, then company (Head Office) approval.";
+    case "BRANCH_FEE_APPROVED":
+    case "HO_FEE_LOCK":
+      return "The branch has approved the fees — they are now waiting for company (Head Office) approval.";
+    default:
+      return "Propose the fees first, then get them approved by the branch and by the company (Head Office).";
+  }
+}
+
+/** Public `/enroll/{token}` page on this host — the parent's enrollment form. */
+export function enrollmentFormUrl(token: string): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/enroll/${encodeURIComponent(token)}`;
+}
+
 /** Body for `POST /admissions/inquiries/{id}/propose-fees` and `/lock-fees`. */
 export function feesBody(values: {
   monthlyTuition: number;
@@ -261,6 +419,37 @@ export function feesBody(values: {
     feeNotes: values.feeNotes || undefined,
   };
 }
+
+const DISCOUNT_FROM_API: Record<string, DiscountType> = {
+  NO_DISCOUNT: "none",
+  PERCENTAGE: "percent",
+  FIXED_AMOUNT: "fixed",
+  SIBLING: "sibling",
+};
+
+/** A proposed fee package (ticket or inquiry detail) as fee form values. */
+export function feeValuesFrom(fees: {
+  monthlyTuition?: number | null;
+  admissionFee?: number | null;
+  discountType?: string | null;
+  discountValue?: number | null;
+  feeNotes?: string | null;
+}) {
+  return {
+    monthlyTuition: fees.monthlyTuition ?? 0,
+    admissionFee: fees.admissionFee ?? 0,
+    discountType: DISCOUNT_FROM_API[fees.discountType ?? ""] ?? "none",
+    discountValue: fees.discountValue ?? 0,
+    feeNotes: fees.feeNotes ?? "",
+  };
+}
+
+export const DISCOUNT_LABELS_API: Record<string, string> = {
+  NO_DISCOUNT: "No discount",
+  PERCENTAGE: "Percent",
+  FIXED_AMOUNT: "Fixed amount",
+  SIBLING: "Sibling",
+};
 
 /** Message from a failed BFF call — the backend sends `{ message }`, the BFF `{ error }`. */
 export function apiErrorMessage(error: unknown, fallback = "Request failed."): string {

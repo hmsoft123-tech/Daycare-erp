@@ -34,6 +34,7 @@ type LoginResponse = {
   fullName?: string;
   tenantId?: string;
   branchId?: string | null;
+  branchIds?: string[];
   roles?: string[];
   permissions?: string[];
   expiresIn?: number;
@@ -192,6 +193,7 @@ export async function loginHandler(request: Request) {
     fullName: data.fullName ?? data.username ?? usernameOrEmail,
     tenantId: tenant.tenantId,
     branchId: data.branchId ?? null,
+    branchIds: Array.isArray(data.branchIds) ? data.branchIds.map(String).slice(0, 200) : [],
     roles: Array.isArray(data.roles) ? data.roles.map(String) : [],
     permissions: Array.isArray(data.permissions) ? data.permissions.map(String) : [],
     exp,

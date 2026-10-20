@@ -53,6 +53,8 @@ export type TenantSessionState = {
   roles: string[];
   /** Backend permission codes, e.g. INQUIRY_READ, FEE_LOCK */
   permissions: string[];
+  /** Branches from the login response — one for branch staff, all for an admin */
+  branchIds: string[];
   /** Legacy branch context — null / head_office = HQ view */
   contextId: string;
   contextType: "head_office" | "branch";
@@ -69,6 +71,7 @@ export type TenantSessionState = {
     userName: string;
     roles: string[];
     permissions: string[];
+    branchIds?: string[];
   }) => void;
   clearUserSession: () => void;
   hasRole: (role: string) => boolean;
@@ -92,6 +95,7 @@ export const useTenantStore = create<TenantSessionState>()(
       userName: null,
       roles: [],
       permissions: [],
+      branchIds: [],
       contextId: HEAD_OFFICE_ID,
       contextType: "head_office",
       currentBranchId: null,
@@ -106,11 +110,11 @@ export const useTenantStore = create<TenantSessionState>()(
           schoolName: branding.schoolName,
         }),
 
-      setUserSession: ({ userName, roles, permissions }) =>
-        set({ userName, roles, permissions, userType: userTypeForRoles(roles) }),
+      setUserSession: ({ userName, roles, permissions, branchIds = [] }) =>
+        set({ userName, roles, permissions, branchIds, userType: userTypeForRoles(roles) }),
 
       clearUserSession: () =>
-        set({ userName: null, roles: [], permissions: [], userType: null }),
+        set({ userName: null, roles: [], permissions: [], branchIds: [], userType: null }),
 
       hasRole: (role) => get().roles.includes(role),
 

@@ -218,7 +218,11 @@ export function KanbanCard({ card }: KanbanCardProps) {
                 )}
                 {card.feeNotes && <p className="line-clamp-2 opacity-80">{card.feeNotes}</p>}
                 {card.stage === "pending_ho_fee" && (
-                  <p className="font-semibold text-amber-800">Awaiting HO fee-lock approval</p>
+                  <p className="font-semibold text-amber-800">
+                    {card.apiStage === "PENDING_BRANCH_FEE_APPROVAL"
+                      ? "Awaiting branch fee approval"
+                      : "Awaiting company fee approval"}
+                  </p>
                 )}
                 {card.stage === "enrol_unpaid" && card.invoiceNumber && (
                   <p className="text-orange-700">{card.invoiceNumber} · unpaid</p>

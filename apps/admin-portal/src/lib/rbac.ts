@@ -128,6 +128,14 @@ export const CAPABILITIES = {
     authority: A.FeeLock,
     source: "api",
   },
+  /**
+   * Company (Head Office) fee approval queue. Same roles as the lock, but no
+   * authority fallback — a branch admin must never see this queue.
+   */
+  "fees.companyApprove": {
+    roles: [...TOP, R.Admin, R.Accountant, R.FinanceAdmin],
+    source: "api",
+  },
   "payments.confirm": {
     roles: [...TOP, R.Admin, R.Accountant, R.FinanceAdmin],
     authority: A.PaymentConfirm,
@@ -179,6 +187,9 @@ export const CAPABILITIES = {
     source: "api",
   },
   "security.roleReview": { roles: [R.SuperAdmin, R.PlatformAdmin, R.CompanyAdmin], source: "api" },
+
+  /** Branch staff login accounts (`/branches/{branchId}/staff`) — the API doc names no roles yet */
+  "staff.accounts": { roles: [...TOP, R.Admin, R.BranchAdmin], source: "provisional" },
 
   // ── Modules without an API yet (provisional) ────────────────────────
   /** Staff hiring rides on the admissions endpoints today */
@@ -235,6 +246,8 @@ export function can(user: AccessSubject | null | undefined, capability: Capabili
  */
 const ROUTE_RULES: [prefix: string, capability: Capability][] = [
   ["/admissions/new", "admissions.update"],
+  ["/admissions/company-fee-approvals", "fees.companyApprove"],
+  ["/admissions/branch-fee-approvals", "fees.branchApprove"],
   ["/admissions", "admissions.view"],
   ["/students", "students.read"],
   ["/billing/fee-locks", "fees.lock"],

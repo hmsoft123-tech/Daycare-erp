@@ -57,6 +57,7 @@ export function AppProviders({
       userName: user.fullName || user.username,
       roles: user.roles,
       permissions: user.permissions,
+      branchIds: user.branchIds ?? (user.branchId ? [user.branchId] : []),
     });
   }, [user, setUserSession]);
 

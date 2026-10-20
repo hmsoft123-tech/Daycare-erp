@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Receipt, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +26,12 @@ export type EnrollmentFeeValues = {
 
 type Props = {
   open: boolean;
-  card: AdmissionCard | null;
+  card: Pick<AdmissionCard, "studentName"> | null;
   targetStageLabel: string;
+  /** Pre-fills the form each time it opens (e.g. the proposed package under review) */
+  initialValues?: EnrollmentFeeValues;
+  /** Submit button text */
+  confirmLabel?: string;
   onCancel: () => void;
   onConfirm: (values: EnrollmentFeeValues) => void;
 };
@@ -36,6 +40,8 @@ export function EnrollmentFeeModal({
   open,
   card,
   targetStageLabel,
+  initialValues,
+  confirmLabel = "Save fees & move",
   onCancel,
   onConfirm,
 }: Props) {
@@ -45,6 +51,16 @@ export function EnrollmentFeeModal({
   const [discountValue, setDiscountValue] = useState("0");
   const [feeNotes, setFeeNotes] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!open || !initialValues) return;
+    setMonthlyTuition(String(initialValues.monthlyTuition));
+    setAdmissionFee(String(initialValues.admissionFee));
+    setDiscountType(initialValues.discountType);
+    setDiscountValue(String(initialValues.discountValue));
+    setFeeNotes(initialValues.feeNotes);
+    setErrors({});
+  }, [open, initialValues]);
 
   const resetAndClose = () => {
     setMonthlyTuition("80000");
@@ -94,9 +110,13 @@ export function EnrollmentFeeModal({
           {card && (
             <p className="mt-1 text-sm text-muted">
               Moving <span className="font-semibold text-heading">{card.studentName}</span> to {targetStageLabel}
-              {targetStageLabel.includes("HO") || targetStageLabel.includes("Unpaid")
-                ? " — Head Office must approve fee lock before pending payment"
-                : ""}
+              {targetStageLabel.includes("Proposed")
+                ? " — the branch admin and then the company approve the fees before payment"
+                : targetStageLabel === "Enrolled Unpaid"
+                  ? " — locking issues the challan and emails the parent the enrollment form & payment link"
+                  : targetStageLabel.includes("HO") || targetStageLabel.includes("Unpaid")
+                    ? " — Head Office must approve fee lock before pending payment"
+                    : ""}
             </p>
           )}
         </div>
@@ -192,7 +212,7 @@ export function EnrollmentFeeModal({
           Cancel
         </Button>
         <Button type="button" onClick={submit}>
-          Save fees &amp; move
+          {confirmLabel}
         </Button>
       </div>
     </ModalPortal>

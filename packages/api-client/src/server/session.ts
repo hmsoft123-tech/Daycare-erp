@@ -18,6 +18,8 @@ export type SessionUser = {
   fullName: string;
   tenantId: string;
   branchId: string | null;
+  /** Every branch the user can work in (all of the company's for an admin) — absent in older cookies */
+  branchIds?: string[];
   roles: string[];
   permissions: string[];
   /** Expiry, epoch seconds — mirrors the JWT */
