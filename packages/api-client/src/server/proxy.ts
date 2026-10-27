@@ -53,7 +53,9 @@ async function forward(
   path: string,
   search: string,
   authHeaders: Record<string, string>,
-  maxBodyBytes: number
+  maxBodyBytes: number,
+  /** Fields set on a JSON object body, replacing whatever the browser sent */
+  jsonOverrides?: Record<string, string>
 ): Promise<NextResponse> {
   const method = request.method.toUpperCase();
   const headers = new Headers(authHeaders);
@@ -63,12 +65,25 @@ async function forward(
   }
   headers.set("X-Forwarded-For", clientIp(request));
 
-  let body: ArrayBuffer | undefined;
+  let body: ArrayBuffer | string | undefined;
   if (method !== "GET" && method !== "DELETE") {
     const declared = Number(request.headers.get("content-length") ?? "0");
     if (declared > maxBodyBytes) return jsonError(413, "Upload is too large.");
     body = await request.arrayBuffer();
     if (body.byteLength > maxBodyBytes) return jsonError(413, "Upload is too large.");
+
+    if (jsonOverrides && headers.get("content-type")?.includes("application/json")) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(new TextDecoder().decode(body));
+      } catch {
+        return jsonError(400, "Invalid JSON body.");
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return jsonError(400, "Expected a JSON object.");
+      }
+      body = JSON.stringify({ ...parsed, ...jsonOverrides });
+    }
   }
 
   let upstream: Response;
@@ -177,7 +192,10 @@ export function createPublicProxy({ allow, maxBodyBytes = 15 * 1024 * 1024 }: Pr
       `public/${path}`,
       new URL(request.url).search,
       { "X-Tenant-ID": tenantId, ...(origin ? { Origin: origin } : {}) },
-      maxBodyBytes
+      maxBodyBytes,
+      // Public forms name their school in the body; it is always this site's school,
+      // never one chosen by the browser.
+      path.startsWith("forms/") ? { tenantId } : undefined
     );
   };
 }
