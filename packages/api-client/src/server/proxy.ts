@@ -38,6 +38,16 @@ function buildPath(segments: string[] | undefined): string | null {
   return segments.join("/");
 }
 
+/** This site's public origin (e.g. https://school.vercel.app), from the proxy headers. */
+function siteOrigin(request: Request): string | null {
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(",")[0].trim();
+  if (!/^[a-z0-9.-]+(:\d{1,5})?$/i.test(host)) return null;
+  const proto = (request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", ""))
+    .split(",")[0]
+    .trim();
+  return proto === "https" || proto === "http" ? `${proto}://${host}` : null;
+}
+
 async function forward(
   request: Request,
   path: string,
@@ -158,11 +168,15 @@ export function createPublicProxy({ allow, maxBodyBytes = 15 * 1024 * 1024 }: Pr
     const tenantId = ((await resolveTenant(host)) ?? devFallbackTenant(host))?.tenantId;
     if (!tenantId) return jsonError(404, "This school address is not recognised.");
 
+    // The widget endpoints only answer websites on the company's allowed list. This app
+    // is that website, but browsers omit Origin on same-origin GETs, so send our own.
+    const origin = siteOrigin(request);
+
     return forward(
       request,
       `public/${path}`,
       new URL(request.url).search,
-      { "X-Tenant-ID": tenantId },
+      { "X-Tenant-ID": tenantId, ...(origin ? { Origin: origin } : {}) },
       maxBodyBytes
     );
   };
