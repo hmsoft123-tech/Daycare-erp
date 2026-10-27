@@ -14,8 +14,8 @@ import { MarkPaidModal } from "./MarkPaidModal";
 import { EditMeetingModal } from "./EditMeetingModal";
 import { useApiClient } from "@/lib/api";
 import {
-  DISCOUNT_LABELS_API,
   apiErrorMessage,
+  feeDiscountLabel,
   enrollmentFormUrl,
   feeApprovalBlocker,
   toAdmissionCard,
@@ -331,16 +331,10 @@ export function AdmissionDetail({ id }: { id: string }) {
                     <dt className="text-muted">Admission fee</dt>
                     <dd className="font-medium">{formatCurrency(data.admissionFee ?? 0)}</dd>
                   </div>
-                  {data.discountType && data.discountType !== "NO_DISCOUNT" && (
+                  {feeDiscountLabel(data, formatCurrency) && (
                     <div className="flex justify-between">
-                      <dt className="text-muted">
-                        Discount ({DISCOUNT_LABELS_API[data.discountType] ?? label(data.discountType)})
-                      </dt>
-                      <dd className="font-medium">
-                        {data.discountType === "PERCENTAGE"
-                          ? `${data.discountValue ?? 0}%`
-                          : formatCurrency(data.discountValue ?? 0)}
-                      </dd>
+                      <dt className="text-muted">Discount</dt>
+                      <dd className="font-medium">{feeDiscountLabel(data, formatCurrency)}</dd>
                     </div>
                   )}
                   <div className="flex justify-between border-t border-[#F1F3F5] pt-1 font-semibold text-heading">

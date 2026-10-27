@@ -546,6 +546,23 @@ export const DISCOUNT_LABELS_API: Record<string, string> = {
   SIBLING: "Sibling",
 };
 
+/**
+ * Discount of a fee package for display, or null when there is none. Dynamic
+ * proposals (discount codes) come back as `NO_DISCOUNT` with the total discount
+ * amount in `discountValue`, so a value there is still a discount.
+ */
+export function feeDiscountLabel(
+  fees: { discountType?: string | null; discountValue?: number | null },
+  money: (n: number) => string
+): string | null {
+  const value = fees.discountValue ?? 0;
+  if (!fees.discountType || fees.discountType === "NO_DISCOUNT") {
+    return value > 0 ? `−${money(value)}` : null;
+  }
+  const kind = DISCOUNT_LABELS_API[fees.discountType] ?? fees.discountType;
+  return `${kind} · ${fees.discountType === "PERCENTAGE" ? `${value}%` : money(value)}`;
+}
+
 /** Message from a failed BFF call — the backend sends `{ message }`, the BFF `{ error }`. */
 export function apiErrorMessage(error: unknown, fallback = "Request failed."): string {
   const body = (error as { body?: { message?: unknown; error?: unknown } } | null)?.body;

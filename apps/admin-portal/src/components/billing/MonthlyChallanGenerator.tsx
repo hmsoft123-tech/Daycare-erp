@@ -53,9 +53,12 @@ const ALL_BRANCHES = "__all";
 
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
-function statusBadge(status: string | null | undefined) {
+function statusBadge(status: string | null | undefined, net: number | null | undefined) {
   const s = (status ?? "").toUpperCase();
-  if (s === "PAID") return <Badge variant="success">Paid by credit</Badge>;
+  // A challan fully covered by credit comes back GENERATED with nothing to pay.
+  if (s === "PAID" || ((s === "GENERATED" || s === "UNPAID") && net === 0)) {
+    return <Badge variant="success">Covered by credit</Badge>;
+  }
   if (s === "UNPAID" || s === "GENERATED" || s === "PENDING") return <Badge variant="warning">Unpaid</Badge>;
   if (s.includes("SKIP")) return <Badge variant="secondary">Skipped</Badge>;
   if (s.includes("ERROR") || s.includes("FAIL")) return <Badge variant="danger">Failed</Badge>;
@@ -248,7 +251,7 @@ export function MonthlyChallanGenerator() {
                           {(d.creditApplied ?? 0) > 0 ? `−${formatCurrency(d.creditApplied ?? 0)}` : "—"}
                         </td>
                         <td className="py-2 pr-4 text-right font-semibold text-heading">{formatCurrency(d.netAmount ?? 0)}</td>
-                        <td className="py-2 pr-4">{statusBadge(d.status)}</td>
+                        <td className="py-2 pr-4">{statusBadge(d.status, d.netAmount)}</td>
                         <td className="py-2 text-xs text-muted">{d.message || ""}</td>
                       </tr>
                     ))}

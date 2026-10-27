@@ -20,8 +20,8 @@ import { RejectFeesModal } from "./RejectFeesModal";
 import { useCan } from "@/components/security/Can";
 import { useApiClient } from "@/lib/api";
 import {
-  DISCOUNT_LABELS_API,
   apiErrorMessage,
+  feeDiscountLabel,
   feeValuesFrom,
   type ApiFeeApprovalTicket,
   type ApiFeeLock,
@@ -247,14 +247,7 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
           {tickets.map((t) => {
             const pending = awaitsLevel(t, level);
             const busy = busyId === t.inquiryId;
-            const discount =
-              t.discountType && t.discountType !== "NO_DISCOUNT"
-                ? `${DISCOUNT_LABELS_API[t.discountType] ?? t.discountType} · ${
-                    t.discountType === "PERCENTAGE"
-                      ? `${t.discountValue ?? 0}%`
-                      : formatCurrency(t.discountValue ?? 0)
-                  }`
-                : "No discount";
+            const discount = feeDiscountLabel(t, formatCurrency) ?? "No discount";
             return (
               <Card key={`${t.inquiryId}-${t.feeLockId ?? ""}`}>
                 <CardContent className="flex flex-wrap items-start justify-between gap-4 p-5">
