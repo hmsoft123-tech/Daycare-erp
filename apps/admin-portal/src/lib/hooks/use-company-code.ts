@@ -8,30 +8,34 @@ import { useTenantStore } from "@/lib/tenant-store";
 type ApiCompany = { id: number; name?: string | null; code?: string | null };
 
 /**
- * `companyCode` for the fee endpoints (`/fees/structures/*`, `/fees/discounts`):
- * the tenant's company code, or the tenant id while it loads / if it cannot be read.
+ * `companyCode` for the fee endpoints (`/fees/structures/*`, `/fees/discounts`,
+ * `/fees/calculate`) and `companyId` for monthly challans: the tenant id.
+ *
+ * The backend stores the tenant id as the company on inquiries and students, and
+ * `calculate-fees` / `propose-fees` look fee rules up by the inquiry's company (they
+ * take no company code), so rules saved under the Head Office code are never found
+ * (verified 2026-10-28). The Head Office record only supplies the display name.
  */
 export function useCompanyCode(): {
   companyCode: string;
   isLoading: boolean;
-  /** True when the code came from the Head Office record, not the tenant-id fallback */
+  /** False until the signed-in tenant is known */
   resolved: boolean;
   companyName?: string;
 } {
   const api = useApiClient();
   const tenantId = useTenantStore((s) => s.tenantId) ?? "";
-  const { data, isLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: ["company", tenantId],
     queryFn: () => api.get<ApiCompany[]>("/hierarchy/companies"),
     enabled: !!tenantId,
     staleTime: 10 * 60_000,
     retry: 0,
   });
-  const company = data?.[0];
   return {
-    companyCode: company?.code || tenantId,
-    isLoading,
-    resolved: !!company?.code,
-    companyName: company?.name ?? undefined,
+    companyCode: tenantId,
+    isLoading: false,
+    resolved: !!tenantId,
+    companyName: data?.[0]?.name ?? undefined,
   };
 }

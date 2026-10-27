@@ -323,10 +323,7 @@ export function FeeSetupHub() {
       {!companyLoading && !resolved && (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            No Head Office record was found, so fee rules are using the tenant id <code className="font-mono">{companyCode || "—"}</code> as
-            the company code. Create the Head Office record (company code) first so fee rules and proposals match.
-          </span>
+          <span>Your school could not be identified — sign in again before changing fee rules.</span>
         </div>
       )}
 

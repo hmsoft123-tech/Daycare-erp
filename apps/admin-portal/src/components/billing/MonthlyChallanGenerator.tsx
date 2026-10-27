@@ -166,7 +166,7 @@ export function MonthlyChallanGenerator() {
             {!companyLoading && !resolved && (
               <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                No Head Office record found — challans will be requested for company “{companyCode || "—"}”.
+                Your school could not be identified — sign in again before generating challans.
               </p>
             )}
             <Button onClick={review} disabled={running || companyLoading || !companyCode}>
