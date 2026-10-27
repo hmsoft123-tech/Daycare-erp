@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { branches } from "@/data/branches";
+import { usePublicFormOptions } from "@/lib/public-form-options";
 import { toast } from "sonner";
 import type { InquiryType } from "@/types";
 import { cn } from "@/lib/utils";
@@ -45,7 +45,6 @@ const inquirySchema = z
     resumeNote: z.string().optional(),
     qualification: z.string().optional(),
     message: z.string().optional(),
-    preferContact: z.enum(["phone", "email", "whatsapp"]),
   })
   .superRefine((data, ctx) => {
     const needsChild = data.inquiryType === "admission" || data.inquiryType === "tour";
@@ -80,8 +79,6 @@ const inquirySchema = z
   });
 
 type InquiryFormData = z.infer<typeof inquirySchema>;
-
-const PROGRAMS =["Daycare", "Preschool", "Kindergarten", "After School", "Therapy Services"];
 
 const INQUIRY_TYPES: { value: InquiryType; label: string; description: string }[] = [
   { value: "admission", label: "Admission", description: "Enroll my child" },
@@ -137,7 +134,6 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
       program: "",
       branchId: "",
       schedulePreference: undefined,
-      preferContact: "phone",
     },
   });
 
@@ -147,6 +143,17 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
 
   const inquiryType = watch("inquiryType");
   const childDob = watch("childDob");
+  const selectedBranch = watch("branchId");
+  // The shareable link carries the school's widget key, which unlocks its live branch / program lists.
+  const { branches, programs, live } = usePublicFormOptions(searchParams.get("key"), selectedBranch);
+
+  // A program picked for another branch may not be offered at this one.
+  const selectedProgram = watch("program");
+  useEffect(() => {
+    if (live && selectedProgram && programs.length && !programs.includes(selectedProgram)) {
+      setValue("program", "");
+    }
+  }, [live, programs, selectedProgram, setValue]);
   const derivedAge = childDob ? deriveAge(childDob) : undefined;
 
   const showChildFields = inquiryType === "admission" || inquiryType === "tour";
@@ -176,7 +183,6 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
           `${INQUIRY_TYPES.find((t) => t.value === data.inquiryType)?.label ?? "General"} inquiry`,
           data.preferredStartDate && `preferred start ${data.preferredStartDate}`,
           data.schedulePreference && `schedule ${data.schedulePreference.replace(/_/g, " ")}`,
-          `contact by ${data.preferContact}`,
         ]
           .filter(Boolean)
           .join(" · ");
@@ -286,28 +292,34 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label>Program</Label>
-              <Select value={watch("program")} onValueChange={(v) => setValue("program", v)}>
-                <SelectTrigger><SelectValue placeholder="Select program" /></SelectTrigger>
+              <Label>Preferred Branch</Label>
+              <Select value={selectedBranch} onValueChange={(v) => setValue("branchId", v, { shouldValidate: true })}>
+                <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
                 <SelectContent>
-                  {PROGRAMS.map((p) => (
+                  {branches.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.branchId && <p className="mt-1 text-xs text-red-600">{errors.branchId.message}</p>}
+            </div>
+            <div>
+              <Label>Program</Label>
+              <Select
+                value={selectedProgram}
+                disabled={programs.length === 0}
+                onValueChange={(v) => setValue("program", v, { shouldValidate: true })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={programs.length ? "Select program" : "Select a branch first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {errors.program && <p className="mt-1 text-xs text-red-600">{errors.program.message}</p>}
-            </div>
-            <div>
-              <Label>Preferred Branch</Label>
-              <Select value={watch("branchId")} onValueChange={(v) => setValue("branchId", v)}>
-                <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
-                <SelectContent>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.branchId && <p className="mt-1 text-xs text-red-600">{errors.branchId.message}</p>}
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -368,11 +380,11 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
             </div>
             <div>
               <Label>Preferred Branch (optional)</Label>
-              <Select value={watch("branchId")} onValueChange={(v) => setValue("branchId", v)}>
+              <Select value={selectedBranch} onValueChange={(v) => setValue("branchId", v)}>
                 <SelectTrigger><SelectValue placeholder="Any branch" /></SelectTrigger>
                 <SelectContent>
                   {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -384,21 +396,6 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
           </div>
         </div>
       )}
-
-      <div>
-        <Label>Preferred Contact Method</Label>
-        <Select
-          value={watch("preferContact")}
-          onValueChange={(v) => setValue("preferContact", v as "phone" | "email" | "whatsapp")}
-        >
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="phone">Phone</SelectItem>
-            <SelectItem value="email">Email</SelectItem>
-            <SelectItem value="whatsapp">WhatsApp</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       <div>
         <Label htmlFor="message">Message (optional)</Label>

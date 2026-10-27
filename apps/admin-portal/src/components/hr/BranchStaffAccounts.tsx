@@ -23,13 +23,13 @@ import { apiErrorMessage } from "@/lib/admissions-api";
 import {
   BRANCH_STAFF_ROLES,
   branchStaffPath,
-  type ApiBranch,
   type ApiBranchStaff,
   type BranchStaffRole,
   type CreateBranchStaff,
 } from "@/lib/branch-staff-api";
 import { Roles } from "@/lib/rbac";
 import { useTenantStore } from "@/lib/tenant-store";
+import { branchLabel, useBranches } from "@/lib/hooks/use-branches";
 import { formatDate } from "@/lib/utils";
 
 const EMPTY: CreateBranchStaff = {
@@ -50,7 +50,6 @@ export function BranchStaffAccounts() {
   const api = useApiClient();
   const queryClient = useQueryClient();
   const tenantId = useTenantStore((s) => s.tenantId) ?? "";
-  const sessionBranchIds = useTenantStore((s) => s.branchIds);
   const roles = useTenantStore((s) => s.roles);
   // Branch admins add their own team; creating another branch admin is left to company level.
   const onlyBranchAdmin =
@@ -60,16 +59,10 @@ export function BranchStaffAccounts() {
     ? BRANCH_STAFF_ROLES.filter((r) => r.value !== "BRANCH_ADMIN")
     : BRANCH_STAFF_ROLES;
 
-  // The login lists the user's branches; fall back to the company's branch list.
-  const { data: hierarchy } = useQuery({
-    queryKey: ["branches", tenantId],
-    queryFn: () => api.get<ApiBranch[]>("/hierarchy/branches"),
-    enabled: sessionBranchIds.length === 0,
-  });
-  const branchIds = sessionBranchIds.length
-    ? sessionBranchIds
-    : (hierarchy ?? []).map((b) => b.code || String(b.id));
-  const branchName = (id: string) => hierarchy?.find((b) => (b.code || String(b.id)) === id)?.name;
+  // The login lists the user's branches; useBranches falls back to the company's list.
+  const { branches } = useBranches();
+  const branchIds = branches.map((b) => b.code);
+  const branchName = (id: string) => branchLabel(branches, id);
 
   const [branchId, setBranchId] = useState("");
   useEffect(() => {

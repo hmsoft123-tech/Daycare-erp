@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { TenantBranding, UserType } from "@kinder-pilot/types";
+import type { SessionBranch } from "@kinder-pilot/api-client/session";
 import { Permission } from "@kinder-pilot/types";
 import { HEAD_OFFICE_ID } from "@/data/branches";
 import { Authorities, Roles as Role } from "@/lib/rbac";
@@ -53,8 +54,10 @@ export type TenantSessionState = {
   roles: string[];
   /** Backend permission codes, e.g. INQUIRY_READ, FEE_LOCK */
   permissions: string[];
-  /** Branches from the login response — one for branch staff, all for an admin */
+  /** Branch codes from the login response — one for branch staff, all for an admin */
   branchIds: string[];
+  /** The same branches with their names (`BranchDto`) for dropdowns */
+  branches: SessionBranch[];
   /** Legacy branch context — null / head_office = HQ view */
   contextId: string;
   contextType: "head_office" | "branch";
@@ -72,6 +75,7 @@ export type TenantSessionState = {
     roles: string[];
     permissions: string[];
     branchIds?: string[];
+    branches?: SessionBranch[];
   }) => void;
   clearUserSession: () => void;
   hasRole: (role: string) => boolean;
@@ -96,6 +100,7 @@ export const useTenantStore = create<TenantSessionState>()(
       roles: [],
       permissions: [],
       branchIds: [],
+      branches: [],
       contextId: HEAD_OFFICE_ID,
       contextType: "head_office",
       currentBranchId: null,
@@ -110,11 +115,25 @@ export const useTenantStore = create<TenantSessionState>()(
           schoolName: branding.schoolName,
         }),
 
-      setUserSession: ({ userName, roles, permissions, branchIds = [] }) =>
-        set({ userName, roles, permissions, branchIds, userType: userTypeForRoles(roles) }),
+      setUserSession: ({ userName, roles, permissions, branchIds = [], branches = [] }) =>
+        set((s) => {
+          // A remembered branch the user can no longer access falls back to Head Office.
+          const stale = !!s.currentBranchId && branchIds.length > 0 && !branchIds.includes(s.currentBranchId);
+          return {
+            userName,
+            roles,
+            permissions,
+            branchIds,
+            branches,
+            userType: userTypeForRoles(roles),
+            ...(stale
+              ? { currentBranchId: null, contextId: HEAD_OFFICE_ID, contextType: "head_office" as const }
+              : {}),
+          };
+        }),
 
       clearUserSession: () =>
-        set({ userName: null, roles: [], permissions: [], branchIds: [], userType: null }),
+        set({ userName: null, roles: [], permissions: [], branchIds: [], branches: [], userType: null }),
 
       hasRole: (role) => get().roles.includes(role),
 

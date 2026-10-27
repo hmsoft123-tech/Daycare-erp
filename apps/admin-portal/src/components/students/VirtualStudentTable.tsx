@@ -83,7 +83,7 @@ const TIMING_ORDER: Record<StudentTimingSlot, number> = {
   after_school: 4,
 };
 
-const branchName = (id: string) => branches.find((b) => b.id === id)?.name.replace(" Campus", "") ?? "—";
+const mockBranchName = (id: string) => branches.find((b) => b.id === id)?.name.replace(" Campus", "") ?? "—";
 
 type Props = {
   students: Student[];
@@ -91,10 +91,23 @@ type Props = {
   attendance: Record<string, CurrentAttendance>;
   /** School day the attendance column reports on */
   attendanceDate: string;
+  /** Branch filter options and labels; defaults to the demo branches */
+  branchOptions?: { value: string; label: string }[];
+  /** Hide the in-browser edit action (API students are edited through the backend) */
+  readOnly?: boolean;
 };
 
 /** DOM-virtualized student grid — full register columns, filters and ordering */
-export function VirtualStudentTable({ students: initial, parents, attendance: initialAttendance, attendanceDate }: Props) {
+export function VirtualStudentTable({
+  students: initial,
+  parents,
+  attendance: initialAttendance,
+  attendanceDate,
+  branchOptions,
+  readOnly = false,
+}: Props) {
+  const branchName = (id: string) =>
+    branchOptions ? (branchOptions.find((b) => b.value === id)?.label ?? (id || "—")) : mockBranchName(id);
   const contextBranch = useBranchFilter();
   const [rows, setRows] = useState<Student[]>(initial);
   const [attendance, setAttendance] = useState(initialAttendance);
@@ -208,7 +221,7 @@ export function VirtualStudentTable({ students: initial, parents, attendance: in
     <SortHeader label={label} column={column} sortKey={sortKey} dir={dir} onSort={onSort} />
   );
 
-  const columns: VirtualColumn<Student>[] = [
+  const columns = ([
     {
       id: "gr",
       header: header("GR No.", "gr"),
@@ -337,7 +350,7 @@ export function VirtualStudentTable({ students: initial, parents, attendance: in
         );
       },
     },
-    {
+    !readOnly && {
       id: "actions",
       header: "",
       width: 60,
@@ -347,7 +360,7 @@ export function VirtualStudentTable({ students: initial, parents, attendance: in
         </Button>
       ),
     },
-  ];
+  ] as (VirtualColumn<Student> | false)[]).filter((c): c is VirtualColumn<Student> => !!c);
 
   const onSave = (id: string, values: EditStudentValues) => {
     setRows((prev) =>
@@ -405,7 +418,7 @@ export function VirtualStudentTable({ students: initial, parents, attendance: in
           value={branch}
           onChange={setBranch}
           allLabel="All branches"
-          options={branches.map((b) => ({ value: b.id, label: branchName(b.id) }))}
+          options={branchOptions ?? branches.map((b) => ({ value: b.id, label: mockBranchName(b.id) }))}
         />
         <FilterSelect label="Class" value={classFilter} onChange={setClassFilter} options={classes.map((c) => ({ value: c, label: c }))} />
         <FilterSelect label="Program" value={program} onChange={setProgram} options={programs.map((p) => ({ value: p, label: p }))} />

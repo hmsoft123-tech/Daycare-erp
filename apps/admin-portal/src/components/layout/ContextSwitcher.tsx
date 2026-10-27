@@ -1,7 +1,8 @@
 "use client";
 
-import { branches, HEAD_OFFICE_ID } from "@/data/branches";
+import { branches as demoBranches, HEAD_OFFICE_ID } from "@/data/branches";
 import { useUIStore } from "@/lib/store";
+import { useBranches } from "@/lib/hooks/use-branches";
 import { Building2, MapPin } from "lucide-react";
 import {
   Select,
@@ -11,8 +12,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+/**
+ * Head Office / branch switcher. Branches come from the login response
+ * (`branchIds: BranchDto[]`); the value is the branch code the API filters by.
+ * The demo list is only used when the session has no branches (dev bypass).
+ */
 export function ContextSwitcher() {
   const { contextId, setContext } = useUIStore();
+  const { branches: sessionBranches } = useBranches();
+  const options = sessionBranches.length
+    ? sessionBranches.map((b) => ({ value: b.code, name: b.name }))
+    : demoBranches.map((b) => ({ value: b.id, name: b.name }));
 
   const handleChange = (value: string) => {
     if (value === HEAD_OFFICE_ID) {
@@ -25,7 +35,7 @@ export function ContextSwitcher() {
   const currentLabel =
     contextId === HEAD_OFFICE_ID
       ? "Head Office"
-      : branches.find((b) => b.id === contextId)?.name ?? "Select Branch";
+      : options.find((b) => b.value === contextId)?.name ?? "Select Branch";
 
   return (
     <Select value={contextId} onValueChange={handleChange}>
@@ -48,8 +58,8 @@ export function ContextSwitcher() {
         <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#919EAB]">
           Branches
         </div>
-        {branches.map((branch) => (
-          <SelectItem key={branch.id} value={branch.id}>
+        {options.map((branch) => (
+          <SelectItem key={branch.value} value={branch.value}>
             <span className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-brand-500" /> {branch.name}
             </span>

@@ -46,6 +46,9 @@ export const Authorities = {
   CompanyRead: "COMPANY_READ",
   CompanyManage: "COMPANY_MANAGE",
   BranchManage: "BRANCH_MANAGE",
+  // In the backend's login example (2026-10-27) — not yet in the spec's role lists
+  SubscriptionManage: "SUBSCRIPTION_MANAGE",
+  ChallanGenerate: "CHALLAN_GENERATE",
 } as const;
 
 export const ROLE_LABELS: Record<string, string> = {
@@ -153,6 +156,29 @@ export const CAPABILITIES = {
     authority: A.FeeManage,
     source: "api",
   },
+  /** Subscribe / pause / resume / cancel a student's add-on services */
+  "fees.subscriptions": {
+    roles: [...TOP, R.Admin, R.FinanceAdmin, R.Accountant, R.BranchAdmin],
+    authority: A.SubscriptionManage,
+    source: "provisional",
+  },
+  /** Record advance payments and adjustments on a student's credit balance */
+  "fees.balance": {
+    roles: [...TOP, R.Admin, R.FinanceAdmin, R.Accountant],
+    authority: A.PaymentConfirm,
+    source: "provisional",
+  },
+  "fees.challanGenerate": {
+    roles: [...TOP, R.Admin, R.FinanceAdmin, R.Accountant],
+    authority: A.ChallanGenerate,
+    source: "provisional",
+  },
+  /** Website inquiry widget: enable, allowed sites, key rotation */
+  "widget.manage": {
+    roles: [...TOP, R.Admin],
+    authority: A.CompanyManage,
+    source: "provisional",
+  },
 
   // ── Students (API §4) ───────────────────────────────────────────────
   "students.read": {
@@ -252,10 +278,13 @@ const ROUTE_RULES: [prefix: string, capability: Capability][] = [
   ["/students", "students.read"],
   ["/billing/fee-locks", "fees.lock"],
   ["/billing/create", "fees.manage"],
+  ["/billing/fee-structures", "fees.read"],
+  ["/billing/monthly-challans", "fees.challanGenerate"],
   ["/billing", "finance.view"],
   ["/finance", "finance.view"],
   ["/hr/training", "erp.access"],
   ["/hr/leave", "erp.access"],
+  ["/hr/users", "staff.accounts"],
   ["/hr", "hr.manage"],
   ["/parents", "family.manage"],
   ["/communications", "family.manage"],

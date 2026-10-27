@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,8 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { SignaturePad } from "@/components/admissions/SignaturePad";
-import { branches } from "@/data/branches";
 import { classes, students } from "@/data/students";
+import { useBranches } from "@/lib/hooks/use-branches";
 import { generateStudentCardNumber } from "@/lib/id-card";
 import { completeEnrollmentInvite } from "@/lib/enrollment-invite-store";
 import { useTenantStore } from "@/lib/tenant-store";
@@ -46,7 +46,9 @@ import {
 } from "@/lib/admissions-api";
 import {
   COMPANY_ID,
+  MAX_DOCUMENT_BYTES,
   dataUrlToFile,
+  uploadEnrollmentDocument,
   uploadEnrollmentDocuments,
   wizardDataBody,
   type ApiDocumentType,
@@ -55,7 +57,16 @@ import {
 import { generateGrNumber } from "@/lib/gr-number";
 import { recommendClassGroupFromDob } from "@/lib/age-brackets";
 import { toast } from "sonner";
-import { Check, ChevronLeft, ChevronRight, FileUp, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  FileUp,
+  Loader2,
+  Upload,
+} from "lucide-react";
 import type { ServiceTier, Student } from "@/types";
 
 const ALLERGY_OPTIONS = [
@@ -115,17 +126,17 @@ const enrollmentSchema = z.object({
   emergencyName: z.string().min(2, "Emergency contact name required"),
   emergencyRelation: z.string().min(2, "Relationship required"),
   emergencyPhone: z.string().min(10, "Emergency phone required"),
-  emergencyId: z.string().optional(),
+  emergencyId: z.string().optional(), // sent as emergencyContactCnic
   // Step 3
   allergies: z.array(z.string()),
   allergyDetails: z.string().optional(),
   specialNeeds: z.string().optional(),
   dietaryRestrictions: z.string().optional(),
   medicalAuthorization: z.boolean().refine((v) => v === true, "Medical authorization required"),
-  // Step 4
-  joiningDate: z.string().min(1, "Target joining date required"),
-  branchId: z.string().min(1, "Branch required"),
-  classGroup: z.string().min(1, "Select a class"),
+  // Step 4 — staff wizard only (see adminEnrollmentSchema); the parent's form has no program step
+  joiningDate: z.string(),
+  branchId: z.string(),
+  classGroup: z.string(),
   careTier: z.enum(["base", "lite", "plus", "pro"]),
   addOns: z.array(z.string()),
   completionMode: z.enum(["invite_to_pay", "mark_enrolled"]),
@@ -147,17 +158,48 @@ const enrollmentSchema = z.object({
   signatureDataUrl: z.string().min(20, "Parent digital signature required"),
 });
 
+/** Walk-in enrollment picks the program here; the parent's form gets it from the locked fees. */
+const adminEnrollmentSchema = enrollmentSchema.extend({
+  joiningDate: z.string().min(1, "Target joining date required"),
+  branchId: z.string().min(1, "Branch required"),
+  classGroup: z.string().min(1, "Select a class"),
+});
+
 type EnrollmentFormData = z.infer<typeof enrollmentSchema>;
+
+const PROGRAM_STEP = 4;
 
 const STEPS = [
   { id: 1, title: "Child Profile", short: "Child" },
   { id: 2, title: "Parents & Emergency", short: "Parents" },
   { id: 3, title: "Medical & Daily Care", short: "Medical" },
-  { id: 4, title: "Program & Fees", short: "Program" },
+  { id: PROGRAM_STEP, title: "Program & Fees", short: "Program" },
   { id: 5, title: "Documents & Sign-Off", short: "Docs" },
 ];
 
 const TERMS_TEXT = SDLC_TERMS_AND_CONDITIONS;
+
+/** A document uploaded the moment it is picked (parent form with a backend token). */
+type UploadState = { status: "uploading" | "done" | "error"; documentId?: number; error?: string };
+
+/** Branch picker for the staff wizard — the user's branches from the login. */
+function AdminBranchSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const { branches, isLoading } = useBranches();
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="mt-1">
+        <SelectValue placeholder={isLoading ? "Loading branches…" : "Select branch"} />
+      </SelectTrigger>
+      <SelectContent>
+        {branches.map((b) => (
+          <SelectItem key={b.code} value={b.code}>
+            {b.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 function FileSlot({
   label,
@@ -165,12 +207,14 @@ function FileSlot({
   value,
   onFile,
   error,
+  upload,
 }: {
   label: string;
   hint: string;
   value?: string;
   onFile: (file: File) => void;
   error?: string;
+  upload?: UploadState;
 }) {
   return (
     <div className="rounded-xl border border-dashed border-[#DFE3E8] bg-[#F9FAFB] p-4">
@@ -190,11 +234,27 @@ function FileSlot({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
+                // Same file can be picked again after a failed upload.
+                e.target.value = "";
                 if (f) onFile(f);
               }}
             />
           </label>
-          {value && <p className="mt-2 truncate text-xs font-medium text-heading">{value}</p>}
+          {value && (
+            <p className="mt-2 flex items-center gap-1.5 truncate text-xs font-medium text-heading">
+              {upload?.status === "uploading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-500" />}
+              {upload?.status === "done" && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+              {upload?.status === "error" && <AlertCircle className="h-3.5 w-3.5 shrink-0 text-danger" />}
+              <span className="truncate">{value}</span>
+              {upload?.status === "uploading" && <span className="shrink-0 font-normal text-muted">· uploading…</span>}
+              {upload?.status === "done" && <span className="shrink-0 font-normal text-muted">· uploaded</span>}
+            </p>
+          )}
+          {upload?.status === "error" && (
+            <p className="mt-1 text-xs text-danger">
+              {upload.error ?? "Upload failed"} — it is retried on submit, or choose the file again.
+            </p>
+          )}
           {error && <p className="mt-1 text-xs text-danger">{error}</p>}
         </div>
       </div>
@@ -228,13 +288,20 @@ export function EnrollmentWizard({
   onPublicComplete,
 }: EnrollmentWizardProps) {
   const isPublic = mode === "public";
+  // The parent's form has no Program & Fees step: the program and fees were locked before the invite.
+  const steps = isPublic ? STEPS.filter((s) => s.id !== PROGRAM_STEP) : STEPS;
   const [step, setStep] = useState(1);
   const [files, setFiles] = useState<Partial<Record<ApiDocumentType, File>>>({});
+  const [uploads, setUploads] = useState<Partial<Record<ApiDocumentType, UploadState>>>({});
+  /** Latest upload per document type — a replaced file supersedes an older in-flight one. */
+  const inflight = useRef<Partial<Record<ApiDocumentType, Promise<number>>>>({});
   const [progress, setProgress] = useState<string | null>(null);
   const api = useApiClient();
+  /** Documents upload as they are picked only when a backend token exists (parent's emailed link). */
+  const uploadToken = isPublic && backend && inviteToken ? inviteToken : null;
 
   const form = useForm<EnrollmentFormData>({
-    resolver: zodResolver(enrollmentSchema),
+    resolver: zodResolver(isPublic ? enrollmentSchema : adminEnrollmentSchema),
     defaultValues: {
       childFullName: "",
       dob: "",
@@ -355,16 +422,63 @@ export function EnrollmentWizard({
     ],
   ];
 
+  const stepIndex = Math.max(0, steps.findIndex((s) => s.id === step));
+  const lastStep = steps[steps.length - 1].id;
   const nextStep = async () => {
     const valid = await trigger(stepFields[step - 1]);
-    if (valid) setStep((s) => Math.min(s + 1, 5));
+    if (valid) setStep(steps[Math.min(stepIndex + 1, steps.length - 1)].id);
   };
-  const prevStep = () => setStep((s) => Math.max(s - 1, 1));
+  const prevStep = () => setStep(steps[Math.max(stepIndex - 1, 0)].id);
+
+  const startUpload = (type: ApiDocumentType, file: File, token: string): Promise<number> => {
+    const job = uploadEnrollmentDocument(publicApi, token, type, file);
+    inflight.current[type] = job;
+    setUploads((u) => ({ ...u, [type]: { status: "uploading" } }));
+    job.then(
+      (documentId) => {
+        if (inflight.current[type] === job) setUploads((u) => ({ ...u, [type]: { status: "done", documentId } }));
+      },
+      (e) => {
+        if (inflight.current[type] === job) {
+          setUploads((u) => ({ ...u, [type]: { status: "error", error: apiErrorMessage(e, "Upload failed") } }));
+        }
+      }
+    );
+    return job;
+  };
 
   const pickFile = (field: keyof EnrollmentFormData, type: ApiDocumentType) => (file: File) => {
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      toast.error(`${file.name} is larger than 10 MB — please choose a smaller scan or photo.`);
+      return;
+    }
     setFiles((prev) => ({ ...prev, [type]: file }));
     setValue(field, file.name, { shouldValidate: true });
+    if (uploadToken) void startUpload(type, file, uploadToken).catch(() => {});
   };
+
+  /**
+   * Ids of the documents already uploaded while the parent filled the form; any
+   * still in flight are awaited and failed ones are retried once.
+   */
+  const collectDocumentIds = async (token: string) => {
+    const entries = Object.entries(files) as [ApiDocumentType, File][];
+    const ids = await Promise.all(
+      entries.map(async ([type, file]) => {
+        const done = uploads[type];
+        if (done?.status === "done" && done.documentId != null) return done.documentId;
+        try {
+          return await (inflight.current[type] ?? startUpload(type, file, token));
+        } catch {
+          return startUpload(type, file, token);
+        }
+      })
+    );
+    return Object.fromEntries(entries.map(([type], i) => [type, ids[i]])) as Partial<
+      Record<ApiDocumentType, number>
+    >;
+  };
+  const uploading = Object.values(uploads).some((u) => u?.status === "uploading");
 
   const toggleAllergy =(item: string) => {
     const current = values.allergies ?? [];
@@ -384,7 +498,7 @@ export function EnrollmentWizard({
     setValue("addOns", next, { shouldValidate: true });
   };
 
-  /** Documents picked in the wizard plus the signature, uploaded against the enrollment token. */
+  /** Staff wizard: documents plus the signature, uploaded in parallel once a token exists. */
   const uploadDocuments = (token: string, data: EnrollmentFormData) => {
     setProgress("Uploading documents…");
     return uploadEnrollmentDocuments(publicApi, token, {
@@ -393,13 +507,26 @@ export function EnrollmentWizard({
     });
   };
 
-  /** Parent opened a backend-issued link: upload documents, then submit the wizard. */
+  /**
+   * Parent opened a backend-issued link: the documents were uploaded as they were
+   * picked, so only the signature is left before the form is submitted.
+   */
   const submitPublic = async (data: EnrollmentFormData, token: string) => {
-    const documents = await uploadDocuments(token, data);
+    setProgress(uploading ? "Finishing uploads…" : "Saving signature…");
+    const [documents, signatureId] = await Promise.all([
+      collectDocumentIds(token),
+      uploadEnrollmentDocument(
+        publicApi,
+        token,
+        "DIGITAL_SIGNATURE",
+        dataUrlToFile(data.signatureDataUrl, "signature.png")
+      ),
+    ]);
     setProgress("Submitting enrollment…");
+    // No programAndFees: the program and fees were locked with the invite (stage 3c).
     await publicApi.post<ApiEnrollmentSubmission>(
       `/enrollment/${encodeURIComponent(token)}/submit`,
-      wizardDataBody(data, planLabel(data.classGroup, data.careTier), documents)
+      wizardDataBody(data, null, { ...documents, DIGITAL_SIGNATURE: signatureId })
     );
     toast.success("Enrollment submitted — the school will confirm your fee payment");
     onPublicComplete?.({ childName: data.childFullName });
@@ -596,7 +723,7 @@ export function EnrollmentWizard({
             Enrollment steps
           </p>
           <ol className="space-y-1">
-            {STEPS.map((s) => (
+            {steps.map((s, i) => (
               <li key={s.id}>
                 <button
                   type="button"
@@ -620,7 +747,7 @@ export function EnrollmentWizard({
                           : "bg-bg text-muted"
                     )}
                   >
-                    {step > s.id ? <Check className="h-3.5 w-3.5" /> : s.id}
+                    {step > s.id ? <Check className="h-3.5 w-3.5" /> : i + 1}
                   </span>
                   <span className="hidden sm:inline">{s.title}</span>
                   <span className="sm:hidden">{s.short}</span>
@@ -701,6 +828,7 @@ export function EnrollmentWizard({
                         hint="Digital passport-size photo upload"
                         value={values.passportPhotoName}
                         onFile={pickFile("passportPhotoName", "CHILD_PASSPORT_PHOTO")}
+                        upload={uploads.CHILD_PASSPORT_PHOTO}
                         error={errors.passportPhotoName?.message}
                       />
                     </>
@@ -824,7 +952,7 @@ export function EnrollmentWizard({
                             )}
                           </div>
                           <div>
-                            <Label>National ID / Photo ID (optional)</Label>
+                            <Label>CNIC / National ID (optional)</Label>
                             <Input className="mt-1" {...register("emergencyId")} />
                           </div>
                         </div>
@@ -912,17 +1040,10 @@ export function EnrollmentWizard({
                         </div>
                         <div>
                           <Label>Branch</Label>
-                          <Select
+                          <AdminBranchSelect
                             value={values.branchId}
-                            onValueChange={(v) => setValue("branchId", v, { shouldValidate: true })}
-                          >
-                            <SelectTrigger className="mt-1"><SelectValue placeholder="Select branch" /></SelectTrigger>
-                            <SelectContent>
-                              {branches.map((b) => (
-                                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onChange={(v) => setValue("branchId", v, { shouldValidate: true })}
+                          />
                           {errors.branchId && (
                             <p className="mt-1 text-xs text-danger">{errors.branchId.message}</p>
                           )}
@@ -1213,6 +1334,7 @@ export function EnrollmentWizard({
                           hint={DOC_SLOTS[0].hint}
                           value={values.docPassportPhotos}
                           onFile={pickFile("docPassportPhotos", "PASSPORT_PHOTOS")}
+                          upload={uploads.PASSPORT_PHOTOS}
                           error={errors.docPassportPhotos?.message}
                         />
                         <FileSlot
@@ -1220,6 +1342,7 @@ export function EnrollmentWizard({
                           hint={DOC_SLOTS[1].hint}
                           value={values.docFatherCnic}
                           onFile={pickFile("docFatherCnic", "FATHER_CNIC")}
+                          upload={uploads.FATHER_CNIC}
                           error={errors.docFatherCnic?.message}
                         />
                         <FileSlot
@@ -1227,6 +1350,7 @@ export function EnrollmentWizard({
                           hint={DOC_SLOTS[2].hint}
                           value={values.docMotherCnic}
                           onFile={pickFile("docMotherCnic", "MOTHER_CNIC")}
+                          upload={uploads.MOTHER_CNIC}
                           error={errors.docMotherCnic?.message}
                         />
                         <FileSlot
@@ -1234,6 +1358,7 @@ export function EnrollmentWizard({
                           hint={DOC_SLOTS[3].hint}
                           value={values.docFamilyPhoto}
                           onFile={pickFile("docFamilyPhoto", "FAMILY_PHOTO")}
+                          upload={uploads.FAMILY_PHOTO}
                           error={errors.docFamilyPhoto?.message}
                         />
                         <FileSlot
@@ -1241,6 +1366,7 @@ export function EnrollmentWizard({
                           hint={DOC_SLOTS[4].hint}
                           value={values.docBirthCertificate}
                           onFile={pickFile("docBirthCertificate", "B_FORM_BIRTH_CERTIFICATE")}
+                          upload={uploads.B_FORM_BIRTH_CERTIFICATE}
                           error={errors.docBirthCertificate?.message}
                         />
                         <FileSlot
@@ -1248,6 +1374,7 @@ export function EnrollmentWizard({
                           hint={DOC_SLOTS[5].hint}
                           value={values.docUtilityBill}
                           onFile={pickFile("docUtilityBill", "ELECTRICITY_BILL")}
+                          upload={uploads.ELECTRICITY_BILL}
                           error={errors.docUtilityBill?.message}
                         />
                       </div>
@@ -1303,12 +1430,13 @@ export function EnrollmentWizard({
                   <ChevronLeft className="h-4 w-4" />
                   Back
                 </Button>
-                {step < 5 ? (
+                {step !== lastStep ? (
                   <Button type="button" onClick={nextStep}>
                     Next <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
                   <Button type="submit" disabled={!!progress}>
+                    {progress && <Loader2 className="h-4 w-4 animate-spin" />}
                     {progress
                       ? progress
                       : isPublic

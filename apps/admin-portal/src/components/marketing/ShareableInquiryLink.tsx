@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 interface ShareableInquiryLinkProps {
   tenantSlug?: string;
   inquiryType?: "admission" | "employment" | "tour" | "general";
+  /** Website widget key — lets the public form load the school's live branches and programs */
+  publicKey?: string;
 }
 
-export function ShareableInquiryLink({ tenantSlug, inquiryType }: ShareableInquiryLinkProps) {
+export function ShareableInquiryLink({ tenantSlug, inquiryType, publicKey }: ShareableInquiryLinkProps) {
   const [url, setUrl] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -17,9 +19,10 @@ export function ShareableInquiryLink({ tenantSlug, inquiryType }: ShareableInqui
     const qs = new URLSearchParams();
     if (tenantSlug) qs.set("tenant", tenantSlug);
     if (inquiryType) qs.set("type", inquiryType);
+    if (publicKey) qs.set("key", publicKey);
     const params = qs.toString() ? `?${qs.toString()}` : "";
     setUrl(`${window.location.origin}/inquiry${params}`);
-  }, [tenantSlug, inquiryType]);
+  }, [tenantSlug, inquiryType, publicKey]);
 
   const copy = async () => {
     if (!url) return;

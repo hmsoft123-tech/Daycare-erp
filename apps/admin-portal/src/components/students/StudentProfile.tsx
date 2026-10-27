@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +13,7 @@ import { StudentExtrasPanel } from "@/components/students/StudentExtrasPanel";
 import { StudentLifecycleActions } from "@/components/students/StudentLifecycleActions";
 import { StudentTherapyPanel } from "@/components/students/StudentTherapyPanel";
 import { branches } from "@/data/branches";
+import { branchLabel, useBranches } from "@/lib/hooks/use-branches";
 import { isBillableStudent } from "@/lib/eligibility";
 import { calculateAge, formatDate, getInitials } from "@/lib/utils";
 import { getMandatoryForms } from "@/lib/mock-service";
@@ -44,6 +45,10 @@ interface StudentProfileProps {
   therapySessions?: TherapySession[];
   currentAttendance?: CurrentAttendance;
   healthRecords?: HealthRecord[];
+  /** Loaded from the API: hides the browser-only lifecycle actions and billing extras */
+  apiBacked?: boolean;
+  /** Extra tabs (API-backed fees, balance, transfers), shown first */
+  extraTabs?: { value: string; label: string; content: ReactNode }[];
 }
 
 export function StudentProfile({
@@ -55,8 +60,12 @@ export function StudentProfile({
   therapySessions = [],
   currentAttendance,
   healthRecords = [],
+  apiBacked = false,
+  extraTabs = [],
 }: StudentProfileProps) {
   const [student, setStudent] = useState(initial);
+  useEffect(() => setStudent(initial), [initial]);
+  const { branches: apiBranches } = useBranches();
   const branch = branches.find((b) => b.id === student.branchId);
   const prevBranch = student.previousBranchId
     ? branches.find((b) => b.id === student.previousBranchId)
@@ -64,8 +73,9 @@ export function StudentProfile({
 
   const [mandatoryForms, setMandatoryForms] = useState<MandatoryFormSubmission[]>([]);
   useEffect(() => {
+    if (apiBacked) return;
     void getMandatoryForms(student.id).then(setMandatoryForms);
-  }, [student.id]);
+  }, [student.id, apiBacked]);
 
   return (
     <div className="space-y-6">
@@ -118,7 +128,7 @@ export function StudentProfile({
                 className="w-full"
               />
             </div>
-            <StudentLifecycleActions student={student} onUpdated={setStudent} />
+            {!apiBacked && <StudentLifecycleActions student={student} onUpdated={setStudent} />}
             <dl className="mt-4 w-full space-y-2 text-left text-sm">
               <div className="flex justify-between gap-2">
                 <dt className="text-gray-500">G.R. Number</dt>
@@ -132,7 +142,9 @@ export function StudentProfile({
               )}
               <div className="flex justify-between gap-2">
                 <dt className="text-gray-500">Branch</dt>
-                <dd className="text-right">{branch?.name?.replace(" Campus", "") ?? "—"}</dd>
+                <dd className="text-right">
+                  {branch?.name?.replace(" Campus", "") ?? branchLabel(apiBranches, student.branchId)}
+                </dd>
               </div>
               {prevBranch && (
                 <div className="flex justify-between gap-2">
@@ -142,7 +154,7 @@ export function StudentProfile({
               )}
               <div className="flex justify-between">
                 <dt className="text-gray-500">Age</dt>
-                <dd>{calculateAge(student.dob)} years</dd>
+                <dd>{student.dob ? `${calculateAge(student.dob)} years` : "—"}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Class</dt>
@@ -162,7 +174,7 @@ export function StudentProfile({
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Enrolled</dt>
-                <dd>{formatDate(student.enrollmentDate)}</dd>
+                <dd>{student.enrollmentDate ? formatDate(student.enrollmentDate) : "—"}</dd>
               </div>
               {student.leaveDate && (
                 <div className="flex justify-between">
@@ -210,19 +222,30 @@ export function StudentProfile({
         </Card>
 
         <div className="flex-1">
-          <Tabs defaultValue="overview">
+          <Tabs defaultValue={extraTabs[0]?.value ?? "overview"}>
             <TabsList className="flex h-auto flex-wrap">
+              {extraTabs.map((t) => (
+                <TabsTrigger key={t.value} value={t.value}>
+                  {t.label}
+                </TabsTrigger>
+              ))}
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="induction">Induction</TabsTrigger>
               <TabsTrigger value="services">Services</TabsTrigger>
               <TabsTrigger value="learning">Learning & development</TabsTrigger>
               <TabsTrigger value="comms">Parent communication</TabsTrigger>
-              <TabsTrigger value="billing">Billing extras</TabsTrigger>
+              {!apiBacked && <TabsTrigger value="billing">Billing extras</TabsTrigger>}
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
               <TabsTrigger value="therapy">Therapy</TabsTrigger>
               <TabsTrigger value="medical">Medical</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
             </TabsList>
+
+            {extraTabs.map((t) => (
+              <TabsContent key={t.value} value={t.value} className="mt-4">
+                {t.content}
+              </TabsContent>
+            ))}
 
             <TabsContent value="overview" className="mt-4 space-y-4">
               <Card>
@@ -345,9 +368,11 @@ export function StudentProfile({
               </Card>
             </TabsContent>
 
-            <TabsContent value="billing" className="mt-4">
-              <StudentExtrasPanel student={student} />
-            </TabsContent>
+            {!apiBacked && (
+              <TabsContent value="billing" className="mt-4">
+                <StudentExtrasPanel student={student} />
+              </TabsContent>
+            )}
 
             <TabsContent value="attendance" className="mt-4">
               <AttendanceHeatmap records={attendance} />

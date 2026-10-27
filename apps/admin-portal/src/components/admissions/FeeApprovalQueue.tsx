@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, Lock, RefreshCw } from "lucide-react";
+import { CheckCircle2, Loader2, Lock, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,18 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EnrollmentFeeModal, type EnrollmentFeeValues } from "./EnrollmentFeeModal";
+import { EnrollmentFeeModal } from "./EnrollmentFeeModal";
+import { RejectFeesModal } from "./RejectFeesModal";
 import { useCan } from "@/components/security/Can";
 import { useApiClient } from "@/lib/api";
 import {
   DISCOUNT_LABELS_API,
   apiErrorMessage,
   feeValuesFrom,
-  feesBody,
   type ApiFeeApprovalTicket,
   type ApiFeeLock,
 } from "@/lib/admissions-api";
 import { useTenantStore } from "@/lib/tenant-store";
+import { branchLabel, useBranches } from "@/lib/hooks/use-branches";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type Level = "branch" | "company";
@@ -40,11 +41,13 @@ const STATUS_OPTIONS: Record<Level, { value: string; label: string }[]> = {
     { value: "PENDING_BRANCH_APPROVAL", label: "Waiting for branch approval" },
     { value: "BRANCH_APPROVED", label: "Branch approved" },
     { value: "HO_APPROVED", label: "Company approved" },
+    { value: "REJECTED", label: "Rejected" },
     { value: "ALL", label: "All" },
   ],
   company: [
     { value: DEFAULT_QUEUE, label: "Waiting for company approval" },
     { value: "HO_APPROVED", label: "Company approved" },
+    { value: "REJECTED", label: "Rejected" },
     { value: "ALL", label: "All" },
   ],
 };
@@ -53,12 +56,21 @@ const CONFIG = {
   branch: {
     endpoint: "/admissions/fee-approvals/tickets",
     empty: "No fee proposals are waiting for branch approval.",
+    rejectLabel: "rejected by the branch",
   },
   company: {
     endpoint: "/admissions/head-office/fee-locks",
     empty: "No branch-approved fees are waiting for company approval.",
+    rejectLabel: "rejected by the company (Head Office)",
   },
 } as const;
+
+/**
+ * `branch-reject-fees` (3b) sends the inquiry back to TOUR_SCHEDULED. The API has
+ * no separate Head Office reject yet, so the company queue uses the same endpoint.
+ */
+const rejectPath = (inquiryId: number, reason: string) =>
+  `/admissions/inquiries/${inquiryId}/branch-reject-fees?rejectionReason=${encodeURIComponent(reason)}`;
 
 const ALL_BRANCHES = "__all";
 
@@ -67,6 +79,7 @@ function statusBadge(status: string | null | undefined) {
   if (s.includes("HO_APPROVED") || s.includes("LOCK")) return <Badge variant="success">Company approved</Badge>;
   if (s.includes("BRANCH_APPROVED")) return <Badge variant="info">Branch approved</Badge>;
   if (s.includes("PENDING")) return <Badge variant="warning">Pending branch</Badge>;
+  if (s.includes("REJECT")) return <Badge variant="danger">Rejected</Badge>;
   return <Badge variant="secondary">{s ? s.replace(/_/g, " ").toLowerCase() : "—"}</Badge>;
 }
 
@@ -78,6 +91,7 @@ function awaitsLevel(ticket: ApiFeeApprovalTicket, level: Level): boolean {
   // The company approves only what the branch has already approved.
   return (
     !branchPending &&
+    status !== "REJECTED" &&
     !ticket.hoApprovedAt &&
     status !== "HO_APPROVED" &&
     stage !== "ENROLLED_UNPAID" &&
@@ -89,19 +103,21 @@ function awaitsLevel(ticket: ApiFeeApprovalTicket, level: Level): boolean {
  * Fee approval queue. Branch level: `GET /admissions/fee-approvals/tickets` +
  * `branch-approve-fees` (3b). Company level: `GET /admissions/head-office/fee-locks`
  * + `lock-fees` (3c), which moves the card to Enrolled Unpaid, issues the challan
- * and emails the parent the enrollment / payment link.
+ * and emails the parent the enrollment / payment link. Either level can reject
+ * (`branch-reject-fees`), which sends the inquiry back to Tour Scheduled.
  */
 export function FeeApprovalQueue({ level }: { level: Level }) {
   const api = useApiClient();
   const queryClient = useQueryClient();
   const tenantId = useTenantStore((s) => s.tenantId) ?? "";
-  const branchIds = useTenantStore((s) => s.branchIds);
+  const { branches } = useBranches();
   const canAct = useCan(level === "branch" ? "fees.branchApprove" : "fees.companyApprove");
 
   const [status, setStatus] = useState(STATUS_OPTIONS[level][0].value);
   const [branchId, setBranchId] = useState(ALL_BRANCHES);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [locking, setLocking] = useState<ApiFeeApprovalTicket | null>(null);
+  const [rejecting, setRejecting] = useState<ApiFeeApprovalTicket | null>(null);
   // Stable per ticket so the fee form is not reset while it is being edited.
   const lockingValues = useMemo(() => (locking ? feeValuesFrom(locking) : undefined), [locking]);
 
@@ -135,16 +151,30 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
     }
   };
 
-  const companyApprove = async (values: EnrollmentFeeValues) => {
+  const reject = async (reason: string) => {
+    const ticket = rejecting;
+    if (!ticket) return;
+    setBusyId(ticket.inquiryId);
+    try {
+      await api.post(rejectPath(ticket.inquiryId, reason));
+      toast.success(`${ticket.childName ?? "Inquiry"} — fees rejected, moved back to Tour Scheduled`);
+      setRejecting(null);
+      refresh();
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Could not reject the fees."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // `lock-fees` takes no body: the backend locks the package exactly as proposed and branch-approved.
+  const companyApprove = async () => {
     const ticket = locking;
     if (!ticket) return;
     setLocking(null);
     setBusyId(ticket.inquiryId);
     try {
-      const r = await api.post<ApiFeeLock>(
-        `/admissions/inquiries/${ticket.inquiryId}/lock-fees`,
-        feesBody(values)
-      );
+      const r = await api.post<ApiFeeLock>(`/admissions/inquiries/${ticket.inquiryId}/lock-fees`);
       toast.success(
         `Fees approved & locked${r.challanNumber ? ` — challan ${r.challanNumber}` : ""}. ${
           r.emailSent ? "Enrollment form & payment link emailed to the parent." : "Moved to Enrolled Unpaid."
@@ -173,16 +203,16 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
             ))}
           </SelectContent>
         </Select>
-        {branchIds.length > 1 && (
+        {branches.length > 1 && (
           <Select value={branchId} onValueChange={setBranchId}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[220px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_BRANCHES}>All branches</SelectItem>
-              {branchIds.map((id) => (
-                <SelectItem key={id} value={id}>
-                  {id}
+              {branches.map((b) => (
+                <SelectItem key={b.code} value={b.code}>
+                  {b.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -240,8 +270,8 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
                     </div>
                     <p className="text-xs text-muted">
                       {t.parentName || "—"}
-                      {t.parentPhone ? ` · ${t.parentPhone}` : ""} · {t.gradeOrProgram || "—"} · Branch{" "}
-                      {t.branchId || "—"}
+                      {t.parentPhone ? ` · ${t.parentPhone}` : ""} · {t.gradeOrProgram || "—"} ·{" "}
+                      {branchLabel(branches, t.branchId)}
                     </p>
                     <p className="text-xs text-muted">
                       Proposed by {t.proposedBy || "—"}
@@ -266,7 +296,11 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
                     <dd className="text-right font-bold text-heading">{formatCurrency(t.netAmount ?? 0)}</dd>
                   </dl>
                   {canAct && pending && (
-                    <div className="flex w-full justify-end sm:w-auto">
+                    <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto sm:flex-col">
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => setRejecting(t)}>
+                        <XCircle className="h-4 w-4 text-danger" />
+                        Reject
+                      </Button>
                       {level === "branch" ? (
                         <Button size="sm" disabled={busy} onClick={() => void branchApprove(t)}>
                           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -294,10 +328,20 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
           targetStageLabel="Enrolled Unpaid"
           initialValues={lockingValues}
           confirmLabel="Approve & lock fees"
+          readOnly
           onCancel={() => setLocking(null)}
-          onConfirm={(values) => void companyApprove(values)}
+          onConfirm={() => void companyApprove()}
         />
       )}
+
+      <RejectFeesModal
+        open={!!rejecting}
+        childName={rejecting?.childName?.trim() || "Unnamed child"}
+        levelLabel={CONFIG[level].rejectLabel}
+        saving={!!rejecting && busyId === rejecting.inquiryId}
+        onCancel={() => setRejecting(null)}
+        onConfirm={(reason) => void reject(reason)}
+      />
     </>
   );
 }

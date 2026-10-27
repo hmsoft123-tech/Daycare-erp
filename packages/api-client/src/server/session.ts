@@ -11,6 +11,14 @@
 export const ACCESS_COOKIE = "kp_at";
 export const SESSION_COOKIE = "kp_sess";
 
+/** A branch from the login response (`BranchDto`). */
+export type SessionBranch = {
+  id: string;
+  /** What the API's `branchId` / `branchCode` params expect, e.g. ISB-01 */
+  code: string;
+  name: string;
+};
+
 export type SessionUser = {
   userId: string;
   username: string;
@@ -18,8 +26,10 @@ export type SessionUser = {
   fullName: string;
   tenantId: string;
   branchId: string | null;
-  /** Every branch the user can work in (all of the company's for an admin) — absent in older cookies */
+  /** Codes of every branch the user can work in (all of the company's for an admin) — absent in older cookies */
   branchIds?: string[];
+  /** The same branches with their names, for dropdowns — absent in older cookies */
+  branches?: SessionBranch[];
   roles: string[];
   permissions: string[];
   /** Expiry, epoch seconds — mirrors the JWT */

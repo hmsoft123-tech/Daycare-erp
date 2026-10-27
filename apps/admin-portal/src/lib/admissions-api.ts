@@ -249,16 +249,6 @@ const MEETING_TO_API: Record<MeetingKind, ApiMeetingType> = {
   assessment: "ASSESSMENT",
 };
 
-/** The API has four discount kinds; scholarship / staff / promo go as a fixed amount. */
-const DISCOUNT_TO_API: Record<DiscountType, ApiDiscountType> = {
-  none: "NO_DISCOUNT",
-  percent: "PERCENTAGE",
-  fixed: "FIXED_AMOUNT",
-  sibling: "SIBLING",
-  scholarship: "FIXED_AMOUNT",
-  staff: "FIXED_AMOUNT",
-  promo: "FIXED_AMOUNT",
-};
 
 function sourceFromApi(source: string | null | undefined): InquirySource | undefined {
   if (!source) return undefined;
@@ -403,21 +393,126 @@ export function enrollmentFormUrl(token: string): string {
   return `${origin}/enroll/${encodeURIComponent(token)}`;
 }
 
-/** Body for `POST /admissions/inquiries/{id}/propose-fees` and `/lock-fees`. */
-export function feesBody(values: {
-  monthlyTuition: number;
-  admissionFee: number;
-  discountType: DiscountType;
-  discountValue: number;
-  feeNotes: string;
-}) {
+/* ── Dynamic fee proposal (`/fees/structures/*`, `calculate-fees`, `propose-fees`) ── */
+
+/** `FeeStructureResponse` — one core fee of a program (tuition, admission, …). */
+export type ApiFeeStructure = {
+  id: number;
+  gradeOrProgram?: string | null;
+  serviceType?: string | null;
+  feeName?: string | null;
+  billingCycle?: string | null;
+  baseAmount?: number | null;
+};
+
+/** `AdditionalServiceOption` — optional add-on (Quran, transport, extended daycare…). */
+export type ApiAdditionalService = {
+  id: number;
+  feeName?: string | null;
+  serviceType?: string | null;
+  billingCycle?: string | null;
+  baseAmount?: number | null;
+};
+
+/** `ProgramFeeSummaryResponse` from `GET /fees/structures/programs`. */
+export type ApiProgramFeeSummary = {
+  companyCode?: string | null;
+  branchCode?: string | null;
+  programs?: {
+    gradeOrProgram: string;
+    coreFees?: ApiFeeStructure[] | null;
+    totalMonthlyAmount?: number | null;
+    totalOneTimeAmount?: number | null;
+  }[];
+  additionalServices?: ApiAdditionalService[] | null;
+};
+
+/** `FeeDiscountResponse` from `GET /fees/discounts`. */
+export type ApiFeeDiscount = {
+  id: number;
+  name?: string | null;
+  discountCode: string;
+  discountType?: "PERCENTAGE" | "FIXED_AMOUNT" | null;
+  discountValue?: number | null;
+  applicableServiceType?: string | null;
+  applicableGrade?: string | null;
+  active?: boolean;
+};
+
+/** `ChallanLineItemDto` (older responses used feeName / amount). */
+export type ApiFeeLine = {
+  feeStructureId?: number | null;
+  lineDescription?: string | null;
+  feeName?: string | null;
+  serviceType?: string | null;
+  billingCycle?: string | null;
+  unitPrice?: number | null;
+  lineDiscount?: number | null;
+  lineTotal?: number | null;
+  amount?: number | null;
+};
+
+/** `DynamicFeeProposalResponse` — from `calculate-fees` (DRAFT) and `propose-fees`. */
+export type ApiFeeProposal = {
+  feeLockId?: number | null;
+  inquiryId: number;
+  resolvedProgram?: string | null;
+  resolvedBranchCode?: string | null;
+  lineItems?: ApiFeeLine[] | null;
+  discounts?:
+    | {
+        discountCode?: string | null;
+        name?: string | null;
+        discountType?: string | null;
+        discountValue?: number | null;
+        calculatedDiscountAmount?: number | null;
+      }[]
+    | null;
+  grossAmount?: number | null;
+  totalDiscount?: number | null;
+  netAmount?: number | null;
+  monthlyRecurringAmount?: number | null;
+  oneTimeAmount?: number | null;
+  approvalStatus?: string | null;
+  pipelineStage?: string | null;
+  feeNotes?: string | null;
+};
+
+/** What staff pick in the propose-fees dialog — amounts always come from the fee structures. */
+export type FeeSelection = {
+  gradeOrProgram: string;
+  branchCode?: string;
+  additionalServiceIds: number[];
+  discountCodes: string[];
+  notes: string;
+};
+
+/** `InquiryFeeCalculationRequest` — body of `calculate-fees` (preview, saves a DRAFT). */
+export function calculateFeesBody(s: FeeSelection) {
   return {
-    monthlyTuition: values.monthlyTuition,
-    admissionFee: values.admissionFee,
-    discountType: DISCOUNT_TO_API[values.discountType],
-    discountValue: values.discountValue,
-    feeNotes: values.feeNotes || undefined,
+    gradeOrProgram: s.gradeOrProgram,
+    branchCode: s.branchCode || undefined,
+    additionalServiceIds: s.additionalServiceIds,
+    discountCodes: s.discountCodes,
+    notes: s.notes || undefined,
   };
+}
+
+/** `ProposeFeesRequest` — body of `propose-fees` (3a → PENDING_BRANCH_FEE_APPROVAL). */
+export function proposeFeesBody(s: FeeSelection) {
+  return {
+    gradeOrProgram: s.gradeOrProgram,
+    branchCode: s.branchCode || undefined,
+    additionalServiceIds: s.additionalServiceIds,
+    discountCodes: s.discountCodes,
+    feeNotes: s.notes || undefined,
+  };
+}
+
+/** Same program name, ignoring case and spacing (inquiries store free text). */
+export function sameProgram(a: string | null | undefined, b: string | null | undefined): boolean {
+  const norm = (v: string | null | undefined) => (v ?? "").toLowerCase().replace(/[\s_-]+/g, "");
+  return !!a && !!b && norm(a) === norm(b);
 }
 
 const DISCOUNT_FROM_API: Record<string, DiscountType> = {

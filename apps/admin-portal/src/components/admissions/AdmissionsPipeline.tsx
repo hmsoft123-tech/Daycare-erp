@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { KanbanCard } from "./KanbanCard";
 import { KanbanColumn, STAGES } from "./KanbanBoard";
 import { ScheduleMeetingModal, type ScheduleMeetingValues } from "./ScheduleMeetingModal";
-import { EnrollmentFeeModal, type EnrollmentFeeValues } from "./EnrollmentFeeModal";
+import { ProposeFeesModal } from "./ProposeFeesModal";
 import { MarkPaidModal } from "./MarkPaidModal";
 import { StageNoticeModal, type StageNotice } from "./StageNoticeModal";
 import { Button } from "@/components/ui/button";
@@ -25,14 +25,16 @@ import { useApiClient } from "@/lib/api";
 import {
   apiErrorMessage,
   feeApprovalBlocker,
-  feesBody,
   kanbanToCards,
+  proposeFeesBody,
   scheduleTourBody,
   type ApiKanbanBoard,
   type ApiStudentConversion,
+  type FeeSelection,
   type PaymentConfirmation,
 } from "@/lib/admissions-api";
 import { queryKeys } from "@/lib/query-client";
+import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
 import { useTenantStore } from "@/lib/tenant-store";
 import type { AdmissionStage } from "@/types";
 import { cn } from "@/lib/utils";
@@ -65,11 +67,16 @@ export function AdmissionsPipeline() {
     toast.error(`Your role cannot ${action}`);
     return false;
   };
-  const queryKey = queryKeys.admissions(tenantId, null);
+  // Branch picked in the top switcher (its code); Head Office sees every branch.
+  const branchId = useBranchFilter() ?? null;
+  const queryKey = queryKeys.admissions(tenantId, branchId);
 
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey,
-    queryFn: () => api.get<ApiKanbanBoard>("/admissions/kanban"),
+    queryFn: () =>
+      api.get<ApiKanbanBoard>(
+        branchId ? `/admissions/kanban?branchId=${encodeURIComponent(branchId)}` : "/admissions/kanban"
+      ),
   });
   const items = useMemo(() => (data ? kanbanToCards(data) : []), [data]);
 
@@ -166,12 +173,12 @@ export function AdmissionsPipeline() {
   };
 
   // Stage 3a: propose the fee package; the branch and company approval queues take it from there.
-  const onFeeConfirm = (values: EnrollmentFeeValues) => {
+  const onFeeConfirm = (selection: FeeSelection) => {
     if (!pending) return;
     const id = pending.cardId;
     setPending(null);
     void run(
-      () => api.post(`/admissions/inquiries/${id}/propose-fees`, feesBody(values)),
+      () => api.post(`/admissions/inquiries/${id}/propose-fees`, proposeFeesBody(selection)),
       () => "Fees proposed — waiting for branch approval"
     );
   };
@@ -266,10 +273,9 @@ export function AdmissionsPipeline() {
         onConfirm={onScheduleConfirm}
       />
 
-      <EnrollmentFeeModal
+      <ProposeFeesModal
         open={pending?.kind === "fees"}
         card={pending?.kind === "fees" ? pendingCard : null}
-        targetStageLabel="Proposed Fee"
         onCancel={() => setPending(null)}
         onConfirm={onFeeConfirm}
       />

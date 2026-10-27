@@ -18,6 +18,7 @@ import {
   jwtExpiry,
   sealSession,
   unsealSession,
+  type SessionBranch,
   type SessionUser,
 } from "./session";
 
@@ -34,11 +35,32 @@ type LoginResponse = {
   fullName?: string;
   tenantId?: string;
   branchId?: string | null;
-  branchIds?: string[];
+  /** `BranchDto[]` since 2026-10; plain codes in older backends */
+  branchIds?: unknown[];
   roles?: string[];
   permissions?: string[];
   expiresIn?: number;
 };
+
+/** Login `branchIds` → branches; accepts `BranchDto` objects and the older plain codes. Kept small for the cookie. */
+function sessionBranches(list: unknown): SessionBranch[] {
+  if (!Array.isArray(list)) return [];
+  const out: SessionBranch[] = [];
+  for (const item of list.slice(0, 50)) {
+    if (typeof item === "string" || typeof item === "number") {
+      const code = String(item).slice(0, 64);
+      out.push({ id: code, code, name: code });
+    } else if (item && typeof item === "object") {
+      const b = item as { id?: unknown; code?: unknown; name?: unknown };
+      const id = b.id != null ? String(b.id).slice(0, 64) : "";
+      const code = typeof b.code === "string" && b.code ? b.code.slice(0, 64) : id;
+      if (!code) continue;
+      const name = typeof b.name === "string" && b.name.trim() ? b.name.trim().slice(0, 80) : code;
+      out.push({ id: id || code, code, name });
+    }
+  }
+  return out;
+}
 
 export type PublicSessionUser = Omit<SessionUser, "exp"> & { expiresAt: string };
 
@@ -186,6 +208,7 @@ export async function loginHandler(request: Request) {
   }
 
   const exp = expirySeconds(data);
+  const branches = sessionBranches(data.branchIds);
   const session: SessionUser = {
     userId: String(data.userId ?? ""),
     username: data.username ?? usernameOrEmail,
@@ -193,7 +216,8 @@ export async function loginHandler(request: Request) {
     fullName: data.fullName ?? data.username ?? usernameOrEmail,
     tenantId: tenant.tenantId,
     branchId: data.branchId ?? null,
-    branchIds: Array.isArray(data.branchIds) ? data.branchIds.map(String).slice(0, 200) : [],
+    branchIds: branches.map((b) => b.code),
+    branches,
     roles: Array.isArray(data.roles) ? data.roles.map(String) : [],
     permissions: Array.isArray(data.permissions) ? data.permissions.map(String) : [],
     exp,

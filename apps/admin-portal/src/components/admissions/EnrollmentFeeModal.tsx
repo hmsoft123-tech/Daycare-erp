@@ -32,6 +32,8 @@ type Props = {
   initialValues?: EnrollmentFeeValues;
   /** Submit button text */
   confirmLabel?: string;
+  /** Show the package without letting it be changed (amounts come from the backend) */
+  readOnly?: boolean;
   onCancel: () => void;
   onConfirm: (values: EnrollmentFeeValues) => void;
 };
@@ -42,6 +44,7 @@ export function EnrollmentFeeModal({
   targetStageLabel,
   initialValues,
   confirmLabel = "Save fees & move",
+  readOnly = false,
   onCancel,
   onConfirm,
 }: Props) {
@@ -134,6 +137,7 @@ export function EnrollmentFeeModal({
               type="number"
               min={0}
               className="mt-1"
+              disabled={readOnly}
               value={monthlyTuition}
               onChange={(e) => setMonthlyTuition(e.target.value)}
             />
@@ -148,6 +152,7 @@ export function EnrollmentFeeModal({
               type="number"
               min={0}
               className="mt-1"
+              disabled={readOnly}
               value={admissionFee}
               onChange={(e) => setAdmissionFee(e.target.value)}
             />
@@ -160,7 +165,11 @@ export function EnrollmentFeeModal({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label>Discount type</Label>
-            <Select value={discountType} onValueChange={(v) => setDiscountType(v as DiscountType)}>
+            <Select
+              value={discountType}
+              disabled={readOnly}
+              onValueChange={(v) => setDiscountType(v as DiscountType)}
+            >
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
@@ -184,7 +193,7 @@ export function EnrollmentFeeModal({
               type="number"
               min={0}
               className="mt-1"
-              disabled={discountType === "none"}
+              disabled={readOnly || discountType === "none"}
               value={discountValue}
               onChange={(e) => setDiscountValue(e.target.value)}
             />
@@ -200,6 +209,7 @@ export function EnrollmentFeeModal({
             id="feeNotes"
             className="mt-1"
             rows={3}
+            disabled={readOnly}
             placeholder="e.g. Waived registration for early signup; discount applies to tuition only…"
             value={feeNotes}
             onChange={(e) => setFeeNotes(e.target.value)}

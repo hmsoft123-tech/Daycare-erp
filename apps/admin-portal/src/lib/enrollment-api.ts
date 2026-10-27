@@ -1,10 +1,10 @@
 import type { ApiClient } from "@kinder-pilot/api-client";
 
 /**
- * KinderPilot enrollment wizard API. Documents can only be uploaded against an
- * enrollment token (`POST /public/enrollment/{token}/documents`), and a submission
- * without document ids is rejected, so staff enrollment runs as a chain:
- * create inquiry → lock fees (issues challan + token) → upload documents → manual-submit.
+ * KinderPilot enrollment wizard API. Documents are uploaded against an enrollment
+ * token (`POST /public/enrollment/{token}/documents`) as soon as the parent picks
+ * them, so submitting only sends the form with the collected document ids.
+ * Staff (full-manual) enrollment has no token until the enrollment exists.
  */
 
 /**
@@ -62,9 +62,11 @@ export type EnrollmentWizardInput = {
   motherCnic: string;
   motherOccupation?: string;
   motherEmail: string;
+  residentialAddress: string;
   emergencyName: string;
   emergencyRelation: string;
   emergencyPhone: string;
+  emergencyId?: string;
   allergies: string[];
   allergyDetails?: string;
   specialNeeds?: string;
@@ -80,10 +82,14 @@ export function splitChildName(fullName: string): { firstName: string; lastName:
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") || parts[0] };
 }
 
-/** `EnrollmentWizardSubmitRequest` — shared by the public submit and staff manual-submit. */
+/**
+ * `EnrollmentWizardSubmitRequest` — shared by the public submit and staff full-manual.
+ * `programAndFees` is optional since fees are locked before the parent's form (stage 3c);
+ * pass a program only when the wizard chose one (staff walk-in).
+ */
 export function wizardDataBody(
   data: EnrollmentWizardInput,
-  program: string,
+  program: string | null,
   documents: Partial<Record<ApiDocumentType, number>>
 ) {
   const { firstName, lastName } = splitChildName(data.childFullName);
@@ -111,25 +117,74 @@ export function wizardDataBody(
       motherPhone: data.motherPhone,
       motherEmail: data.motherEmail,
       motherOccupation: data.motherOccupation || undefined,
+      primaryResidentialAddress: data.residentialAddress || undefined,
     },
     emergencyContact: {
       emergencyContactName: data.emergencyName,
       emergencyContactPhone: data.emergencyPhone,
       emergencyContactRelation: data.emergencyRelation,
+      emergencyContactCnic: data.emergencyId || undefined,
     },
     medicalCare: {
       allergies: allergies || undefined,
       dietaryRestrictions: data.dietaryRestrictions || undefined,
       specialMedicalNotes: data.specialNeeds || undefined,
     },
-    programAndFees: {
-      program,
-      assignedBranchId: data.branchId || undefined,
-      timingsSchedule: timings || undefined,
-      feeAcknowledged: data.termsAccepted,
-    },
-    documentIds: Object.values(documents),
+    programAndFees: program
+      ? {
+          program,
+          assignedBranchId: data.branchId || undefined,
+          timingsSchedule: timings || undefined,
+          feeAcknowledged: data.termsAccepted,
+        }
+      : undefined,
+    documentIds: Object.values(documents).filter((id): id is number => typeof id === "number"),
   };
+}
+
+/** Largest file the upload accepts (the BFF limit is 15 MB per request). */
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Phone photos are often 4–8 MB; scans and photos only need to be legible, so large
+ * images are downscaled to ≤1600 px JPEG before upload. PDFs and small files pass through.
+ */
+export async function compressForUpload(file: File): Promise<File> {
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type) || file.size < 400 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.fillStyle = "#fff"; // transparent PNG areas would turn black in JPEG
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file; // e.g. HEIC the browser cannot decode — upload as is
+  }
+}
+
+/** Uploads one document against the enrollment token; resolves to its document id. */
+export async function uploadEnrollmentDocument(
+  publicApi: ApiClient,
+  token: string,
+  type: ApiDocumentType,
+  file: File
+): Promise<number> {
+  const form = new FormData();
+  form.append("file", await compressForUpload(file));
+  const res = await publicApi.upload<{ documentId: number }>(
+    `/enrollment/${encodeURIComponent(token)}/documents?documentType=${type}`,
+    form
+  );
+  return res.documentId;
 }
 
 /** The signature pad produces a PNG data URL; the API wants it as an uploaded file. */
@@ -142,21 +197,15 @@ export function dataUrlToFile(dataUrl: string, name: string): File {
   return new File([bytes], name, { type });
 }
 
-/** Uploads each file against the enrollment token and returns the ids by document type. */
+/** Uploads all files in parallel against the enrollment token; returns the ids by document type. */
 export async function uploadEnrollmentDocuments(
   publicApi: ApiClient,
   token: string,
   files: Partial<Record<ApiDocumentType, File>>
 ): Promise<Partial<Record<ApiDocumentType, number>>> {
-  const ids: Partial<Record<ApiDocumentType, number>> = {};
-  for (const [type, file] of Object.entries(files) as [ApiDocumentType, File][]) {
-    const form = new FormData();
-    form.append("file", file);
-    const res = await publicApi.upload<{ documentId: number }>(
-      `/enrollment/${encodeURIComponent(token)}/documents?documentType=${type}`,
-      form
-    );
-    ids[type] = res.documentId;
-  }
-  return ids;
+  const entries = Object.entries(files) as [ApiDocumentType, File][];
+  const ids = await Promise.all(
+    entries.map(([type, file]) => uploadEnrollmentDocument(publicApi, token, type, file))
+  );
+  return Object.fromEntries(entries.map(([type], i) => [type, ids[i]]));
 }

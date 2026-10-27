@@ -153,6 +153,11 @@ export function ScheduleMeetingModal({ open, card, onCancel, onConfirm }: Props)
             onChange={(e) => setMeetingNotes(e.target.value)}
           />
         </div>
+        <p className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2 text-xs text-muted">
+          {card?.parentEmail || card?.email
+            ? `A confirmation email with the date, time and location is sent to ${card.parentEmail || card.email}.`
+            : "No parent email on this inquiry — the confirmation email cannot be sent."}
+        </p>
       </div>
 
       <div className="flex shrink-0 justify-end gap-3 border-t border-[#F1F3F5] bg-bg/40 px-6 py-4">

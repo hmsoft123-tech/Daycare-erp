@@ -12,6 +12,7 @@ const handler = createBffProxy({
     /^branches\/[^/]+\/staff$/, // branch staff user accounts
     /^students(\/|$)/,
     /^security\/rbac(\/|$)/, // role approvals, break-glass log
+    /^companies\/[^/]+\/widget(\/key)?$/, // website widget settings, public key and key rotation
   ],
 });
 

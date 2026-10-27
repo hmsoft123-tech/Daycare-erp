@@ -10,11 +10,14 @@ import { useUIStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { RolesPrivileges } from "@/components/settings/RolesPrivileges";
+import { WidgetSettings } from "@/components/settings/WidgetSettings";
 
 const TABS = [
   { id: "organization", label: "Organization" },
   { id: "users", label: "Users & roles" },
   { id: "notifications", label: "Notifications" },
+  { id: "website", label: "Website widget" },
   { id: "integrations", label: "Integrations" },
   { id: "operations", label: "Operations" },
   { id: "security", label: "Security" },
@@ -64,31 +67,7 @@ export function SettingsClient() {
         </Card>
       )}
 
-      {tab === "users" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Users, roles & permissions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            {[
-              { role: "Administrator", users: 2, note: "Full ERP access" },
-              { role: "Branch Head", users: 4, note: "Branch-scoped ops" },
-              { role: "Teacher", users: 18, note: "Attendance, academics, incidents" },
-              { role: "Finance", users: 3, note: "Billing & fee locks" },
-            ].map((r) => (
-              <div key={r.role} className="flex items-center justify-between rounded-xl border border-[#F1F3F5] px-3 py-2.5">
-                <div>
-                  <p className="font-semibold">{r.role}</p>
-                  <p className="text-xs text-muted">{r.note}</p>
-                </div>
-                <span className="text-xs font-semibold text-muted">{r.users} users</span>
-              </div>
-            ))}
-            <p className="text-xs text-muted">RBAC keys exist in code; this panel is a demo shell for client walkthrough.</p>
-            <Button onClick={save}>Save role defaults</Button>
-          </CardContent>
-        </Card>
-      )}
+      {tab === "users" && <RolesPrivileges />}
 
       {tab === "notifications" && (
         <Card>
@@ -104,6 +83,8 @@ export function SettingsClient() {
           </CardContent>
         </Card>
       )}
+
+      {tab === "website" && <WidgetSettings />}
 
       {tab === "integrations" && (
         <Card>

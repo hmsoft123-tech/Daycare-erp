@@ -13,6 +13,8 @@ import {
   getStudentCurrentAttendance,
   getHealthRecords,
 } from "@/lib/mock-service";
+import { ApiStudentProfile } from "@/components/students/ApiStudentProfile";
+import { isApiStudentId } from "@/lib/students-api";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -20,6 +22,9 @@ interface Props {
 
 export default async function StudentDetailPage({ params }: Props) {
   const { id } = await params;
+  // Real students have numeric API ids; screens still on demo data link to demo ids ("p1").
+  if (isApiStudentId(id)) return <ApiStudentProfile id={id} />;
+
   const student = await getStudentById(id);
   if (!student) notFound();
 

@@ -40,6 +40,9 @@ import {
   Tent,
   BookMarked,
   ShieldPlus,
+  KeyRound,
+  Settings2,
+  CalendarRange,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useUIStore } from "@/lib/store";
@@ -107,6 +110,8 @@ const navGroups = [
   {
     label: "Finance",
     items: [
+      { href: "/billing/fee-structures", label: "Fee Structures", icon: Settings2 },
+      { href: "/billing/monthly-challans", label: "Monthly Challans", icon: CalendarRange },
       { href: "/billing", label: "Billing & Invoices", icon: Receipt },
       { href: "/billing/ops", label: "HO Billing Pipeline", icon: Receipt },
       { href: "/billing/fee-locks", label: "HO Fee Approvals", icon: Lock },
@@ -123,6 +128,7 @@ const navGroups = [
       { href: "/hr/inquiries", label: "Staff Inquiries", icon: Briefcase },
       { href: "/hr/hire", label: "Hiring Wizard", icon: UserPlus },
       { href: "/hr/staff", label: "Staff Directory", icon: UserCog },
+      { href: "/hr/users", label: "User Accounts", icon: KeyRound },
       { href: "/hr/leave", label: "Leave Management", icon: CalendarOff },
       { href: "/hr/payroll", label: "Payroll", icon: Receipt },
       { href: "/hr/training", label: "Training & Induction", icon: Video },
