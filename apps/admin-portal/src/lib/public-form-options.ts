@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { publicApi } from "@/lib/api";
-import { branches as demoBranches } from "@/data/branches";
 
 /**
  * Branches and programs for the public inquiry form. The only unauthenticated
  * source is the company's website widget (`/public/widget/{publicKey}/…`), so the
  * shareable link carries the widget key as `?key=`. Without one (or if the widget
- * is off) the form falls back to the built-in lists.
+ * is off or this site is not on its allowed list) no branches are offered, never made-up ones.
  */
 
 /** `BranchResponse` */
@@ -21,22 +20,21 @@ export type PublicBranchOption = { id: string; value: string; label: string };
 
 export const FALLBACK_PROGRAMS = ["Daycare", "Preschool", "Kindergarten", "After School", "Therapy Services"];
 
-const FALLBACK_BRANCHES: PublicBranchOption[] = demoBranches.map((b) => ({
-  id: b.id,
-  value: b.id,
-  label: b.name,
-}));
-
 const KEY_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 
 export function usePublicFormOptions(publicKey: string | null, branchValue: string | undefined) {
   const key = publicKey && KEY_PATTERN.test(publicKey) ? publicKey : null;
   const [branches, setBranches] = useState<PublicBranchOption[] | null>(null);
   const [programs, setPrograms] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(!!key);
 
   useEffect(() => {
-    if (!key) return;
+    if (!key) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
+    setLoading(true);
     publicApi
       .get<ApiPublicBranch[]>(`/widget/${key}/branches`)
       .then((list) => {
@@ -50,6 +48,9 @@ export function usePublicFormOptions(publicKey: string | null, branchValue: stri
       })
       .catch(() => {
         if (!cancelled) setBranches(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -79,10 +80,12 @@ export function usePublicFormOptions(publicKey: string | null, branchValue: stri
 
   const live = !!branches;
   return {
-    branches: branches ?? FALLBACK_BRANCHES,
+    branches: branches ?? [],
     // Live lists: pick the branch first; a branch with no programs listed gets the defaults.
     programs: !live ? FALLBACK_PROGRAMS : !branchId ? [] : (programs ?? FALLBACK_PROGRAMS),
     /** True when the lists came from the API */
     live,
+    /** The branch lookup is still running */
+    loading,
   };
 }

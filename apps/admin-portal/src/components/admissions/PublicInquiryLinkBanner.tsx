@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ShareableInquiryLink } from "@/components/marketing/ShareableInquiryLink";
+import { useCan } from "@/components/security/Can";
 import { useApiClient } from "@/lib/api";
 import { useTenantStore } from "@/lib/tenant-store";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,12 +26,14 @@ export function PublicInquiryLinkBanner({
   const api = useApiClient();
   const tenantSlug = useTenantStore((s) => s.tenantSlug) ?? "kinder-pilot";
   const tenantId = useTenantStore((s) => s.tenantId);
+  // Reading the widget settings is limited to company admins.
+  const canReadWidget = useCan("widget.manage");
 
   // The widget key lets the public form show this school's live branches and programs.
   const { data: widget } = useQuery({
     queryKey: ["widget-key", tenantId],
     queryFn: () => api.get<ApiWidgetKey>(`/companies/${encodeURIComponent(tenantId ?? "")}/widget`),
-    enabled: !!tenantId,
+    enabled: !!tenantId && canReadWidget,
     staleTime: 10 * 60_000,
     retry: 0,
   });

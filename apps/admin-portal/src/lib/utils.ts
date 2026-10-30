@@ -7,8 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number, currency = "PKR"): string {
+  // Whole amounts stay "PKR 850"; fees with paisa keep them ("PKR 92.50").
+  const digits = Number.isInteger(amount) ? 0 : 2;
   const formatted = new Intl.NumberFormat("en-PK", {
-    maximumFractionDigits: 0,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: 2,
   }).format(amount);
   return `${currency} ${formatted}`;
 }

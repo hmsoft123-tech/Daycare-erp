@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "@/lib/api";
+import { useCan } from "@/components/security/Can";
 import { useTenantStore } from "@/lib/tenant-store";
 
 /** `CompanyResponse` from `GET /hierarchy/companies` */
@@ -25,10 +26,12 @@ export function useCompanyCode(): {
 } {
   const api = useApiClient();
   const tenantId = useTenantStore((s) => s.tenantId) ?? "";
+  // The display name is optional and the company list is admin-only (403 for other roles).
+  const canReadCompany = useCan("settings.manage");
   const { data } = useQuery({
     queryKey: ["company", tenantId],
     queryFn: () => api.get<ApiCompany[]>("/hierarchy/companies"),
-    enabled: !!tenantId,
+    enabled: !!tenantId && canReadCompany,
     staleTime: 10 * 60_000,
     retry: 0,
   });

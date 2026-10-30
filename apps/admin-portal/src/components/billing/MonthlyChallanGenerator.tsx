@@ -246,11 +246,11 @@ export function MonthlyChallanGenerator() {
                           )}
                         </td>
                         <td className="py-2 pr-4 font-mono text-xs">{d.challanNumber || "—"}</td>
-                        <td className="py-2 pr-4 text-right">{formatCurrency(d.grossAmount ?? 0)}</td>
+                        <td className="py-2 pr-4 text-right">{d.grossAmount != null ? formatCurrency(d.grossAmount) : "—"}</td>
                         <td className="py-2 pr-4 text-right text-emerald-700">
                           {(d.creditApplied ?? 0) > 0 ? `−${formatCurrency(d.creditApplied ?? 0)}` : "—"}
                         </td>
-                        <td className="py-2 pr-4 text-right font-semibold text-heading">{formatCurrency(d.netAmount ?? 0)}</td>
+                        <td className="py-2 pr-4 text-right font-semibold text-heading">{d.netAmount != null ? formatCurrency(d.netAmount) : "—"}</td>
                         <td className="py-2 pr-4">{statusBadge(d.status, d.netAmount)}</td>
                         <td className="py-2 text-xs text-muted">{d.message || ""}</td>
                       </tr>

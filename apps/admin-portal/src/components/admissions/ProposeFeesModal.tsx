@@ -21,13 +21,13 @@ import {
   calculateFeesBody,
   sameProgram,
   type ApiAdditionalService,
-  type ApiFeeDiscount,
   type ApiFeeProposal,
   type ApiProgramFeeSummary,
   type FeeSelection,
 } from "@/lib/admissions-api";
 import { useBranches } from "@/lib/hooks/use-branches";
 import { useCompanyCode } from "@/lib/hooks/use-company-code";
+import { useFeeDiscounts } from "@/lib/hooks/use-fee-discounts";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { AdmissionCard } from "@/types";
 
@@ -97,12 +97,7 @@ export function ProposeFeesModal({ open, card, onCancel, onConfirm }: Props) {
   });
   const services = servicesQuery.data ?? programsQuery.data?.additionalServices ?? [];
 
-  const discountsQuery = useQuery({
-    queryKey: ["fee-discounts", companyCode, branchCode],
-    queryFn: () => api.get<ApiFeeDiscount[]>(`/fees/discounts?${scope}`),
-    enabled: visible && !!companyCode,
-    staleTime: 5 * 60_000,
-  });
+  const discountsQuery = useFeeDiscounts(companyCode, branchCode, visible);
   const discounts = (discountsQuery.data ?? []).filter(
     (d) =>
       d.active !== false &&
@@ -118,6 +113,12 @@ export function ProposeFeesModal({ open, card, onCancel, onConfirm }: Props) {
     setDiscountCodes([]);
     setNotes("");
   }, [visible, card?.id, card?.branchId]);
+
+  // Website inquiries store the branch's numeric id; this dropdown and the API use its code.
+  useEffect(() => {
+    const match = branches.find((b) => b.id === branchCode && b.code !== branchCode);
+    if (match) setBranchCode(match.code);
+  }, [branches, branchCode]);
 
   useEffect(() => {
     if (!visible || program || !programs.length) return;

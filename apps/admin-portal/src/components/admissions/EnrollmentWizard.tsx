@@ -102,7 +102,7 @@ const enrollmentSchema = z.object({
   nationality: z.string().min(2, "Nationality required"),
   childIdNumber: z.string().min(1, "Identification / registration number required"),
   previousSchool: z.string().optional(),
-  passportPhotoName: z.string().min(1, "Child passport photo required"),
+  passportPhotoName: z.string(),
   // Step 2
   fatherName: z.string().min(2, "Father / Guardian 1 name required"),
   fatherPhone: z.string().min(10, "Valid mobile required"),
@@ -143,31 +143,24 @@ const enrollmentSchema = z.object({
   daycareFeedingNotes: z.string().optional(),
   daycareAuthorizedPickup: z.string().optional(),
   // Step 5
-  docPassportPhotos: z.string().min(1, "Passport photographs required"),
-  docFatherCnic: z.string().min(1, "Father CNIC copy required"),
-  docMotherCnic: z.string().min(1, "Mother CNIC copy required"),
-  docFamilyPhoto: z.string().min(1, "Family photograph required"),
-  docBirthCertificate: z.string().min(1, "B-Form / Birth Certificate required"),
-  docUtilityBill: z.string().min(1, "Electricity / utility bill required"),
-  termsAccepted: z.boolean().refine((v) => v === true, "Accept terms to continue"),
-  signatureDataUrl: z.string().min(20, "Parent digital signature required"),
-});
-
-/**
- * Walk-in enrollment picks the program here; the parent's form gets it from the locked fees.
- * Front desk can register a child before the documents are brought in.
- */
-const adminEnrollmentSchema = enrollmentSchema.extend({
-  joiningDate: z.string().min(1, "Target joining date required"),
-  branchId: z.string().min(1, "Branch required"),
-  program: z.string().min(1, "Select a program"),
-  passportPhotoName: z.string(),
+  // Documents can follow later: the API no longer requires them.
   docPassportPhotos: z.string(),
   docFatherCnic: z.string(),
   docMotherCnic: z.string(),
   docFamilyPhoto: z.string(),
   docBirthCertificate: z.string(),
   docUtilityBill: z.string(),
+  termsAccepted: z.boolean().refine((v) => v === true, "Accept terms to continue"),
+  signatureDataUrl: z.string().min(20, "Parent digital signature required"),
+});
+
+/**
+ * Walk-in enrollment picks the program here; the parent's form gets it from the locked fees.
+ */
+const adminEnrollmentSchema = enrollmentSchema.extend({
+  joiningDate: z.string().min(1, "Target joining date required"),
+  branchId: z.string().min(1, "Branch required"),
+  program: z.string().min(1, "Select a program"),
 });
 
 type EnrollmentFormData = z.infer<typeof enrollmentSchema>;
@@ -1285,11 +1278,13 @@ export function EnrollmentWizard({
                   Back
                 </Button>
                 {step !== lastStep ? (
-                  <Button type="button" onClick={nextStep}>
+                  // Keys keep these separate DOM buttons: reusing one would let the click on
+                  // Next also submit the form as soon as it turns into the submit button.
+                  <Button key="next" type="button" onClick={nextStep}>
                     Next <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={!!progress}>
+                  <Button key="submit" type="submit" disabled={!!progress}>
                     {progress && <Loader2 className="h-4 w-4 animate-spin" />}
                     {progress
                       ? progress

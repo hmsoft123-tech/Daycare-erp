@@ -58,9 +58,6 @@ const inquirySchema = z
       if (!data.program) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select a program", path: ["program"] });
       }
-      if (!data.branchId) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select a branch", path: ["branchId"] });
-      }
       if (!data.preferredStartDate) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Preferred start date required", path: ["preferredStartDate"] });
       }
@@ -123,7 +120,8 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
       ? typeFromUrl
       : "admission";
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<InquiryFormData>({
+  const { setError,
+    register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<InquiryFormData>({
     resolver: zodResolver(inquirySchema),
     defaultValues: {
       inquiryType: initialType,
@@ -145,7 +143,7 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
   const childDob = watch("childDob");
   const selectedBranch = watch("branchId");
   // The shareable link carries the school's widget key, which unlocks its live branch / program lists.
-  const { branches, programs, live } = usePublicFormOptions(searchParams.get("key"), selectedBranch);
+  const { branches, programs, live, loading } = usePublicFormOptions(searchParams.get("key"), selectedBranch);
 
   // A program picked for another branch may not be offered at this one.
   const selectedProgram = watch("program");
@@ -160,6 +158,11 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
   const showEmploymentFields = inquiryType === "employment";
 
   const onSubmit = handleSubmit(async (data) => {
+    // A branch is required only when the school's list could be loaded.
+    if (showChildFields && live && !data.branchId) {
+      setError("branchId", { message: "Select a branch" });
+      return;
+    }
     const parentName = `${data.guardianFirstName} ${data.guardianLastName}`.trim();
     try {
       if (data.inquiryType === "employment") {
@@ -293,8 +296,14 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Preferred Branch</Label>
-              <Select value={selectedBranch} onValueChange={(v) => setValue("branchId", v, { shouldValidate: true })}>
-                <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
+              <Select
+                value={selectedBranch}
+                disabled={!live}
+                onValueChange={(v) => setValue("branchId", v, { shouldValidate: true })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loading ? "Loading branches…" : live ? "Select branch" : "Not available"} />
+                </SelectTrigger>
                 <SelectContent>
                   {branches.map((b) => (
                     <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
@@ -302,6 +311,11 @@ function InquiryFormInner({ variant = "card", schoolName = "Kinder Pilot" }: Inq
                 </SelectContent>
               </Select>
               {errors.branchId && <p className="mt-1 text-xs text-red-600">{errors.branchId.message}</p>}
+              {!loading && !live && (
+                <p className="mt-1 text-xs text-muted">
+                  Branches could not be loaded. Mention your preferred branch in the message below.
+                </p>
+              )}
             </div>
             <div>
               <Label>Program</Label>

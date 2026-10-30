@@ -21,6 +21,7 @@ import {
 } from "@/lib/admissions-api";
 import { ALL_PROGRAMS, CYCLE_SUFFIX, discountValueLabel } from "@/lib/fees-api";
 import { useCompanyCode } from "@/lib/hooks/use-company-code";
+import { useFeeDiscounts } from "@/lib/hooks/use-fee-discounts";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type Props = {
@@ -82,12 +83,7 @@ export function WalkInFeeFields({
   });
   const services = useMemo(() => servicesQuery.data ?? [], [servicesQuery.data]);
 
-  const discountsQuery = useQuery({
-    queryKey: ["fee-discounts", companyCode, branchCode],
-    queryFn: () => api.get<ApiFeeDiscount[]>(`/fees/discounts?${scope}`),
-    enabled: !!companyCode,
-    staleTime: 5 * 60_000,
-  });
+  const discountsQuery = useFeeDiscounts(companyCode, branchCode);
   const discounts = useMemo(
     () =>
       (discountsQuery.data ?? []).filter(

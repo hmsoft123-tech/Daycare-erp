@@ -27,10 +27,14 @@ export function ApiStudentsList() {
 
   const { students, parents } = useMemo(
     () => ({
-      students: (data ?? []).map(studentFromApi),
+      // Website enrollments carry the branch's numeric id; the table and filter use its code.
+      students: (data ?? []).map(studentFromApi).map((s) => ({
+        ...s,
+        branchId: branches.find((b) => b.id === s.branchId)?.code ?? s.branchId,
+      })),
       parents: (data ?? []).flatMap(parentsFromApi),
     }),
-    [data]
+    [data, branches]
   );
   const branchOptions = useMemo(() => {
     const known = branches.map((b) => ({ value: b.code, label: b.name }));

@@ -324,7 +324,7 @@ export function VirtualStudentTable({
       cell: (row) => {
         const a = attendance[row.id];
         const st = a?.status ?? "not_marked";
-        if (st === "not_marked" && row.status === "active") {
+        if (!readOnly && st === "not_marked" && row.status === "active") {
           return (
             <div className="flex items-center gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => markToday(row, "present")}>
@@ -472,9 +472,11 @@ export function VirtualStudentTable({
         emptyMessage="No students match these filters"
       />
 
-      <p className="text-[11px] text-muted">
-        Check-in from this list is a quick mark for the day · full roll call remains on Attendance.
-      </p>
+      {!readOnly && (
+        <p className="text-[11px] text-muted">
+          Check-in from this list is a quick mark for the day · full roll call remains on Attendance.
+        </p>
+      )}
 
       <EditStudentModal open={!!editing} student={editing} onClose={() => setEditing(null)} onSave={onSave} />
     </div>
