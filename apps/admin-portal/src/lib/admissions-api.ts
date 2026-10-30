@@ -175,6 +175,11 @@ export type ApiFeeApprovalTicket = {
   branchApprovedAt?: string | null;
   hoApprovedBy?: string | null;
   hoApprovedAt?: string | null;
+  /** Comma-separated fee structure ids of the opted add-ons, e.g. "12,18" */
+  optedServiceIds?: string | null;
+  /** Comma-separated discount codes */
+  appliedDiscountCodes?: string | null;
+  lineItems?: ApiFeeLine[] | null;
 };
 
 /** `GeneratePaymentUrlResponse` */
@@ -450,6 +455,7 @@ export type ApiFeeLine = {
   lineDiscount?: number | null;
   lineTotal?: number | null;
   amount?: number | null;
+  sortOrder?: number | null;
 };
 
 /** `DynamicFeeProposalResponse` — from `calculate-fees` (DRAFT) and `propose-fees`. */

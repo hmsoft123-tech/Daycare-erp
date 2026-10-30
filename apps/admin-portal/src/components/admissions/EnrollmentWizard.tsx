@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { SignaturePad } from "@/components/admissions/SignaturePad";
+import { WalkInFeeFields } from "@/components/admissions/WalkInFeeFields";
 import { classes, students } from "@/data/students";
 import { useBranches } from "@/lib/hooks/use-branches";
 import { generateStudentCardNumber } from "@/lib/id-card";
@@ -28,7 +29,6 @@ import { SDLC_TERMS_AND_CONDITIONS } from "@/data/sdlc-terms";
 import { formatCurrency, cn } from "@/lib/utils";
 import { CLASS_GROUPS } from "@/data/services";
 import {
-  addonServices,
   extrasFromSelection,
   planAdmissionFee,
   planId,
@@ -40,6 +40,7 @@ import { publicApi, useApiClient } from "@/lib/api";
 import {
   PAYMENT_METHODS,
   apiErrorMessage,
+  proposeFeesBody,
   type ApiFullManualEnrollment,
   type ApiPaymentMethod,
   type ApiPaymentUrl,
@@ -67,7 +68,7 @@ import {
   Loader2,
   Upload,
 } from "lucide-react";
-import type { ServiceTier, Student } from "@/types";
+import type { Student } from "@/types";
 
 const ALLERGY_OPTIONS = [
   "Peanuts",
@@ -79,15 +80,6 @@ const ALLERGY_OPTIONS = [
   "Medication",
   "Other",
 ] as const;
-
-const CARE_TIERS: { id: ServiceTier; label: string; hint: string }[] = [
-  { id: "base", label: "Base", hint: "Standard class hours" },
-  { id: "lite", label: "Lite", hint: "Extra care 1–4 hrs (ASC 1–3 hrs)" },
-  { id: "plus", label: "Plus", hint: "Extra care 1–8 hrs (ASC 1–7 hrs)" },
-  { id: "pro", label: "Pro", hint: "Full-day extended (Infant–KG)" },
-];
-
-const CATALOGUE_ADDONS = addonServices();
 
 const DOC_SLOTS = [
   {
@@ -139,6 +131,9 @@ const enrollmentSchema = z.object({
   classGroup: z.string(),
   careTier: z.enum(["base", "lite", "plus", "pro"]),
   addOns: z.array(z.string()),
+  program: z.string(),
+  serviceIds: z.array(z.number()),
+  discountCodes: z.array(z.string()),
   completionMode: z.enum(["invite_to_pay", "mark_enrolled"]),
   /** Opens daycare-specific fields after common program selection */
   daycareTrack: z.boolean(),
@@ -158,11 +153,21 @@ const enrollmentSchema = z.object({
   signatureDataUrl: z.string().min(20, "Parent digital signature required"),
 });
 
-/** Walk-in enrollment picks the program here; the parent's form gets it from the locked fees. */
+/**
+ * Walk-in enrollment picks the program here; the parent's form gets it from the locked fees.
+ * Front desk can register a child before the documents are brought in.
+ */
 const adminEnrollmentSchema = enrollmentSchema.extend({
   joiningDate: z.string().min(1, "Target joining date required"),
   branchId: z.string().min(1, "Branch required"),
-  classGroup: z.string().min(1, "Select a class"),
+  program: z.string().min(1, "Select a program"),
+  passportPhotoName: z.string(),
+  docPassportPhotos: z.string(),
+  docFatherCnic: z.string(),
+  docMotherCnic: z.string(),
+  docFamilyPhoto: z.string(),
+  docBirthCertificate: z.string(),
+  docUtilityBill: z.string(),
 });
 
 type EnrollmentFormData = z.infer<typeof enrollmentSchema>;
@@ -335,6 +340,9 @@ export function EnrollmentWizard({
       classGroup: "",
       careTier: "base",
       addOns: [],
+      program: "",
+      serviceIds: [],
+      discountCodes: [],
       completionMode: isPublic ? "mark_enrolled" : "mark_enrolled",
       daycareTrack: false,
       daycareDropOff: "",
@@ -373,25 +381,6 @@ export function EnrollmentWizard({
     }
   }, [values.dob, values.classGroup, setValue]);
 
-  const feeSummary = useMemo(() => {
-    const group = values.classGroup || "";
-    const tier = (values.careTier || "base") as ServiceTier;
-    const admission = group ? planAdmissionFee(group, tier) : 0;
-    const tuition = group ? planMonthlyTotal(group, tier) : 0;
-    const addOnTotal = CATALOGUE_ADDONS.filter((a) => values.addOns?.includes(a.id)).reduce(
-      (sum, a) => sum + (a.monthlyFee || a.registrationFee || 0),
-      0
-    );
-    return {
-      admission,
-      tuition,
-      addOnTotal,
-      monthly: tuition + addOnTotal,
-      firstPayment: admission + tuition + addOnTotal,
-      label: group ? planLabel(group, tier) : "",
-    };
-  }, [values.classGroup, values.careTier, values.addOns]);
-
   const stepFields: (keyof EnrollmentFormData)[][] = [
     ["childFullName", "dob", "gender", "nationality", "childIdNumber", "passportPhotoName"],
     [
@@ -409,7 +398,7 @@ export function EnrollmentWizard({
       "emergencyPhone",
     ],
     ["medicalAuthorization"],
-    ["joiningDate", "branchId", "classGroup", "careTier", "completionMode"],
+    ["joiningDate", "branchId", "program", "completionMode"],
     [
       "docPassportPhotos",
       "docFatherCnic",
@@ -489,15 +478,6 @@ export function EnrollmentWizard({
     );
   };
 
-  const toggleAddon = (id: string) => {
-    const current = values.addOns ?? [];
-    let next = current.includes(id) ? current.filter((a) => a !== id) : [...current, id];
-    // Meal A/B exclusive
-    if (id === "svc-meal-a") next = next.filter((a) => a !== "svc-meal-b");
-    if (id === "svc-meal-b") next = next.filter((a) => a !== "svc-meal-a");
-    setValue("addOns", next, { shouldValidate: true });
-  };
-
   /** Staff wizard: documents plus the signature, uploaded in parallel once a token exists. */
   const uploadDocuments = (token: string, data: EnrollmentFormData) => {
     setProgress("Uploading documents…");
@@ -536,10 +516,10 @@ export function EnrollmentWizard({
    * Staff (walk-in) enrollment in one call: `POST /admissions/enrollment/full-manual`
    * creates the inquiry, submits the wizard, locks the fees / issues the challan and,
    * when the fee was received at the desk, converts the child to an active student.
+   * The server prices `feeProposal` from the fee structures, so no amounts are sent.
    * The company is the tenant resolved from this subdomain.
    */
   const submitAdmin = async (data: EnrollmentFormData) => {
-    const program = planLabel(data.classGroup, data.careTier);
     const paid = data.completionMode === "mark_enrolled";
     if (paid && paymentMethod !== "CASH" && !paymentReference.trim()) {
       throw new Error("Enter the transaction / cheque reference for the payment.");
@@ -549,20 +529,19 @@ export function EnrollmentWizard({
     const result = await api.post<ApiFullManualEnrollment>("/admissions/enrollment/full-manual", {
       companyId,
       branchId: data.branchId || undefined,
-      wizardData: wizardDataBody(data, program, {}),
-      feeDetails: {
-        monthlyTuition: feeSummary.monthly,
-        admissionFee: feeSummary.admission,
-        discountType: "NO_DISCOUNT",
-        discountValue: 0,
-        feeNotes: program,
-      },
+      wizardData: wizardDataBody(data, data.program, {}),
+      feeProposal: proposeFeesBody({
+        gradeOrProgram: data.program,
+        branchCode: data.branchId,
+        additionalServiceIds: data.serviceIds,
+        discountCodes: data.discountCodes,
+        notes: "Walk-in enrollment",
+      }),
       confirmPayment: paid,
       paymentDetails: paid
         ? {
             paymentMethod,
             transactionReference: paymentReference.trim() || undefined,
-            amountPaid: feeSummary.firstPayment,
             paymentNotes: "Received at enrollment (staff wizard)",
           }
         : undefined,
@@ -585,8 +564,9 @@ export function EnrollmentWizard({
 
     toast.success(
       paid
-        ? result.message ||
-            `Enrolled — student ${result.studentCode ?? result.studentId ?? ""} is active`
+        ? `${result.message || `Enrolled — student ${result.studentCode ?? result.studentId ?? ""} is active`}${
+            result.netAmount != null ? ` · ${formatCurrency(result.netAmount)}` : ""
+          }`
         : `Challan ${result.challanNumber ?? ""} issued — the payment link was emailed to the parent`
     );
     setStep(1);
@@ -687,7 +667,10 @@ export function EnrollmentWizard({
       {!isPublic && (
       <Card className="mb-6 border-brand-100 bg-brand-50/40">
         <CardContent className="p-5">
-          <h3 className="font-heading text-sm font-bold text-heading">Required documents checklist</h3>
+          <h3 className="font-heading text-sm font-bold text-heading">Documents checklist</h3>
+          <p className="mt-1 text-xs text-muted">
+            You can submit without them if the parent has not brought them yet.
+          </p>
           <ul className="mt-2 grid gap-1 text-xs text-muted sm:grid-cols-2">
             <li>1. 5 passport-size photographs (name on back in CAPITAL LETTERS)</li>
             <li>2. 1 photocopy of Mother’s CNIC</li>
@@ -1025,9 +1008,9 @@ export function EnrollmentWizard({
                   {step === 4 && (
                     <>
                       <div>
-                        <h2 className="font-heading text-lg font-bold text-heading">Class, care tier & plus services</h2>
+                        <h2 className="font-heading text-lg font-bold text-heading">Program, services & fees</h2>
                         <p className="text-sm text-muted">
-                          SDLC 2026–2027 — Base class + Lite/Plus/Pro extra care, then optional plus services
+                          Amounts come from the school&apos;s fee structures
                         </p>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
@@ -1049,50 +1032,17 @@ export function EnrollmentWizard({
                           )}
                         </div>
                       </div>
-                      <div>
-                        <Label>Class / program</Label>
-                        <p className="mt-0.5 text-xs text-muted">
-                          Auto-selected from date of birth (SDLC age brackets). Authorized staff can change it.
-                        </p>
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {CLASS_GROUPS.map((g) => {
-                            const tier = (values.careTier || "base") as ServiceTier;
-                            const effectiveTier: ServiceTier =
-                              g.id === "after_school" && (tier === "base" || tier === "pro")
-                                ? "lite"
-                                : tier;
-                            return (
-                              <button
-                                key={g.id}
-                                type="button"
-                                onClick={() => {
-                                  setValue("classGroup", g.id, { shouldValidate: true });
-                                  if (g.id === "infant") setValue("daycareTrack", true);
-                                  if (g.id === "after_school" && (values.careTier === "base" || values.careTier === "pro")) {
-                                    setValue("careTier", "lite", { shouldValidate: true });
-                                  }
-                                }}
-                                className={cn(
-                                  "rounded-xl border p-3 text-left transition",
-                                  values.classGroup === g.id
-                                    ? "border-brand-500 bg-brand-50 ring-1 ring-brand-200"
-                                    : "border-[#DFE3E8] hover:border-brand-200"
-                                )}
-                              >
-                                <p className="text-sm font-semibold text-heading">{g.label}</p>
-                                <p className="text-[11px] text-muted">{g.ageBand}</p>
-                                <p className="mt-1 text-[11px] text-muted">
-                                  Adm {formatCurrency(planAdmissionFee(g.id, effectiveTier))} · Mo{" "}
-                                  {formatCurrency(planMonthlyTotal(g.id, effectiveTier))}
-                                </p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {errors.classGroup && (
-                          <p className="mt-1 text-xs text-danger">{errors.classGroup.message}</p>
-                        )}
-                      </div>
+                      <WalkInFeeFields
+                        branchCode={values.branchId}
+                        suggestedProgram={CLASS_GROUPS.find((g) => g.id === values.classGroup)?.label}
+                        program={values.program}
+                        serviceIds={values.serviceIds}
+                        discountCodes={values.discountCodes}
+                        error={errors.program?.message}
+                        onProgramChange={(v) => setValue("program", v, { shouldValidate: true })}
+                        onServiceIdsChange={(ids) => setValue("serviceIds", ids)}
+                        onDiscountCodesChange={(codes) => setValue("discountCodes", codes)}
+                      />
 
                       <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-bg px-3 py-3">
                         <Checkbox
@@ -1140,102 +1090,6 @@ export function EnrollmentWizard({
                         </div>
                       )}
 
-                      <div>
-                        <Label>Care tier (Lite / Plus / Pro)</Label>
-                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {CARE_TIERS.map((t) => {
-                            const disabled =
-                              values.classGroup === "after_school" &&
-                              (t.id === "base" || t.id === "pro");
-                            return (
-                              <button
-                                key={t.id}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() => setValue("careTier", t.id, { shouldValidate: true })}
-                                className={cn(
-                                  "rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40",
-                                  values.careTier === t.id
-                                    ? "border-brand-500 bg-brand-50 ring-1 ring-brand-200"
-                                    : "border-[#DFE3E8] hover:border-brand-200"
-                                )}
-                              >
-                                <p className="text-sm font-semibold text-heading">{t.label}</p>
-                                <p className="mt-0.5 text-[10px] text-muted">{t.hint}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Plus services & extras</Label>
-                        <p className="mt-0.5 text-xs text-muted">
-                          Meals, Quran, Saturdays, tuition, recreational, outsider registration
-                        </p>
-                        <div className="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
-                          {CATALOGUE_ADDONS.map((a) => (
-                            <label
-                              key={a.id}
-                              className={cn(
-                                "flex cursor-pointer items-center justify-between rounded-xl border px-3 py-2.5 text-sm",
-                                values.addOns?.includes(a.id)
-                                  ? "border-brand-500 bg-brand-50"
-                                  : "border-[#DFE3E8]"
-                              )}
-                            >
-                              <span className="flex items-center gap-2">
-                                <Checkbox
-                                  checked={values.addOns?.includes(a.id)}
-                                  onCheckedChange={() => toggleAddon(a.id)}
-                                />
-                                <span>
-                                  {a.name}
-                                  {a.category !== "value_added" && (
-                                    <span className="mt-0.5 block text-[10px] capitalize text-muted">
-                                      {a.category.replace("_", " ")}
-                                    </span>
-                                  )}
-                                </span>
-                              </span>
-                              <span className="shrink-0 text-xs text-muted">
-                                {a.monthlyFee > 0
-                                  ? `+${formatCurrency(a.monthlyFee)}/mo`
-                                  : a.registrationFee
-                                    ? `Reg ${formatCurrency(a.registrationFee)}`
-                                    : "—"}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wide text-brand-800">Fee summary</p>
-                        {feeSummary.label && (
-                          <p className="mt-1 text-sm font-semibold text-heading">{feeSummary.label}</p>
-                        )}
-                        <dl className="mt-3 space-y-1.5 text-sm">
-                          <div className="flex justify-between">
-                            <dt className="text-muted">Admission fee</dt>
-                            <dd className="font-medium">{formatCurrency(feeSummary.admission)}</dd>
-                          </div>
-                          <div className="flex justify-between">
-                            <dt className="text-muted">Monthly (class + care tier)</dt>
-                            <dd className="font-medium">{formatCurrency(feeSummary.tuition)}</dd>
-                          </div>
-                          <div className="flex justify-between">
-                            <dt className="text-muted">Add-ons</dt>
-                            <dd className="font-medium">{formatCurrency(feeSummary.addOnTotal)}</dd>
-                          </div>
-                          <div className="flex justify-between border-t border-brand-200 pt-2 font-bold text-heading">
-                            <dt>First payment total</dt>
-                            <dd>{formatCurrency(feeSummary.firstPayment)}</dd>
-                          </div>
-                          <div className="flex justify-between text-xs text-muted">
-                            <dt>Ongoing monthly</dt>
-                            <dd>{formatCurrency(feeSummary.monthly)}</dd>
-                          </div>
-                        </dl>
-                      </div>
                       {!isPublic && (
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label
@@ -1310,7 +1164,7 @@ export function EnrollmentWizard({
                             />
                           </div>
                           <p className="text-xs text-muted sm:col-span-2">
-                            Amount received: {formatCurrency(feeSummary.firstPayment)} (first payment total)
+                            The payment is recorded against the challan amount the server calculates.
                           </p>
                         </div>
                       )}

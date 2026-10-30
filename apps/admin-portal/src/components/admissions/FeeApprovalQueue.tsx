@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Lock, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import {
   type ApiFeeApprovalTicket,
   type ApiFeeLock,
 } from "@/lib/admissions-api";
+import { CYCLE_SUFFIX } from "@/lib/fees-api";
 import { useTenantStore } from "@/lib/tenant-store";
 import { branchLabel, useBranches } from "@/lib/hooks/use-branches";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -65,12 +66,9 @@ const CONFIG = {
   },
 } as const;
 
-/**
- * `branch-reject-fees` (3b) sends the inquiry back to TOUR_SCHEDULED. The API has
- * no separate Head Office reject yet, so the company queue uses the same endpoint.
- */
-const rejectPath = (inquiryId: number, reason: string) =>
-  `/admissions/inquiries/${inquiryId}/branch-reject-fees?rejectionReason=${encodeURIComponent(reason)}`;
+/** `branch-reject-fees` (3b) and `ho-reject-fees` (3c) both send the inquiry back to TOUR_SCHEDULED. */
+const rejectPath = (level: Level, inquiryId: number, reason: string) =>
+  `/admissions/inquiries/${inquiryId}/${level === "branch" ? "branch" : "ho"}-reject-fees?rejectionReason=${encodeURIComponent(reason)}`;
 
 const ALL_BRANCHES = "__all";
 
@@ -104,7 +102,7 @@ function awaitsLevel(ticket: ApiFeeApprovalTicket, level: Level): boolean {
  * `branch-approve-fees` (3b). Company level: `GET /admissions/head-office/fee-locks`
  * + `lock-fees` (3c), which moves the card to Enrolled Unpaid, issues the challan
  * and emails the parent the enrollment / payment link. Either level can reject
- * (`branch-reject-fees`), which sends the inquiry back to Tour Scheduled.
+ * (`branch-reject-fees` / `ho-reject-fees`), which sends the inquiry back to Tour Scheduled.
  */
 export function FeeApprovalQueue({ level }: { level: Level }) {
   const api = useApiClient();
@@ -156,7 +154,7 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
     if (!ticket) return;
     setBusyId(ticket.inquiryId);
     try {
-      await api.post(rejectPath(ticket.inquiryId, reason));
+      await api.post(rejectPath(level, ticket.inquiryId, reason));
       toast.success(`${ticket.childName ?? "Inquiry"} — fees rejected, moved back to Tour Scheduled`);
       setRejecting(null);
       refresh();
@@ -248,6 +246,8 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
             const pending = awaitsLevel(t, level);
             const busy = busyId === t.inquiryId;
             const discount = feeDiscountLabel(t, formatCurrency) ?? "No discount";
+            const lines = [...(t.lineItems ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+            const optedIds = (t.optedServiceIds ?? "").split(",").map((id) => id.trim());
             return (
               <Card key={`${t.inquiryId}-${t.feeLockId ?? ""}`}>
                 <CardContent className="flex flex-wrap items-start justify-between gap-4 p-5">
@@ -275,15 +275,39 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
                     {t.feeNotes && <p className="text-xs italic text-muted">“{t.feeNotes}”</p>}
                   </div>
                   <dl className="grid min-w-[220px] grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                    <dt className="text-muted">Monthly tuition</dt>
-                    <dd className="text-right font-medium text-heading">
-                      {formatCurrency(t.monthlyTuition ?? 0)}
-                    </dd>
-                    <dt className="text-muted">Admission fee</dt>
-                    <dd className="text-right font-medium text-heading">
-                      {formatCurrency(t.admissionFee ?? 0)}
-                    </dd>
-                    <dt className="text-muted">Discount</dt>
+                    {lines.length > 0 ? (
+                      lines.map((line, i) => (
+                        <Fragment key={`${line.feeStructureId ?? "line"}-${i}`}>
+                          <dt className="text-muted">
+                            {line.lineDescription ?? line.feeName ?? line.serviceType}
+                            <span className="text-[10px]">{CYCLE_SUFFIX[line.billingCycle ?? ""] ?? ""}</span>
+                            {line.feeStructureId != null && optedIds.includes(String(line.feeStructureId)) && (
+                              <span className="ml-1 rounded bg-brand-50 px-1 text-[10px] text-brand-700">add-on</span>
+                            )}
+                          </dt>
+                          <dd className="text-right font-medium text-heading">
+                            {formatCurrency(line.lineTotal ?? line.amount ?? 0)}
+                          </dd>
+                        </Fragment>
+                      ))
+                    ) : (
+                      <>
+                        <dt className="text-muted">Monthly tuition</dt>
+                        <dd className="text-right font-medium text-heading">
+                          {formatCurrency(t.monthlyTuition ?? 0)}
+                        </dd>
+                        <dt className="text-muted">Admission fee</dt>
+                        <dd className="text-right font-medium text-heading">
+                          {formatCurrency(t.admissionFee ?? 0)}
+                        </dd>
+                      </>
+                    )}
+                    <dt className="text-muted">
+                      Discount
+                      {t.appliedDiscountCodes && (
+                        <span className="block font-mono text-[10px]">{t.appliedDiscountCodes}</span>
+                      )}
+                    </dt>
                     <dd className="text-right font-medium text-heading">{discount}</dd>
                     <dt className="font-semibold text-heading">Net amount</dt>
                     <dd className="text-right font-bold text-heading">{formatCurrency(t.netAmount ?? 0)}</dd>

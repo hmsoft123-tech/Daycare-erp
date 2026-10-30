@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
@@ -15,6 +15,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  RotateCcw,
   Settings2,
   X,
 } from "lucide-react";
@@ -89,7 +90,7 @@ const FLOW = [
     icon: Lock,
     title: "4. Company lock",
     who: "Head Office · Finance",
-    text: "Locks the approved package exactly as proposed, issues the challan and emails the payment link.",
+    text: "Locks the approved package exactly as proposed, issues the challan and emails the payment link — or rejects it with a reason.",
     href: "/admissions/company-fee-approvals",
   },
   {
@@ -128,16 +129,20 @@ export function FeeSetupHub() {
   const params = new URLSearchParams({ companyCode });
   if (branchCode) params.set("branchCode", branchCode);
   const enabled = !!companyCode && !companyLoading;
+  const listParams = new URLSearchParams(params);
+  if (showInactive) listParams.set("includeInactive", "true");
 
   const rulesQuery = useQuery({
-    queryKey: ["fee-rules", companyCode, branchCode],
-    queryFn: () => api.get<ApiFeeRule[]>(`/fees/structures?${params}`),
+    queryKey: ["fee-rules", companyCode, branchCode, showInactive],
+    queryFn: () => api.get<ApiFeeRule[]>(`/fees/structures?${listParams}`),
     enabled,
+    placeholderData: keepPreviousData,
   });
   const discountsQuery = useQuery({
-    queryKey: ["fee-discounts", companyCode, branchCode],
-    queryFn: () => api.get<ApiDiscountRule[]>(`/fees/discounts?${params}`),
+    queryKey: ["fee-discounts", companyCode, branchCode, showInactive],
+    queryFn: () => api.get<ApiDiscountRule[]>(`/fees/discounts?${listParams}`),
     enabled,
+    placeholderData: keepPreviousData,
   });
   const summaryQuery = useQuery({
     queryKey: ["fee-programs", companyCode, branchCode],
@@ -146,10 +151,7 @@ export function FeeSetupHub() {
     retry: 0,
   });
 
-  const rules = useMemo(
-    () => (rulesQuery.data ?? []).filter((r) => showInactive || r.active !== false),
-    [rulesQuery.data, showInactive]
-  );
+  const rules = useMemo(() => rulesQuery.data ?? [], [rulesQuery.data]);
   const discounts = discountsQuery.data ?? [];
 
   const programNames = useMemo(() => {
@@ -231,6 +233,25 @@ export function FeeSetupHub() {
     }
   };
 
+  // PUT needs the whole rule (the request has required fields), so the saved values are resent.
+  const reactivate = async (target: Deactivating) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (target.kind === "rule") {
+        await api.put(`/fees/structures/${target.item.id}`, feeRuleBody(companyCode, { ...feeRuleForm(target.item), active: true }));
+      } else {
+        await api.put(`/fees/discounts/${target.item.id}`, discountBody(companyCode, { ...discountForm(target.item), active: true }));
+      }
+      toast.success("Reactivated");
+      refresh();
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Could not reactivate."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const newRule = (isAdditionalService: boolean, gradeOrProgram = "") =>
     setRuleModal({
       id: null,
@@ -249,9 +270,13 @@ export function FeeSetupHub() {
         <Button size="sm" variant="ghost" aria-label={`Edit ${r.feeName ?? "fee rule"}`} onClick={() => setRuleModal({ id: r.id, initial: feeRuleForm(r) })}>
           <Pencil className="h-4 w-4" />
         </Button>
-        {r.active !== false && (
+        {r.active !== false ? (
           <Button size="sm" variant="ghost" aria-label={`Deactivate ${r.feeName ?? "fee rule"}`} onClick={() => setDeactivating({ kind: "rule", item: r })}>
             <X className="h-4 w-4 text-danger" />
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" disabled={saving} aria-label={`Reactivate ${r.feeName ?? "fee rule"}`} onClick={() => void reactivate({ kind: "rule", item: r })}>
+            <RotateCcw className="h-4 w-4 text-brand-600" />
           </Button>
         )}
       </div>
@@ -529,9 +554,7 @@ export function FeeSetupHub() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#F1F3F5]">
-                        {discounts
-                          .filter((d) => showInactive || d.active !== false)
-                          .map((d) => (
+                        {discounts.map((d) => (
                             <tr key={d.id} className={d.active === false ? "opacity-60" : undefined}>
                               <td className="py-2 pr-4 font-medium text-heading">{d.name || "—"}</td>
                               <td className="py-2 pr-4 font-mono text-xs">{d.discountCode}</td>
@@ -555,7 +578,7 @@ export function FeeSetupHub() {
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
-                                    {d.active !== false && (
+                                    {d.active !== false ? (
                                       <Button
                                         size="sm"
                                         variant="ghost"
@@ -563,6 +586,16 @@ export function FeeSetupHub() {
                                         onClick={() => setDeactivating({ kind: "discount", item: d })}
                                       >
                                         <X className="h-4 w-4 text-danger" />
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        disabled={saving}
+                                        aria-label={`Reactivate ${d.discountCode}`}
+                                        onClick={() => void reactivate({ kind: "discount", item: d })}
+                                      >
+                                        <RotateCcw className="h-4 w-4 text-brand-600" />
                                       </Button>
                                     )}
                                   </div>
