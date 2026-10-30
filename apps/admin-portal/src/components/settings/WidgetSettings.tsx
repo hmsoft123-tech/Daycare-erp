@@ -60,6 +60,10 @@ export function WidgetSettings() {
   const [rotating, setRotating] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [thisSite, setThisSite] = useState("");
+  useEffect(() => {
+    setThisSite(process.env.NEXT_PUBLIC_WIDGET_SITE_ORIGIN || window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (!data) return;
@@ -226,6 +230,15 @@ export function WidgetSettings() {
                 </div>
               )}
               {draftError && <p className="mt-1 text-xs text-danger">{draftError}</p>}
+              {canManage && thisSite && !origins.includes(thisSite) && (
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-semibold text-brand-600 hover:underline"
+                  onClick={() => setOrigins((list) => [...list, thisSite])}
+                >
+                  + Add this app ({thisSite}), needed for its public inquiry form
+                </button>
+              )}
             </div>
 
             {canManage ? (

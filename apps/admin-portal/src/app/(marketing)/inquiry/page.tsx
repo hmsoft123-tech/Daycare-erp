@@ -1,12 +1,17 @@
 import { InquiryForm } from "@/components/marketing/InquiryForm";
 import { ShareableInquiryLink } from "@/components/marketing/ShareableInquiryLink";
+import { getSchoolName } from "@/lib/school-name";
 
-export const metadata = {
-  title: "Get in Touch | Kinder Pilot",
-  description: "Submit an admission, tour, employment, or general inquiry to Kinder Pilot.",
-};
+export async function generateMetadata() {
+  const schoolName = await getSchoolName();
+  return {
+    title: `Get in Touch | ${schoolName}`,
+    description: `Submit an admission, tour, employment, or general inquiry to ${schoolName}.`,
+  };
+}
 
-export default function InquiryPage() {
+export default async function InquiryPage() {
+  const schoolName = await getSchoolName();
   return (
     <div className="bg-bg">
       <section className="border-b border-border bg-surface">
@@ -24,7 +29,7 @@ export default function InquiryPage() {
         <div className="mb-8">
           <ShareableInquiryLink />
         </div>
-        <InquiryForm variant="standalone" schoolName="Kinder Pilot" />
+        <InquiryForm variant="standalone" schoolName={schoolName} />
       </section>
     </div>
   );

@@ -261,6 +261,14 @@ export function rbacEnforced(): boolean {
 export function can(user: AccessSubject | null | undefined, capability: Capability): boolean {
   if (!user) return false;
   if (!rbacEnforced()) return true;
+  return holdsCapability(user, capability);
+}
+
+/**
+ * The rule itself, ignoring the master switch. For skipping API calls the backend
+ * would refuse, which it does whether or not the UI restrictions are on.
+ */
+export function holdsCapability(user: AccessSubject, capability: Capability): boolean {
   const rule: Rule = CAPABILITIES[capability];
   if (user.roles.some((r) => rule.roles.includes(r))) return true;
   return !!rule.authority && user.permissions.includes(rule.authority);

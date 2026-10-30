@@ -106,8 +106,15 @@ export async function middleware(request: NextRequest) {
   const session = await unsealSession(request.cookies.get(SESSION_COOKIE)?.value);
 
   if (pathname === LOGIN_PATH) {
-    if (session) return NextResponse.redirect(new URL("/dashboard", request.url));
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    const signedIn = !!session && !!request.cookies.get(ACCESS_COOKIE)?.value;
+    const reset = request.nextUrl.searchParams.has("reset");
+    if (signedIn && !reset) return NextResponse.redirect(new URL("/dashboard", request.url));
+    const res = NextResponse.next({ request: { headers: requestHeaders } });
+    if (reset) {
+      res.cookies.delete(SESSION_COOKIE);
+      res.cookies.delete(ACCESS_COOKIE);
+    }
+    return res;
   }
 
   if (isAdminPath(pathname)) {

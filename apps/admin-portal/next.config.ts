@@ -27,7 +27,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://images.unsplash.com https://i.pravatar.cc https://img.youtube.com",
+  "img-src 'self' data: blob: https://images.unsplash.com https://img.youtube.com",
   "font-src 'self' data:",
   `connect-src ${connectSrc.join(" ")}`,
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
@@ -53,6 +53,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    // The address the public proxy presents to the widget endpoints (see widgetOrigin in api-client).
+    NEXT_PUBLIC_WIDGET_SITE_ORIGIN:
+      process.env.VERCEL_ENV === "preview" && process.env.VERCEL_BRANCH_URL
+        ? `https://${process.env.VERCEL_BRANCH_URL}`
+        : "",
+  },
   poweredByHeader: false,
   // Lets a local production build run beside `next dev` without sharing .next
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -66,7 +73,6 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "i.pravatar.cc" },
     ],
   },
   async headers() {

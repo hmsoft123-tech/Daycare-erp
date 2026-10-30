@@ -25,16 +25,17 @@ import { useApiClient } from "@/lib/api";
 import {
   apiErrorMessage,
   feeApprovalBlocker,
+  fetchKanban,
   kanbanToCards,
   proposeFeesBody,
   scheduleTourBody,
-  type ApiKanbanBoard,
   type ApiStudentConversion,
   type FeeSelection,
   type PaymentConfirmation,
 } from "@/lib/admissions-api";
 import { queryKeys } from "@/lib/query-client";
 import { useBranchFilter } from "@/lib/hooks/use-branch-filter";
+import { useBranchQueryValues } from "@/lib/hooks/use-branches";
 import { useTenantStore } from "@/lib/tenant-store";
 import type { AdmissionStage } from "@/types";
 import { cn } from "@/lib/utils";
@@ -69,14 +70,12 @@ export function AdmissionsPipeline() {
   };
   // Branch picked in the top switcher (its code); Head Office sees every branch.
   const branchId = useBranchFilter() ?? null;
-  const queryKey = queryKeys.admissions(tenantId, branchId);
+  const branchValues = useBranchQueryValues(branchId);
+  const queryKey = queryKeys.admissions(tenantId, branchValues?.join(",") ?? null);
 
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey,
-    queryFn: () =>
-      api.get<ApiKanbanBoard>(
-        branchId ? `/admissions/kanban?branchId=${encodeURIComponent(branchId)}` : "/admissions/kanban"
-      ),
+    queryFn: () => fetchKanban(api, branchValues),
   });
   const items = useMemo(() => (data ? kanbanToCards(data) : []), [data]);
 

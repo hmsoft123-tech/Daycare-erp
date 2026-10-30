@@ -51,7 +51,9 @@ export default async function AdminTenantLayout({ children, params }: Props) {
   // Middleware already gates this; re-check here so a session from another
   // school (or an expired one) can never render this tenant's portal.
   const session = signedSession?.tenantId === tenantInfo.tenantId ? signedSession : null;
-  if (!session) redirect("/login");
+  // ?reset clears the cookies: without it the middleware sends a still-signed session
+  // from another school straight back here, in an endless redirect.
+  if (!session) redirect("/login?reset=1");
 
   // Branding API isn't available yet — seeded palette when known, defaults otherwise.
   const branding = (await getTenantBranding(tenant)) ?? defaultBranding(tenantInfo.companyName);

@@ -28,7 +28,7 @@ import {
 } from "@/lib/admissions-api";
 import { CYCLE_SUFFIX } from "@/lib/fees-api";
 import { useTenantStore } from "@/lib/tenant-store";
-import { branchLabel, useBranches } from "@/lib/hooks/use-branches";
+import { branchLabel, useBranches, useBranchQueryValues } from "@/lib/hooks/use-branches";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type Level = "branch" | "company";
@@ -119,15 +119,24 @@ export function FeeApprovalQueue({ level }: { level: Level }) {
   // Stable per ticket so the fee form is not reset while it is being edited.
   const lockingValues = useMemo(() => (locking ? feeValuesFrom(locking) : undefined), [locking]);
 
-  const params = new URLSearchParams();
-  if (status !== DEFAULT_QUEUE) params.set("status", status);
-  if (branchId !== ALL_BRANCHES) params.set("branchId", branchId);
-  const queryKey = ["fee-approvals", level, tenantId, status, branchId];
+  const branchValues = useBranchQueryValues(branchId === ALL_BRANCHES ? null : branchId);
+  const queryKey = ["fee-approvals", level, tenantId, status, branchValues?.join(",") ?? ""];
+  const ticketsPath = (branch?: string) => {
+    const params = new URLSearchParams();
+    if (status !== DEFAULT_QUEUE) params.set("status", status);
+    if (branch) params.set("branchId", branch);
+    return `${CONFIG[level].endpoint}?${params.toString()}`;
+  };
 
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey,
-    queryFn: () =>
-      api.get<ApiFeeApprovalTicket[]>(`${CONFIG[level].endpoint}?${params.toString()}`),
+    queryFn: async () => {
+      const lists = await Promise.all(
+        (branchValues ?? [undefined]).map((b) => api.get<ApiFeeApprovalTicket[]>(ticketsPath(b)))
+      );
+      const byLock = new Map(lists.flat().map((t) => [`${t.inquiryId}-${t.feeLockId ?? ""}`, t]));
+      return [...byLock.values()];
+    },
   });
   const tickets = data ?? [];
 

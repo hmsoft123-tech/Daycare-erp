@@ -38,6 +38,15 @@ function buildPath(segments: string[] | undefined): string | null {
   return segments.join("/");
 }
 
+/**
+ * The origin sent to the widget endpoints. Each Vercel preview deployment has its own
+ * URL, so previews use their stable branch URL: it goes on the allowed list once.
+ */
+function widgetOrigin(request: Request): string | null {
+  const branchUrl = process.env.VERCEL_ENV === "preview" ? process.env.VERCEL_BRANCH_URL : undefined;
+  return branchUrl ? `https://${branchUrl}` : siteOrigin(request);
+}
+
 /** This site's public origin (e.g. https://school.vercel.app), from the proxy headers. */
 function siteOrigin(request: Request): string | null {
   const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(",")[0].trim();
@@ -185,7 +194,7 @@ export function createPublicProxy({ allow, maxBodyBytes = 15 * 1024 * 1024 }: Pr
 
     // The widget endpoints only answer websites on the company's allowed list. This app
     // is that website, but browsers omit Origin on same-origin GETs, so send our own.
-    const origin = siteOrigin(request);
+    const origin = widgetOrigin(request);
 
     return forward(
       request,

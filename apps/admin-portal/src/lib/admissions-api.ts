@@ -569,6 +569,33 @@ export function feeDiscountLabel(
   return `${kind} · ${fees.discountType === "PERCENTAGE" ? `${value}%` : money(value)}`;
 }
 
+const KANBAN_COLUMNS = [
+  "newInquiryColumn",
+  "tourScheduledColumn",
+  "hoFeeLockColumn",
+  "enrolUnpaidColumn",
+  "enrolledColumn",
+  "waitlistColumn",
+] as const;
+
+/** `GET /admissions/kanban`, combined over several `branchId` values (see `useBranchQueryValues`). */
+export async function fetchKanban(
+  api: { get: <T>(path: string) => Promise<T> },
+  branchValues: string[] | null
+): Promise<ApiKanbanBoard> {
+  if (!branchValues) return api.get<ApiKanbanBoard>("/admissions/kanban");
+  const boards = await Promise.all(
+    branchValues.map((v) => api.get<ApiKanbanBoard>(`/admissions/kanban?branchId=${encodeURIComponent(v)}`))
+  );
+  const merged: ApiKanbanBoard = {};
+  for (const column of KANBAN_COLUMNS) {
+    const byId = new Map<number, ApiKanbanCard>();
+    for (const board of boards) for (const card of board[column] ?? []) byId.set(card.id, card);
+    merged[column] = [...byId.values()];
+  }
+  return merged;
+}
+
 /** Message from a failed BFF call — the backend sends `{ message }`, the BFF `{ error }`. */
 export function apiErrorMessage(error: unknown, fallback = "Request failed."): string {
   const body = (error as { body?: { message?: unknown; error?: unknown } } | null)?.body;

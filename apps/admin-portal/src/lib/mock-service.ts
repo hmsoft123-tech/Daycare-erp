@@ -1217,16 +1217,16 @@ export async function getRevenueData(): Promise<RevenueDataPoint[]> {
 // TODO: Replace with API call to /api/dashboard/enrollments
 export async function getRecentEnrollments(): Promise<EnrollmentFeedItem[]> {
   return [
-    { id: "e1", studentName: "Hamdan Khan", branchId: "branch-nn", enrolledDate: "2025-06-20", status: "active", avatar: "https://i.pravatar.cc/150?img=1" },
-    { id: "e2", studentName: "Zainab Siddiqui", branchId: "branch-clifton", enrolledDate: "2025-06-18", status: "active", avatar: "https://i.pravatar.cc/150?img=5" },
-    { id: "e3", studentName: "Yusuf Ahmed", branchId: "branch-dha", enrolledDate: "2025-06-15", status: "inquiry", avatar: "https://i.pravatar.cc/150?img=52" },
-    { id: "e4", studentName: "Mariam Noor", branchId: "branch-gulshan", enrolledDate: "2025-06-12", status: "waitlist", avatar: "https://i.pravatar.cc/150?img=53" },
-    { id: "e5", studentName: "Arham Saleem", branchId: "branch-nn", enrolledDate: "2025-06-10", status: "active", avatar: "https://i.pravatar.cc/150?img=54" },
-    { id: "e6", studentName: "Hania Rizvi", branchId: "branch-clifton", enrolledDate: "2025-06-08", status: "active", avatar: "https://i.pravatar.cc/150?img=55" },
-    { id: "e7", studentName: "Rayyan Iqbal", branchId: "branch-dha", enrolledDate: "2025-06-05", status: "inquiry", avatar: "https://i.pravatar.cc/150?img=56" },
-    { id: "e8", studentName: "Zara Mahmood", branchId: "branch-gulshan", enrolledDate: "2025-06-03", status: "active", avatar: "https://i.pravatar.cc/150?img=57" },
-    { id: "e9", studentName: "Ahmed Raza", branchId: "branch-nn", enrolledDate: "2025-06-01", status: "waitlist", avatar: "https://i.pravatar.cc/150?img=58" },
-    { id: "e10", studentName: "Laiba Khan", branchId: "branch-clifton", enrolledDate: "2025-05-28", status: "active", avatar: "https://i.pravatar.cc/150?img=59" },
+    { id: "e1", studentName: "Hamdan Khan", branchId: "branch-nn", enrolledDate: "2025-06-20", status: "active", },
+    { id: "e2", studentName: "Zainab Siddiqui", branchId: "branch-clifton", enrolledDate: "2025-06-18", status: "active", },
+    { id: "e3", studentName: "Yusuf Ahmed", branchId: "branch-dha", enrolledDate: "2025-06-15", status: "inquiry", },
+    { id: "e4", studentName: "Mariam Noor", branchId: "branch-gulshan", enrolledDate: "2025-06-12", status: "waitlist", },
+    { id: "e5", studentName: "Arham Saleem", branchId: "branch-nn", enrolledDate: "2025-06-10", status: "active", },
+    { id: "e6", studentName: "Hania Rizvi", branchId: "branch-clifton", enrolledDate: "2025-06-08", status: "active", },
+    { id: "e7", studentName: "Rayyan Iqbal", branchId: "branch-dha", enrolledDate: "2025-06-05", status: "inquiry", },
+    { id: "e8", studentName: "Zara Mahmood", branchId: "branch-gulshan", enrolledDate: "2025-06-03", status: "active", },
+    { id: "e9", studentName: "Ahmed Raza", branchId: "branch-nn", enrolledDate: "2025-06-01", status: "waitlist", },
+    { id: "e10", studentName: "Laiba Khan", branchId: "branch-clifton", enrolledDate: "2025-05-28", status: "active", },
   ];
 }
 

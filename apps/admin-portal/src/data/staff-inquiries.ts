@@ -75,7 +75,6 @@ export const staffInquiries: StaffInquiryCard[] = base.map((person, i) => {
     description: DESCRIPTIONS[i % DESCRIPTIONS.length],
     inquiryTime,
     createdAt: `2025-0${(i % 6) + 1}-${String(10 + (i % 18)).padStart(2, "0")}`,
-    avatar: `https://i.pravatar.cc/150?img=${30 + i}`,
   };
 
   if (stage === "interview_scheduled") {
