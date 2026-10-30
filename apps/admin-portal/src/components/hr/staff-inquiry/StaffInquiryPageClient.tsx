@@ -10,8 +10,7 @@ import { PublicInquiryLinkBanner } from "@/components/admissions/PublicInquiryLi
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useApiClient } from "@/lib/api";
-import { apiErrorMessage, fetchKanban } from "@/lib/admissions-api";
-import { useBranchQueryValues } from "@/lib/hooks/use-branches";
+import { apiErrorMessage, type ApiKanbanBoard } from "@/lib/admissions-api";
 import { interviewBody, kanbanToStaffCards, roleLabel } from "@/lib/staff-inquiries-api";
 import { applyHiringOverlay, useStaffHiringStore } from "@/lib/staff-hiring-store";
 import { queryKeys } from "@/lib/query-client";
@@ -28,14 +27,13 @@ export function StaffInquiryPageClient() {
   const api = useApiClient();
   const queryClient = useQueryClient();
   const tenantId = useTenantStore((s) => s.tenantId) ?? "";
-  const branchValues = useBranchQueryValues();
-  const queryKey = queryKeys.admissions(tenantId, branchValues?.join(",") ?? null);
+  const queryKey = queryKeys.admissions(tenantId, null);
   const [addOpen, setAddOpen] = useState(false);
   const access = useAccess();
 
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey,
-    queryFn: () => fetchKanban(api, branchValues),
+    queryFn: () => api.get<ApiKanbanBoard>("/admissions/kanban"),
   });
 
   const hiring = useStaffHiringStore((s) => s.byTenant[tenantId]);

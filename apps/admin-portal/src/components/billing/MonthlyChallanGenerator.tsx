@@ -55,10 +55,11 @@ const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 function statusBadge(status: string | null | undefined, net: number | null | undefined) {
   const s = (status ?? "").toUpperCase();
-  // A challan fully covered by credit comes back GENERATED with nothing to pay.
-  if (s === "PAID" || ((s === "GENERATED" || s === "UNPAID") && net === 0)) {
+  // Nothing left to pay, whatever status the backend reports for a credit-covered challan.
+  if (net === 0 && !s.includes("SKIP")) {
     return <Badge variant="success">Covered by credit</Badge>;
   }
+  if (s === "PAID") return <Badge variant="success">Paid</Badge>;
   if (s === "UNPAID" || s === "GENERATED" || s === "PENDING") return <Badge variant="warning">Unpaid</Badge>;
   if (s.includes("SKIP")) return <Badge variant="secondary">Skipped</Badge>;
   if (s.includes("ERROR") || s.includes("FAIL")) return <Badge variant="danger">Failed</Badge>;
@@ -67,7 +68,7 @@ function statusBadge(status: string | null | undefined, net: number | null | und
 
 /**
  * `POST /fees/challans/generate-monthly` — one challan per student for the month,
- * covering their ACTIVE monthly service subscriptions, less available credit when
+ * covering their ACTIVE monthly subscriptions (tuition and add-ons), less available credit when
  * `applyBalanceCredit` is on. The backend skips students who already have a challan
  * for that month. Every figure shown comes from the server's response.
  */
@@ -183,7 +184,7 @@ export function MonthlyChallanGenerator() {
               What the server does
             </p>
             <ul className="list-disc space-y-1 pl-4">
-              <li>One challan per student, covering their <strong>active monthly service subscriptions</strong>.</li>
+              <li>One challan per student, covering their <strong>active monthly subscriptions: tuition and add-on services</strong>.</li>
               <li>Paused or cancelled services are not billed.</li>
               <li>With credit deduction on, available credit is subtracted and recorded in the student&apos;s ledger.</li>
               <li>Students who already have a challan for the month are skipped, so running it twice is safe.</li>

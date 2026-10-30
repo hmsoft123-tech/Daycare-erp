@@ -40,6 +40,8 @@ export type ApiStudent = {
   specialMedicalNotes?: string | null;
   medicalInfo?: string | null;
   program?: string | null;
+  /** Room allocation; `program` is the academic level */
+  classroomId?: string | null;
   shiftType?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -72,7 +74,7 @@ export function studentFromApi(s: ApiStudent): Student {
       .map((a) => a.trim())
       .filter((a) => !NO_ALLERGY.test(a)),
     branchId: s.branchId ?? "",
-    classId: s.program ?? "",
+    classId: s.classroomId ?? "",
     className: s.program || "—",
     enrollmentDate: s.createdAt ?? "",
     status: STATUS_FROM_API[s.status ?? ""] ?? "active",

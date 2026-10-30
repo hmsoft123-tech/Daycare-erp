@@ -25,7 +25,13 @@ import type { ApiClassroom, ApiTransfer } from "@/lib/students-api";
 type Kind = "branch" | "classroom";
 const NO_CLASSROOM = "__none";
 
-type Props = { studentId: string; studentName: string; branchCode: string };
+type Props = {
+  studentId: string;
+  studentName: string;
+  branchCode: string;
+  currentClassroomId?: string;
+  currentClassroomName?: string;
+};
 
 /** Classrooms of a branch (`GET /hierarchy/branches/{numeric id}/classrooms`). */
 function useClassrooms(branchNumericId: string | undefined) {
@@ -43,7 +49,13 @@ function useClassrooms(branchNumericId: string | undefined) {
  * (target branch + optional classroom) or `/transfers/classroom` (same branch).
  * The API takes no effective date — transfers apply when processed.
  */
-export function StudentTransferPanel({ studentId, studentName, branchCode }: Props) {
+export function StudentTransferPanel({
+  studentId,
+  studentName,
+  branchCode,
+  currentClassroomId,
+  currentClassroomName,
+}: Props) {
   const api = useApiClient();
   const queryClient = useQueryClient();
   const canTransfer = useCan("admissions.transfer");
@@ -61,7 +73,9 @@ export function StudentTransferPanel({ studentId, studentName, branchCode }: Pro
   const current = branches.find((b) => b.code === branchCode || b.id === branchCode);
   const target = kind === "branch" ? branches.find((b) => b.code === targetBranch) : current;
   const classroomsQuery = useClassrooms(target?.id);
-  const classrooms = (classroomsQuery.data ?? []).filter((c) => c.active !== false);
+  const classrooms = (classroomsQuery.data ?? []).filter(
+    (c) => c.active !== false && String(c.id) !== currentClassroomId
+  );
   const pickedRoom = classrooms.find((c) => String(c.id) === classroom);
 
   const review = () => {
@@ -126,7 +140,8 @@ export function StudentTransferPanel({ studentId, studentName, branchCode }: Pro
             Transfer
           </h3>
           <p className="text-xs text-muted">
-            Currently at {branchLabel(branches, branchCode)}. Transfers take effect when processed — the API has no
+            Currently at {branchLabel(branches, branchCode)}
+            {currentClassroomId ? `, classroom ${currentClassroomName ?? currentClassroomId}` : ""}. Transfers take effect when processed — the API has no
             future effective date.
           </p>
         </div>

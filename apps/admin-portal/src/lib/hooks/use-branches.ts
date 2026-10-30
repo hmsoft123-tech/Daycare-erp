@@ -43,21 +43,14 @@ const COMPANY_WIDE_ROLES: string[] = [
 ];
 
 /**
- * `branchId` values to query for a board or queue, or null for no filter. Records
- * filed through the website widget store the branch's numeric id, others its code,
- * so both are asked for. Branch admins always query their own branches: the backend
- * only defaults them to the code, which hides website records.
+ * `branchId` filters for `GET /students`, or null for none: the API does not limit
+ * that list for branch admins, so they ask for their own branches explicitly.
  */
-export function useBranchQueryValues(selected?: string | null): string[] | null {
+export function useStudentBranchFilters(): string[] | null {
   const { branches } = useBranches();
   const roles = useTenantStore((s) => s.roles);
-  const keys = (b: BranchOption) => [b.code, b.id];
-  if (selected) {
-    const match = branches.find((b) => b.code === selected || b.id === selected);
-    return match ? [...new Set(keys(match))] : [selected];
-  }
   const branchOnly = roles.includes(Roles.BranchAdmin) && !roles.some((r) => COMPANY_WIDE_ROLES.includes(r));
-  return branchOnly && branches.length ? [...new Set(branches.flatMap(keys))] : null;
+  return branchOnly && branches.length ? branches.map((b) => b.code) : null;
 }
 
 /** Display name for a branch code (or id), falling back to the code itself. */

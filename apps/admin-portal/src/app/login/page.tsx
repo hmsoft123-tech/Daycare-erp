@@ -17,15 +17,15 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; token?: string }>;
 }) {
   const host = (await headers()).get("host");
-  const [tenant, { next }] = await Promise.all([
+  const [tenant, { next, token }] = await Promise.all([
     resolveTenant(host),
     searchParams,
   ]);
 
   const schoolName = (tenant ?? devFallbackTenant(host))?.companyName ?? null;
 
-  return <LoginForm schoolName={schoolName} next={next} />;
+  return <LoginForm schoolName={schoolName} next={next} resetToken={token} />;
 }

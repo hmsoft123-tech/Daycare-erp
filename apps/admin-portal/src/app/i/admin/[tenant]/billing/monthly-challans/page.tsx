@@ -6,7 +6,7 @@ export default function MonthlyChallansPage() {
     <>
       <PageHeader
         title="Monthly Challans"
-        subtitle="Bill every student's active monthly services for a month, less their credit balance"
+        subtitle="Bill every student's tuition and active monthly services for a month, less their credit balance"
       />
       <MonthlyChallanGenerator />
     </>

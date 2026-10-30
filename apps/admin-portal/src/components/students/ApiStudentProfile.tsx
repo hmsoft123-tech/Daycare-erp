@@ -12,7 +12,7 @@ import { StudentBalancePanel } from "@/components/students/StudentBalancePanel";
 import { StudentTransferPanel } from "@/components/students/StudentTransferPanel";
 import { useApiClient } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/admissions-api";
-import { parentsFromApi, studentFromApi, type ApiStudent } from "@/lib/students-api";
+import { parentsFromApi, studentFromApi, type ApiClassroom, type ApiStudent } from "@/lib/students-api";
 
 /** Student profile from `GET /students/{id}`, with the API-backed fees, balance and transfer tabs. */
 export function ApiStudentProfile({ id }: { id: string }) {
@@ -20,6 +20,14 @@ export function ApiStudentProfile({ id }: { id: string }) {
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ["student", id],
     queryFn: () => api.get<ApiStudent>(`/students/${encodeURIComponent(id)}`),
+  });
+
+  const classroomId = data?.classroomId;
+  const { data: classroom } = useQuery({
+    queryKey: ["classroom", classroomId],
+    queryFn: () => api.get<ApiClassroom>(`/hierarchy/classrooms/${encodeURIComponent(classroomId ?? "")}`),
+    enabled: !!classroomId,
+    retry: 0,
   });
 
   const mapped = useMemo(
@@ -70,7 +78,15 @@ export function ApiStudentProfile({ id }: { id: string }) {
     {
       value: "transfer",
       label: "Transfer",
-      content: <StudentTransferPanel studentId={id} studentName={name} branchCode={student.branchId} />,
+      content: (
+        <StudentTransferPanel
+          studentId={id}
+          studentName={name}
+          branchCode={student.branchId}
+          currentClassroomId={data.classroomId ?? undefined}
+          currentClassroomName={classroom?.name ?? undefined}
+        />
+      ),
     },
   ];
 
@@ -85,6 +101,7 @@ export function ApiStudentProfile({ id }: { id: string }) {
         notes={[]}
         medicalIncidents={[]}
         attendance={[]}
+        classroomName={classroom?.name ?? data.classroomId ?? undefined}
         apiBacked
         extraTabs={extraTabs}
       />

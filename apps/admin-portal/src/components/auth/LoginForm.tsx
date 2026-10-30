@@ -12,10 +12,14 @@ type Props = {
   /** Resolved from the domain server-side; null = this address is not a known school */
   schoolName: string | null;
   next?: string;
+  /** From an emailed reset link (?token=) */
+  resetToken?: string;
 };
 
-export function LoginForm({ schoolName, next }: Props) {
-  const [mode, setMode] = useState<"login" | "forgot">("login");
+export function LoginForm({ schoolName, next, resetToken }: Props) {
+  const [mode, setMode] = useState<"login" | "forgot" | "reset">(resetToken ? "reset" : "login");
+  const [token, setToken] = useState(resetToken ?? "");
+  const [newPassword, setNewPassword] = useState("");
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
@@ -49,7 +53,25 @@ export function LoginForm({ schoolName, next }: Props) {
       setError(result.error);
       return;
     }
-    setNotice(result.data.message ?? "Check your email for reset instructions.");
+    setNotice(
+      `${result.data.message ?? "Check your email for reset instructions."} Enter the reset code from the email below.`
+    );
+    setMode("reset");
+  };
+
+  const onReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const result = await authPost("/api/auth/reset-password", { token: token.trim(), newPassword });
+    setLoading(false);
+    setNewPassword("");
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setToken("");
+    setNotice(result.data.message ?? "Password updated. You can now sign in.");
     setMode("login");
   };
 
@@ -78,7 +100,7 @@ export function LoginForm({ schoolName, next }: Props) {
 
         {schoolName && (
           <form
-            onSubmit={mode === "login" ? onLogin : onForgot}
+            onSubmit={mode === "login" ? onLogin : mode === "forgot" ? onForgot : onReset}
             className="space-y-4 rounded-3xl bg-surface p-6 shadow-card sm:p-8"
             noValidate
           >
@@ -142,6 +164,36 @@ export function LoginForm({ schoolName, next }: Props) {
                   </button>
                 </div>
               </>
+            ) : mode === "reset" ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="resetToken">Reset code from the email</Label>
+                  <Input
+                    id="resetToken"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    className="h-11"
+                    autoComplete="one-time-code"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    maxLength={512}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="newPassword">New password</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="h-11"
+                    autoComplete="new-password"
+                    maxLength={256}
+                    required
+                  />
+                </div>
+              </>
             ) : (
               <div className="space-y-1.5">
                 <Label htmlFor="email">Registered email</Label>
@@ -175,14 +227,25 @@ export function LoginForm({ schoolName, next }: Props) {
               size="lg"
               className="w-full"
               disabled={
-                loading || (mode === "login" ? !usernameOrEmail.trim() || !password : !email.trim())
+                loading ||
+                (mode === "login"
+                  ? !usernameOrEmail.trim() || !password
+                  : mode === "forgot"
+                    ? !email.trim()
+                    : !token.trim() || !newPassword)
               }
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "login" ? (loading ? "Signing in…" : "Sign in") : "Send reset instructions"}
+              {mode === "login"
+                ? loading
+                  ? "Signing in…"
+                  : "Sign in"
+                : mode === "forgot"
+                  ? "Send reset instructions"
+                  : "Set new password"}
             </Button>
 
-            {mode === "forgot" && (
+            {mode !== "login" && (
               <button
                 type="button"
                 className="w-full text-center text-xs font-semibold text-muted hover:text-heading"

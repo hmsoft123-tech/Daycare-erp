@@ -135,16 +135,7 @@ export function FeeSetupHub() {
 
   const rulesQuery = useQuery({
     queryKey: ["fee-rules", companyCode, branchCode, showInactive],
-    // A branch filter returns only that branch's rows; company-wide prices still apply there.
-    queryFn: async () => {
-      const company = new URLSearchParams(listParams);
-      company.delete("branchCode");
-      const [shared, branch] = await Promise.all([
-        api.get<ApiFeeRule[]>(`/fees/structures?${company}`),
-        branchCode ? api.get<ApiFeeRule[]>(`/fees/structures?${listParams}`) : Promise.resolve([] as ApiFeeRule[]),
-      ]);
-      return [...new Map([...(shared ?? []), ...(branch ?? [])].map((r) => [r.id, r])).values()];
-    },
+    queryFn: () => api.get<ApiFeeRule[]>(`/fees/structures?${listParams}`),
     enabled,
     placeholderData: keepPreviousData,
   });

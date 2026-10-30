@@ -9,7 +9,7 @@ import { VirtualStudentTable } from "@/components/students/VirtualStudentTable";
 import { useApiClient } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/admissions-api";
 import { todayIso } from "@/lib/fee-challan";
-import { useBranches, useBranchQueryValues } from "@/lib/hooks/use-branches";
+import { useBranches, useStudentBranchFilters } from "@/lib/hooks/use-branches";
 import { parentsFromApi, studentFromApi, type ApiStudent } from "@/lib/students-api";
 import { useTenantStore } from "@/lib/tenant-store";
 
@@ -19,7 +19,7 @@ export function ApiStudentsList() {
   const tenantId = useTenantStore((s) => s.tenantId) ?? "";
   const { branches } = useBranches();
 
-  const branchValues = useBranchQueryValues();
+  const branchValues = useStudentBranchFilters();
   const { data, isPending, isError, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["students", tenantId, branchValues?.join(",") ?? ""],
     queryFn: async () => {

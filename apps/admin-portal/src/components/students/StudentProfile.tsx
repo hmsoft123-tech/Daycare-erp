@@ -47,6 +47,8 @@ interface StudentProfileProps {
   healthRecords?: HealthRecord[];
   /** Loaded from the API: hides the browser-only lifecycle actions and billing extras */
   apiBacked?: boolean;
+  /** Assigned room, shown alongside the program */
+  classroomName?: string;
   /** Extra tabs (API-backed fees, balance, transfers), shown first */
   extraTabs?: { value: string; label: string; content: ReactNode }[];
 }
@@ -61,6 +63,7 @@ export function StudentProfile({
   currentAttendance,
   healthRecords = [],
   apiBacked = false,
+  classroomName,
   extraTabs = [],
 }: StudentProfileProps) {
   const [student, setStudent] = useState(initial);
@@ -157,9 +160,15 @@ export function StudentProfile({
                 <dd>{student.dob ? `${calculateAge(student.dob)} years` : "—"}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-gray-500">Class</dt>
+                <dt className="text-gray-500">{apiBacked ? "Program" : "Class"}</dt>
                 <dd>{student.className}</dd>
               </div>
+              {apiBacked && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Classroom</dt>
+                  <dd className="text-right">{classroomName ?? "Not assigned"}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-gray-500">Blood Group</dt>
                 <dd>{student.bloodGroup}</dd>
@@ -231,9 +240,10 @@ export function StudentProfile({
               ))}
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="induction">Induction</TabsTrigger>
-              <TabsTrigger value="services">Services</TabsTrigger>
+              {/* Demo-only tabs; real students use the API-backed Services tab above. */}
+              {!apiBacked && <TabsTrigger value="services">Services</TabsTrigger>}
               <TabsTrigger value="learning">Learning & development</TabsTrigger>
-              <TabsTrigger value="comms">Parent communication</TabsTrigger>
+              {!apiBacked && <TabsTrigger value="comms">Parent communication</TabsTrigger>}
               {!apiBacked && <TabsTrigger value="billing">Billing extras</TabsTrigger>}
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
               <TabsTrigger value="therapy">Therapy</TabsTrigger>
@@ -311,7 +321,7 @@ export function StudentProfile({
               </Card>
             </TabsContent>
 
-            <TabsContent value="services" className="mt-4">
+            <TabsContent value={apiBacked ? "demo-services" : "services"} className="mt-4">
               <Card>
                 <CardHeader><CardTitle>Services</CardTitle></CardHeader>
                 <CardContent className="grid gap-2 sm:grid-cols-2">
@@ -349,7 +359,7 @@ export function StudentProfile({
               </Card>
             </TabsContent>
 
-            <TabsContent value="comms" className="mt-4">
+            <TabsContent value={apiBacked ? "demo-comms" : "comms"} className="mt-4">
               <Card>
                 <CardHeader><CardTitle>Parent communication history</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">

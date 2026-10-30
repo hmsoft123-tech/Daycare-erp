@@ -47,7 +47,7 @@ const ACTION_COPY = {
 type Props = { studentId: string; branchCode: string; program: string };
 
 /**
- * Add-on services an enrolled student is billed for: `GET/POST
+ * Monthly services an enrolled student is billed for (tuition and add-ons): `GET/POST
  * /fees/students/{id}/subscriptions` (+ `/bulk`), `PATCH …/pause` / `…/resume`
  * and `DELETE` (cancel). Prices always come from the fee structure.
  */
@@ -143,7 +143,7 @@ export function StudentSubscriptionsPanel({ studentId, branchCode, program }: Pr
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="font-semibold text-heading">Services &amp; subscriptions</h3>
-            <p className="text-xs text-muted">Add-on services billed on the monthly challan, at the fee-structure price.</p>
+            <p className="text-xs text-muted">Tuition and add-on services billed on the monthly challan, at the fee-structure price.</p>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => void subsQuery.refetch()} disabled={subsQuery.isFetching}>
@@ -171,7 +171,7 @@ export function StudentSubscriptionsPanel({ studentId, branchCode, program }: Pr
             </Button>
           </div>
         ) : subs.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">No add-on services yet.</p>
+          <p className="py-6 text-center text-sm text-muted">No services yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
