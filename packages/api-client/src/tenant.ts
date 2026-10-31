@@ -29,22 +29,22 @@ const CUSTOM_DOMAIN_MAP: Record<string, string> = {
   "portal.drsofiasdaycare.com": "drsofiasdaycare",
 };
 
+/** Domains whose first label names the school: green-day-care.app.drsofiasdaycare.com → green-day-care. */
+const TENANT_ROOT_DOMAINS = ["app.drsofiasdaycare.com", "kinderpilot.com"];
+
 const RESERVED_SUBDOMAINS = new Set(["www", "app", "api", "api-dev", "admin", "mail"]);
 
 /**
  * The tenant subdomain the host explicitly names, or null — no defaults.
- * `{slug}.<root domain>` (schoola.kinderpilot.com) everywhere, plus
+ * `{slug}.<root domain>` (see TENANT_ROOT_DOMAINS) everywhere, plus
  * `{slug}.localhost` in development (browsers resolve *.localhost to 127.0.0.1,
  * so http://schoola.localhost:3000 works with no hosts-file change).
  */
 export function tenantSubdomainFromHostname(host: string): string | null {
   const hostname = host.split(":")[0]?.toLowerCase() ?? "";
 
-  const rootDomains = (process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAINS ?? "kinderpilot.com")
-    .split(",")
-    .map((d) => d.trim().toLowerCase())
-    .filter(Boolean);
-  if (process.env.NODE_ENV !== "production") rootDomains.push("localhost");
+  const rootDomains =
+    process.env.NODE_ENV === "production" ? TENANT_ROOT_DOMAINS : [...TENANT_ROOT_DOMAINS, "localhost"];
 
   for (const root of rootDomains) {
     if (!hostname.endsWith(`.${root}`)) continue;

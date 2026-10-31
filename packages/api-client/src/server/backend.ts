@@ -74,11 +74,10 @@ const HIT_TTL = 5 * 60_000;
 const MISS_TTL = 30_000;
 
 /**
- * Subdomain used to look the tenant up: a custom domain or a tenant subdomain in
- * the Host wins (`schoola.kinderpilot.com`, dev `schoola.localhost`); otherwise
- * `TENANT_SUBDOMAIN` pins one school for hosts that cannot carry a subdomain —
- * plain localhost or a `*.vercel.app` preview. Leave it unset where real
- * tenant domains are in use.
+ * Subdomain used to look the tenant up, always from the Host: a custom domain or a
+ * tenant subdomain (`schoola.kinderpilot.com`, dev `schoola.localhost`).
+ * `TENANT_SUBDOMAIN` only applies to hosts that cannot carry a subdomain (plain
+ * localhost or a `*.vercel.app` preview), never to a real domain.
  */
 export function tenantSubdomainFromHost(host: string | null): string | null {
   return explicitSubdomain(host) ?? (host ? resolveTenantSlugFromHost(host) : null);
@@ -86,7 +85,10 @@ export function tenantSubdomainFromHost(host: string | null): string | null {
 
 function explicitSubdomain(host: string | null): string | null {
   const fromHost = host ? customDomainSlug(host) ?? tenantSubdomainFromHostname(host) : null;
-  return fromHost || process.env.TENANT_SUBDOMAIN?.trim().toLowerCase() || null;
+  if (fromHost) return fromHost;
+  const hostname = host?.split(":")[0]?.toLowerCase() ?? "";
+  const noTenantInHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".vercel.app");
+  return noTenantInHost ? process.env.TENANT_SUBDOMAIN?.trim().toLowerCase() || null : null;
 }
 
 /**
